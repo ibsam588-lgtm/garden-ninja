@@ -113,6 +113,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     with SingleTickerProviderStateMixin {
   static const double _worldWidth = 390;
   static const double _worldHeight = 844;
+  static const double _gardenDamageLineY = _worldHeight - 106;
   static const List<String> _backgrounds = [
     'assets/images/backgrounds/garden_playfield.png',
     'assets/images/backgrounds/greenhouse_night.png',
@@ -137,6 +138,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int _combo = 0;
   int _maxCombo = 0;
   int _lives = 3;
+  int _gardenDamage = 0;
   int _weedsSlashed = 0;
   int _flowersSaved = 0;
   int _seeds = 280;
@@ -150,6 +152,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   double _iceTime = 0;
   double _sunTime = 0;
   double _flowerPenaltyCooldown = 0;
+  double _gardenDamageFlash = 0;
+  double _gardenDamageCooldown = 0;
   Offset? _lastSlashPoint;
 
   int get _goalWeeds => 18 + (_level * 4);
@@ -199,6 +203,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _combo = 0;
       _maxCombo = 0;
       _lives = 3;
+      _gardenDamage = 0;
       _weedsSlashed = 0;
       _flowersSaved = 0;
       _spawnTimer = 0.1;
@@ -206,6 +211,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _iceTime = 0;
       _sunTime = 0;
       _flowerPenaltyCooldown = 0;
+      _gardenDamageFlash = 0;
+      _gardenDamageCooldown = 0;
       _lastSlashPoint = null;
       _targets.clear();
       _shards.clear();
@@ -225,6 +232,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _iceTime = max(0, _iceTime - dt);
     _sunTime = max(0, _sunTime - dt);
     _flowerPenaltyCooldown = max(0, _flowerPenaltyCooldown - dt);
+    _gardenDamageFlash = max(0, _gardenDamageFlash - dt * 2.4);
+    _gardenDamageCooldown = max(0, _gardenDamageCooldown - dt);
 
     final double speedScale = _iceTime > 0 ? 0.35 : 1;
     for (final target in List<GardenTarget>.from(_targets)) {
@@ -246,16 +255,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         target.velocity = Offset(-target.velocity.dx, target.velocity.dy);
       }
 
-      if (target.position.dy > _worldHeight + 80) {
+      if (target.position.dy > _gardenDamageLineY) {
         _targets.remove(target);
         if (target.type == TargetType.weed) {
-          _lives -= 1;
-          _combo = 0;
-          _addBurst(
-            const Offset(_worldWidth / 2, _worldHeight - 150),
-            'Garden hit',
-            const Color(0xFFFFD35A),
-          );
+          _damageGardenFromWeed(target);
           if (_lives <= 0) {
             _finishRun(won: false);
             return;
@@ -523,6 +526,26 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
   }
 
+  void _damageGardenFromWeed(GardenTarget weed) {
+    if (_gardenDamageCooldown > 0) {
+      return;
+    }
+
+    _lives = max(0, _lives - 1);
+    _gardenDamage = min(3, _gardenDamage + 1);
+    _gardenDamageFlash = 1;
+    _gardenDamageCooldown = 2.8;
+    _flowersSaved = max(0, _flowersSaved - 1);
+    _combo = 0;
+
+    final double x = weed.position.dx.clamp(64.0, _worldWidth - 64).toDouble();
+    _addBurst(
+      Offset(x, _worldHeight - 176),
+      'Plants hit!',
+      const Color(0xFFFFC857),
+    );
+  }
+
   void _addBurst(Offset position, String label, Color color) {
     _bursts.add(FloatingBurst(position: position, label: label, color: color));
   }
@@ -686,6 +709,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           children: [
             _buildBackdrop(),
             if (_phase == GamePhase.playing || _phase == GamePhase.paused) ...[
+              _buildGardenHealthBed(),
               ..._targets.map((target) => _buildTarget(target, size)),
               ..._shards.map((shard) => _buildShard(shard, size)),
               Positioned.fill(
@@ -699,6 +723,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 ),
               ),
               ..._bursts.map((burst) => _buildBurst(burst, size)),
+              if (_gardenDamageFlash > 0) _buildGardenDamageFlash(),
               _buildHud(),
               _buildPowerUps(),
             ],
@@ -712,15 +737,63 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
   }
 
+  Widget _buildGardenHealthBed() {
+    return Positioned(
+      left: 40,
+      right: 40,
+      bottom: 120,
+      height: 72,
+      child: IgnorePointer(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(
+            3,
+            (index) => _GardenPatch(
+              index: index,
+              damaged: index < _gardenDamage,
+              active: _gardenDamageFlash > 0 && index == _gardenDamage - 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGardenDamageFlash() {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: (_gardenDamageFlash * 0.65).clamp(0.0, 0.65),
+          child: const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment.bottomCenter,
+                radius: 0.82,
+                colors: [
+                  Color(0xCCB94123),
+                  Color(0x6631180D),
+                  Color(0x0011170B),
+                ],
+                stops: [0, 0.46, 1],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBackdrop() {
     final bool useSplash = _phase == GamePhase.home;
     return Stack(
       fit: StackFit.expand,
       children: [
         Image.asset(
-          _currentBackground,
+          useSplash
+              ? 'assets/images/splash/garden_ninja_key_art.png'
+              : _currentBackground,
           fit: BoxFit.cover,
-          alignment: Alignment.topCenter,
+          alignment: useSplash ? Alignment.centerRight : Alignment.topCenter,
         ),
         DecoratedBox(
           decoration: BoxDecoration(
@@ -729,9 +802,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               end: Alignment.bottomCenter,
               colors: useSplash
                   ? const [
-                      Color(0x66041507),
-                      Color(0x22041507),
-                      Color(0xAA06190B),
+                      Color(0x77041507),
+                      Color(0x33041507),
+                      Color(0xDD06190B),
                     ]
                   : const [
                       Color(0x5511290D),
@@ -1029,60 +1102,22 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       fit: StackFit.expand,
       children: [
         Positioned(
-          left: 20,
-          right: 20,
-          top: 24,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text('Garden', style: _titleStyle(62)),
-              Transform.translate(
-                offset: const Offset(0, -10),
-                child: Text('Ninja', style: _titleStyle(66)),
-              ),
-              Transform.translate(
-                offset: const Offset(0, -10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE9B334),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: const Color(0xFF55370E),
-                      width: 2,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0xAA2D1908),
-                        blurRadius: 0,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: const Text(
-                    'PLANT SLASH',
-                    style: TextStyle(
-                      color: Color(0xFF55370E),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          left: 14,
+          right: 14,
+          top: 16,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SizedBox(width: 344, child: _buildHomeLogo()),
           ),
         ),
         const Positioned(
-          left: 20,
-          right: 20,
-          top: 188,
+          left: 16,
+          right: 16,
+          top: 186,
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: SizedBox(
-              width: 268,
+              width: 342,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -1107,49 +1142,73 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           ),
         ),
         Positioned(
-          right: -10,
-          bottom: 146,
-          child: Image.asset(
-            'assets/images/sprites/ninja_mascot.png',
-            width: 156,
-            height: 188,
-            fit: BoxFit.contain,
-          ),
-        ),
-        Positioned(
-          right: 18,
-          top: 278,
-          child: Image.asset(
-            'assets/images/sprites/weed_leaf.png',
-            width: 74,
-            height: 82,
-            fit: BoxFit.contain,
-          ),
-        ),
-        Positioned(
-          left: 74,
-          top: 302,
+          left: 56,
+          right: 56,
+          top: 276,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: const Color(0xDD143A16),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFBDEB78)),
+              border: Border.all(color: const Color(0xFFBDEB78), width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0xAA071808),
+                  blurRadius: 12,
+                  offset: Offset(0, 5),
+                ),
+              ],
             ),
-            child: const Text(
-              'Some weeds need 2-3 cuts',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: 12,
+            child: const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                'SWIPE. SLASH. SAVE THE GARDEN!',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15,
+                ),
               ),
+            ),
+          ),
+        ),
+        Positioned(
+          right: -6,
+          bottom: 134,
+          child: Image.asset(
+            'assets/images/sprites/ninja_mascot.png',
+            width: 146,
+            height: 176,
+            fit: BoxFit.contain,
+          ),
+        ),
+        Positioned(
+          right: 14,
+          top: 252,
+          child: Image.asset(
+            'assets/images/sprites/weed_leaf.png',
+            width: 76,
+            height: 84,
+            fit: BoxFit.contain,
+          ),
+        ),
+        Positioned(
+          left: 14,
+          top: 328,
+          child: Transform.rotate(
+            angle: -0.16,
+            child: Image.asset(
+              'assets/images/sprites/weed_spike.png',
+              width: 76,
+              height: 84,
+              fit: BoxFit.contain,
             ),
           ),
         ),
         Positioned(
           left: 26,
           right: 26,
-          top: 374,
+          top: 348,
           child: _PrimaryButton(
             label: 'PLAY',
             icon: Icons.play_arrow_rounded,
@@ -1211,15 +1270,53 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
   }
 
-  TextStyle _titleStyle(double size) {
-    return TextStyle(
-      color: const Color(0xFF93E348),
-      fontSize: size,
-      fontWeight: FontWeight.w900,
-      height: 0.88,
-      shadows: const [
-        Shadow(offset: Offset(0, 4), color: Color(0xFF17310F), blurRadius: 0),
-        Shadow(color: Color(0xFF17310F), blurRadius: 8),
+  Widget _buildHomeLogo() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const _OutlinedTitle(
+          text: 'Garden',
+          size: 68,
+          fill: Color(0xFF8EE242),
+          stroke: Color(0xFF17310F),
+          strokeWidth: 7,
+        ),
+        Transform.translate(
+          offset: const Offset(0, -12),
+          child: const _OutlinedTitle(
+            text: 'NINJA',
+            size: 64,
+            fill: Color(0xFFF7F8F2),
+            stroke: Color(0xFF17310F),
+            strokeWidth: 7,
+          ),
+        ),
+        Transform.translate(
+          offset: const Offset(0, -18),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE9B334),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF55370E), width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0xAA2D1908),
+                  blurRadius: 0,
+                  offset: Offset(0, 3),
+                ),
+              ],
+            ),
+            child: const Text(
+              'PLANT SLASH',
+              style: TextStyle(
+                color: Color(0xFF55370E),
+                fontWeight: FontWeight.w900,
+                fontSize: 17,
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -1701,6 +1798,56 @@ class _SecondaryButton extends StatelessWidget {
   }
 }
 
+class _OutlinedTitle extends StatelessWidget {
+  const _OutlinedTitle({
+    required this.text,
+    required this.size,
+    required this.fill,
+    required this.stroke,
+    required this.strokeWidth,
+  });
+
+  final String text;
+  final double size;
+  final Color fill;
+  final Color stroke;
+  final double strokeWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextStyle baseStyle = TextStyle(
+      fontSize: size,
+      fontWeight: FontWeight.w900,
+      height: 0.88,
+      letterSpacing: 0,
+    );
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Text(
+          text,
+          style: baseStyle.copyWith(
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = strokeWidth
+              ..color = stroke,
+            shadows: const [
+              Shadow(
+                offset: Offset(0, 5),
+                color: Color(0xAA071808),
+                blurRadius: 0,
+              ),
+              Shadow(color: Color(0xFF071808), blurRadius: 10),
+            ],
+          ),
+        ),
+        Text(text, style: baseStyle.copyWith(color: fill)),
+      ],
+    );
+  }
+}
+
 class _HomeFeature extends StatelessWidget {
   const _HomeFeature({
     required this.icon,
@@ -1715,8 +1862,8 @@ class _HomeFeature extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 84,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      width: 102,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
       decoration: BoxDecoration(
         color: const Color(0xDDF8F0CB),
         borderRadius: BorderRadius.circular(8),
@@ -1731,7 +1878,7 @@ class _HomeFeature extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, color: const Color(0xFF2B721E), size: 24),
+          Icon(icon, color: const Color(0xFF2B721E), size: 27),
           const SizedBox(height: 3),
           FittedBox(
             fit: BoxFit.scaleDown,
@@ -1756,6 +1903,137 @@ class _HomeFeature extends StatelessWidget {
       ),
     );
   }
+}
+
+class _GardenPatch extends StatelessWidget {
+  const _GardenPatch({
+    required this.index,
+    required this.damaged,
+    required this.active,
+  });
+
+  final int index;
+  final bool damaged;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: ValueKey(damaged ? 'garden-damage-$index' : 'garden-safe-$index'),
+      width: 58,
+      height: 72,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
+        children: [
+          Positioned(
+            bottom: 0,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 56,
+              height: 24,
+              decoration: BoxDecoration(
+                color: damaged
+                    ? const Color(0xDD5A3219)
+                    : const Color(0xDD2F6F24),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: damaged
+                      ? const Color(0xFFFFB35F)
+                      : const Color(0xFFB7E96F),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        (damaged
+                                ? const Color(0xFFAA3D25)
+                                : const Color(0xFF78D041))
+                            .withValues(alpha: active ? 0.75 : 0.28),
+                    blurRadius: active ? 18 : 8,
+                    spreadRadius: active ? 2 : 0,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 9,
+            child: AnimatedScale(
+              duration: const Duration(milliseconds: 180),
+              scale: active ? 1.14 : 1,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  ColorFiltered(
+                    colorFilter: damaged
+                        ? const ColorFilter.mode(
+                            Color(0xFF6B4A2B),
+                            BlendMode.modulate,
+                          )
+                        : const ColorFilter.mode(
+                            Colors.white,
+                            BlendMode.modulate,
+                          ),
+                    child: Opacity(
+                      opacity: damaged ? 0.58 : 1,
+                      child: Image.asset(
+                        damaged
+                            ? 'assets/images/sprites/flower_daisy.png'
+                            : 'assets/images/sprites/flower_shield.png',
+                        width: damaged ? 42 : 50,
+                        height: damaged ? 50 : 58,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                  if (damaged)
+                    const SizedBox(
+                      width: 54,
+                      height: 58,
+                      child: CustomPaint(painter: GardenCrackPainter()),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class GardenCrackPainter extends CustomPainter {
+  const GardenCrackPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint shadow = Paint()
+      ..color = const Color(0xAA371C0F)
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 5
+      ..style = PaintingStyle.stroke;
+    final Paint crack = Paint()
+      ..color = const Color(0xFFFFD176)
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final Path path = Path()
+      ..moveTo(size.width * 0.18, size.height * 0.44)
+      ..lineTo(size.width * 0.44, size.height * 0.52)
+      ..lineTo(size.width * 0.35, size.height * 0.66)
+      ..moveTo(size.width * 0.46, size.height * 0.52)
+      ..lineTo(size.width * 0.68, size.height * 0.42)
+      ..moveTo(size.width * 0.49, size.height * 0.56)
+      ..lineTo(size.width * 0.72, size.height * 0.68);
+
+    canvas.drawPath(path, shadow);
+    canvas.drawPath(path, crack);
+  }
+
+  @override
+  bool shouldRepaint(covariant GardenCrackPainter oldDelegate) => false;
 }
 
 class _MenuTile extends StatelessWidget {
