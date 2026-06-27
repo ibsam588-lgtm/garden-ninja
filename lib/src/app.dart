@@ -54,6 +54,8 @@ class GardenTarget {
   double angle;
   double cooldown = 0;
   double walkPhase;
+  double splitAngle = 0;
+  double splitAmount = 0;
 }
 
 class SlashTrail {
@@ -72,6 +74,8 @@ class SliceShard {
     required this.size,
     required this.angle,
     required this.spin,
+    required this.cutAngle,
+    required this.keepPositiveSide,
   });
 
   final String asset;
@@ -80,7 +84,9 @@ class SliceShard {
   final double size;
   double angle;
   final double spin;
-  double life = 0.58;
+  final double cutAngle;
+  final bool keepPositiveSide;
+  double life = 0.72;
 }
 
 class FloatingBurst {
@@ -223,6 +229,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final double speedScale = _iceTime > 0 ? 0.35 : 1;
     for (final target in List<GardenTarget>.from(_targets)) {
       target.cooldown = max(0, target.cooldown - dt);
+      target.splitAmount = max(0, target.splitAmount - dt * 2.8);
       target.walkPhase += dt * (target.type == TargetType.weed ? 8.5 : 2.2);
 
       if (target.type == TargetType.weed) {
@@ -452,7 +459,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           }
         } else {
           target.size *= 0.91;
-          final Offset shove = _safeDirection(direction) * 26;
+          final Offset slash = _safeDirection(direction);
+          target.splitAngle = atan2(slash.dy, slash.dx);
+          target.splitAmount = 1;
+          final Offset shove = slash * 26;
           target.position += shove;
           target.velocity += shove * 0.8;
           _addBurst(
@@ -491,21 +501,23 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void _spawnSliceShards(GardenTarget target, Offset direction) {
     final Offset slash = _safeDirection(direction);
     final Offset normal = Offset(-slash.dy, slash.dx);
-    final int shardCount = target.cutsRemaining <= 1 ? 2 : 1;
-    for (int i = 0; i < shardCount; i += 1) {
-      final double side = shardCount == 1 ? 1 : (i == 0 ? 1 : -1);
+    final double cutAngle = atan2(slash.dy, slash.dx);
+    for (int i = 0; i < 2; i += 1) {
+      final double side = i == 0 ? 1 : -1;
       final double jitter = (_random.nextDouble() - 0.5) * 36;
       _shards.add(
         SliceShard(
           asset: target.asset,
-          position: target.position + normal * side * 8,
+          position: target.position + normal * side * 5,
           velocity:
-              slash * (80 + _random.nextDouble() * 35) +
-              normal * side * (120 + _random.nextDouble() * 60) +
+              slash * (55 + _random.nextDouble() * 45) +
+              normal * side * (150 + _random.nextDouble() * 80) +
               Offset(jitter, -80 - _random.nextDouble() * 45),
-          size: target.size * (shardCount == 1 ? 0.42 : 0.5),
+          size: target.size * 0.95,
           angle: target.angle,
-          spin: side * (4 + _random.nextDouble() * 3),
+          spin: side * (4.8 + _random.nextDouble() * 3.4),
+          cutAngle: cutAngle,
+          keepPositiveSide: side > 0,
         ),
       );
     }
@@ -748,7 +760,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         opacity: shard.life.clamp(0.0, 1.0),
         child: Transform.rotate(
           angle: shard.angle,
-          child: Image.asset(shard.asset, fit: BoxFit.contain),
+          child: ClipPath(
+            clipper: SliceHalfClipper(
+              cutAngle: shard.cutAngle,
+              keepPositiveSide: shard.keepPositiveSide,
+            ),
+            child: Image.asset(shard.asset, fit: BoxFit.contain),
+          ),
         ),
       ),
     );
@@ -798,7 +816,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     ],
                   ),
                 ),
-              Image.asset(target.asset, fit: BoxFit.contain),
+              _buildTargetImage(target),
               if (isWeed && target.maxCuts > 1)
                 Positioned(
                   left: pixelSize * 0.2,
@@ -830,6 +848,61 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildTargetImage(GardenTarget target) {
+    final double split = target.type == TargetType.weed
+        ? target.splitAmount.clamp(0.0, 1.0)
+        : 0;
+    if (split <= 0) {
+      return Image.asset(target.asset, fit: BoxFit.contain);
+    }
+
+    final double easedSplit = Curves.easeOutCubic.transform(split);
+    final Offset normal = Offset(
+      -sin(target.splitAngle),
+      cos(target.splitAngle),
+    );
+    final double gap = 18 * easedSplit;
+    final double tilt = 0.16 * easedSplit;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Transform.translate(
+          offset: normal * gap,
+          child: Transform.rotate(
+            angle: tilt,
+            child: ClipPath(
+              clipper: SliceHalfClipper(
+                cutAngle: target.splitAngle,
+                keepPositiveSide: true,
+              ),
+              child: Image.asset(target.asset, fit: BoxFit.contain),
+            ),
+          ),
+        ),
+        Transform.translate(
+          offset: normal * -gap,
+          child: Transform.rotate(
+            angle: -tilt,
+            child: ClipPath(
+              clipper: SliceHalfClipper(
+                cutAngle: target.splitAngle,
+                keepPositiveSide: false,
+              ),
+              child: Image.asset(target.asset, fit: BoxFit.contain),
+            ),
+          ),
+        ),
+        CustomPaint(
+          painter: SliceEdgePainter(
+            cutAngle: target.splitAngle,
+            opacity: easedSplit,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1402,6 +1475,76 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         ),
       ],
     );
+  }
+}
+
+class SliceHalfClipper extends CustomClipper<Path> {
+  const SliceHalfClipper({
+    required this.cutAngle,
+    required this.keepPositiveSide,
+  });
+
+  final double cutAngle;
+  final bool keepPositiveSide;
+
+  @override
+  Path getClip(Size size) {
+    final Offset center = Offset(size.width / 2, size.height / 2);
+    final Offset cutLine = Offset(cos(cutAngle), sin(cutAngle));
+    final Offset normal = Offset(-cutLine.dy, cutLine.dx);
+    final Offset sideNormal = keepPositiveSide ? normal : -normal;
+    final double span = max(size.width, size.height) * 2.4;
+    final Offset p1 = center - cutLine * span;
+    final Offset p2 = center + cutLine * span;
+    final Offset p3 = p2 + sideNormal * span;
+    final Offset p4 = p1 + sideNormal * span;
+
+    return Path()
+      ..moveTo(p1.dx, p1.dy)
+      ..lineTo(p2.dx, p2.dy)
+      ..lineTo(p3.dx, p3.dy)
+      ..lineTo(p4.dx, p4.dy)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant SliceHalfClipper oldClipper) {
+    return oldClipper.cutAngle != cutAngle ||
+        oldClipper.keepPositiveSide != keepPositiveSide;
+  }
+}
+
+class SliceEdgePainter extends CustomPainter {
+  const SliceEdgePainter({required this.cutAngle, required this.opacity});
+
+  final double cutAngle;
+  final double opacity;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Offset center = Offset(size.width / 2, size.height / 2);
+    final Offset cutLine = Offset(cos(cutAngle), sin(cutAngle));
+    final double span = max(size.width, size.height) * 0.54;
+    final Offset start = center - cutLine * span;
+    final Offset end = center + cutLine * span;
+    final Paint glow = Paint()
+      ..color = const Color(0xFF9AFF56).withValues(alpha: opacity * 0.55)
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 9
+      ..style = PaintingStyle.stroke;
+    final Paint core = Paint()
+      ..color = Colors.white.withValues(alpha: opacity * 0.95)
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawLine(start, end, glow);
+    canvas.drawLine(start, end, core);
+  }
+
+  @override
+  bool shouldRepaint(covariant SliceEdgePainter oldDelegate) {
+    return oldDelegate.cutAngle != cutAngle || oldDelegate.opacity != opacity;
   }
 }
 

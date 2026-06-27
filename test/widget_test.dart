@@ -25,6 +25,12 @@ void main() {
     expect(find.text('58'), findsOneWidget);
     expect(weed, findsOneWidget);
     expect(find.text('1 cuts'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is ClipPath && widget.clipper is SliceHalfClipper,
+      ),
+      findsAtLeastNWidgets(2),
+    );
 
     final flower = find.byKey(const ValueKey('target-2'));
     expect(flower, findsOneWidget);
