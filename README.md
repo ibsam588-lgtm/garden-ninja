@@ -5,9 +5,11 @@ Garden Ninja is a swipe-action Flutter game prototype. Slash hostile weeds, prot
 ## Gameplay
 
 - Swipe or tap weeds to build combo and score.
+- Tougher weeds take 2-3 cuts and shed pieces in the direction of the slash.
 - Avoid protected flowers; hitting them costs hearts.
 - Use Sun, Water, and Ice power-ups during a run.
 - Earn seeds from level results and spend them in the upgrade screen.
+- Playfield backgrounds rotate across garden variants as levels advance.
 
 ## Project
 

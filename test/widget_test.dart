@@ -16,18 +16,23 @@ void main() {
     expect(find.text('SCORE'), findsOneWidget);
     expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
 
-    final weed = find.byWidgetPredicate(
-      (widget) =>
-          widget is Image &&
-          widget.image is AssetImage &&
-          (widget.image as AssetImage).assetName ==
-              'assets/images/sprites/weed_spike.png',
-    );
+    final weed = find.byKey(const ValueKey('target-1'));
     expect(weed, findsOneWidget);
 
     await tester.tap(weed);
-    await tester.pump(const Duration(milliseconds: 64));
+    await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('112'), findsOneWidget);
+    expect(find.text('58'), findsOneWidget);
+    expect(weed, findsOneWidget);
+    expect(find.text('1 cuts'), findsOneWidget);
+
+    final flower = find.byKey(const ValueKey('target-2'));
+    expect(flower, findsOneWidget);
+
+    await tester.tap(flower);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+    expect(find.text('Garden Saved'), findsNothing);
   });
 }

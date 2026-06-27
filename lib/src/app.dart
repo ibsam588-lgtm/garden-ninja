@@ -35,18 +35,25 @@ class GardenTarget {
     required this.size,
     required this.radius,
     required this.spin,
-  }) : angle = 0;
+    required int cutsRequired,
+  }) : angle = 0,
+       maxCuts = cutsRequired,
+       cutsRemaining = cutsRequired,
+       walkPhase = 0;
 
   final int id;
   final TargetType type;
   final String asset;
   Offset position;
   Offset velocity;
-  final double size;
+  double size;
   final double radius;
   final double spin;
+  final int maxCuts;
+  int cutsRemaining;
   double angle;
   double cooldown = 0;
+  double walkPhase;
 }
 
 class SlashTrail {
@@ -55,6 +62,25 @@ class SlashTrail {
   Offset start;
   Offset end;
   double life;
+}
+
+class SliceShard {
+  SliceShard({
+    required this.asset,
+    required this.position,
+    required this.velocity,
+    required this.size,
+    required this.angle,
+    required this.spin,
+  });
+
+  final String asset;
+  Offset position;
+  Offset velocity;
+  final double size;
+  double angle;
+  final double spin;
+  double life = 0.58;
 }
 
 class FloatingBurst {
@@ -81,12 +107,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     with SingleTickerProviderStateMixin {
   static const double _worldWidth = 390;
   static const double _worldHeight = 844;
-  static const String _background =
-      'assets/images/backgrounds/garden_playfield.png';
-  static const String _splash = 'assets/images/splash/garden_ninja_key_art.png';
+  static const List<String> _backgrounds = [
+    'assets/images/backgrounds/garden_playfield.png',
+    'assets/images/backgrounds/greenhouse_night.png',
+    'assets/images/backgrounds/rainy_garden.png',
+  ];
 
   final Random _random = Random();
   final List<GardenTarget> _targets = [];
+  final List<SliceShard> _shards = [];
   final List<SlashTrail> _slashes = [];
   final List<FloatingBurst> _bursts = [];
 
@@ -118,6 +147,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   Offset? _lastSlashPoint;
 
   int get _goalWeeds => 18 + (_level * 4);
+
+  String get _currentBackground =>
+      _backgrounds[(_level - 1) % _backgrounds.length];
 
   @override
   void initState() {
@@ -170,6 +202,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _flowerPenaltyCooldown = 0;
       _lastSlashPoint = null;
       _targets.clear();
+      _shards.clear();
       _slashes.clear();
       _bursts.clear();
       _spawnOpeningWave();
@@ -190,8 +223,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final double speedScale = _iceTime > 0 ? 0.35 : 1;
     for (final target in List<GardenTarget>.from(_targets)) {
       target.cooldown = max(0, target.cooldown - dt);
-      target.angle += target.spin * dt * speedScale;
-      target.position += target.velocity * dt * speedScale;
+      target.walkPhase += dt * (target.type == TargetType.weed ? 8.5 : 2.2);
+
+      if (target.type == TargetType.weed) {
+        target.angle = sin(target.walkPhase * 0.85) * 0.055;
+        target.position += target.velocity * dt * speedScale;
+      } else if (target.type != TargetType.flower) {
+        target.angle += target.spin * dt * speedScale;
+        target.position += target.velocity * dt * speedScale;
+      } else {
+        target.angle = 0;
+      }
 
       if (target.position.dx < 34 || target.position.dx > _worldWidth - 34) {
         target.velocity = Offset(-target.velocity.dx, target.velocity.dy);
@@ -228,6 +270,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
     _slashes.removeWhere((slash) => slash.life <= 0);
 
+    for (final shard in _shards) {
+      shard.life -= dt * 1.55;
+      shard.position += shard.velocity * dt;
+      shard.velocity = Offset(
+        shard.velocity.dx * 0.96,
+        shard.velocity.dy + 280 * dt,
+      );
+      shard.angle += shard.spin * dt;
+    }
+    _shards.removeWhere((shard) => shard.life <= 0);
+
     for (final burst in _bursts) {
       burst.life -= dt;
       burst.position -= Offset(0, 42 * dt);
@@ -241,6 +294,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     late String asset;
     late double size;
     late double radius;
+    int cutsRequired = 1;
 
     if (roll < 0.64) {
       type = TargetType.weed;
@@ -252,6 +306,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       asset = weeds[_random.nextInt(weeds.length)];
       size = 70 + _random.nextDouble() * 20;
       radius = size * 0.4;
+      cutsRequired = _weedCutCountFor(asset);
     } else if (roll < 0.82) {
       type = TargetType.flower;
       final flowers = <String>[
@@ -280,10 +335,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         : 230 + _random.nextDouble() * 360;
     final double levelSpeed = 18 + _level * 4.5;
     final Offset velocity = type == TargetType.flower
-        ? Offset(
-            (_random.nextDouble() - 0.5) * 14,
-            5 + _random.nextDouble() * 8,
-          )
+        ? Offset.zero
         : Offset(
             (_random.nextDouble() - 0.5) * (28 + _level * 2),
             levelSpeed + _random.nextDouble() * 26,
@@ -298,9 +350,22 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         velocity: velocity,
         size: size,
         radius: radius,
-        spin: (_random.nextDouble() - 0.5) * 0.7,
+        spin: type == TargetType.flower
+            ? 0
+            : (_random.nextDouble() - 0.5) * 0.7,
+        cutsRequired: cutsRequired,
       ),
     );
+  }
+
+  int _weedCutCountFor(String asset) {
+    if (asset.contains('weed_vine')) {
+      return 3;
+    }
+    if (asset.contains('weed_leaf')) {
+      return 2;
+    }
+    return _random.nextDouble() < 0.34 + min(_level, 5) * 0.05 ? 2 : 1;
   }
 
   void _spawnOpeningWave() {
@@ -314,6 +379,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         size: 82,
         radius: 36,
         spin: 0.18,
+        cutsRequired: 2,
       ),
     );
     _targets.add(
@@ -322,10 +388,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         type: TargetType.flower,
         asset: 'assets/images/sprites/flower_shield.png',
         position: const Offset(92, 560),
-        velocity: const Offset(4, 4),
+        velocity: Offset.zero,
         size: 78,
         radius: 32,
-        spin: -0.08,
+        spin: 0,
+        cutsRequired: 1,
       ),
     );
     _flowersSaved += 1;
@@ -340,7 +407,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final Offset start = _lastSlashPoint ?? world;
     _slashes.add(SlashTrail(start, world, 1));
     _lastSlashPoint = world;
-    _checkHits(world);
+    _checkHits(world, world - start);
   }
 
   void _endSlash() {
@@ -354,41 +421,52 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
   }
 
-  void _checkHits(Offset point) {
+  void _checkHits(Offset point, Offset direction) {
     for (final target in List<GardenTarget>.from(_targets)) {
       if (target.cooldown > 0) {
         continue;
       }
       if ((target.position - point).distance <= target.radius) {
-        _hitTarget(target);
+        _hitTarget(target, direction);
       }
     }
   }
 
-  void _hitTarget(GardenTarget target) {
+  void _hitTarget(GardenTarget target, Offset direction) {
     switch (target.type) {
       case TargetType.weed:
-        _targets.remove(target);
+        _spawnSliceShards(target, direction);
         _combo += 1;
         _maxCombo = max(_maxCombo, _combo);
-        final int base = 100 + (_combo * 12);
+        target.cutsRemaining -= 1;
+        target.cooldown = 0.22;
+        final bool defeated = target.cutsRemaining <= 0;
+        final int base = defeated ? 110 + (_combo * 10) : 50 + (_combo * 8);
         _score += (_sunTime > 0 ? base * 2 : base);
-        _weedsSlashed += 1;
-        _addBurst(target.position, '+$base', const Color(0xFFEFFF94));
-        if (_weedsSlashed >= _goalWeeds) {
-          _finishRun(won: true);
+        if (defeated) {
+          _targets.remove(target);
+          _weedsSlashed += 1;
+          _addBurst(target.position, '+$base', const Color(0xFFEFFF94));
+          if (_weedsSlashed >= _goalWeeds) {
+            _finishRun(won: true);
+          }
+        } else {
+          target.size *= 0.91;
+          final Offset shove = _safeDirection(direction) * 26;
+          target.position += shove;
+          target.velocity += shove * 0.8;
+          _addBurst(
+            target.position,
+            '${target.cutsRemaining} cuts',
+            const Color(0xFFEFFF94),
+          );
         }
       case TargetType.flower:
-        target.cooldown = 1.1;
+        target.cooldown = 0.7;
         _combo = 0;
-        if (_flowerPenaltyCooldown <= 0) {
-          _lives -= 1;
-          _flowerPenaltyCooldown = 0.75;
-        }
+        _score = max(0, _score - 25);
+        _flowerPenaltyCooldown = 0.45;
         _addBurst(target.position, 'Protected', const Color(0xFFFF9FCA));
-        if (_lives <= 0) {
-          _finishRun(won: false);
-        }
       case TargetType.bonus:
         _targets.remove(target);
         _combo += 1;
@@ -400,6 +478,36 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _seeds += 35;
         _score += 140;
         _addBurst(target.position, '+Seeds', const Color(0xFFFFD36A));
+    }
+  }
+
+  Offset _safeDirection(Offset direction) {
+    if (direction.distance < 0.001) {
+      return const Offset(1, -0.25);
+    }
+    return direction / direction.distance;
+  }
+
+  void _spawnSliceShards(GardenTarget target, Offset direction) {
+    final Offset slash = _safeDirection(direction);
+    final Offset normal = Offset(-slash.dy, slash.dx);
+    final int shardCount = target.cutsRemaining <= 1 ? 2 : 1;
+    for (int i = 0; i < shardCount; i += 1) {
+      final double side = shardCount == 1 ? 1 : (i == 0 ? 1 : -1);
+      final double jitter = (_random.nextDouble() - 0.5) * 36;
+      _shards.add(
+        SliceShard(
+          asset: target.asset,
+          position: target.position + normal * side * 8,
+          velocity:
+              slash * (80 + _random.nextDouble() * 35) +
+              normal * side * (120 + _random.nextDouble() * 60) +
+              Offset(jitter, -80 - _random.nextDouble() * 45),
+          size: target.size * (shardCount == 1 ? 0.42 : 0.5),
+          angle: target.angle,
+          spin: side * (4 + _random.nextDouble() * 3),
+        ),
+      );
     }
   }
 
@@ -415,6 +523,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _waterCharges -= 1;
       final weeds = _targets.where((t) => t.type == TargetType.weed).toList();
       for (final weed in weeds) {
+        _spawnSliceShards(weed, const Offset(0, -1));
         _targets.remove(weed);
         _weedsSlashed += 1;
         _score += 90;
@@ -465,6 +574,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _rewardSeeds = (won ? 110 : 45) + (_weedsSlashed * 2) + (_maxCombo * 3);
     _seeds += _rewardSeeds;
     _targets.clear();
+    _shards.clear();
     _slashes.clear();
     _bursts.clear();
     _phase = GamePhase.results;
@@ -565,6 +675,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             _buildBackdrop(),
             if (_phase == GamePhase.playing || _phase == GamePhase.paused) ...[
               ..._targets.map((target) => _buildTarget(target, size)),
+              ..._shards.map((shard) => _buildShard(shard, size)),
               Positioned.fill(
                 child: IgnorePointer(
                   child: CustomPaint(
@@ -595,9 +706,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       fit: StackFit.expand,
       children: [
         Image.asset(
-          useSplash ? _splash : _background,
+          _currentBackground,
           fit: BoxFit.cover,
-          alignment: useSplash ? Alignment.center : Alignment.topCenter,
+          alignment: Alignment.topCenter,
         ),
         DecoratedBox(
           decoration: BoxDecoration(
@@ -622,6 +733,27 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
   }
 
+  Widget _buildShard(SliceShard shard, Size size) {
+    final double pixelSize = shard.size / _worldWidth * size.width;
+    final double left =
+        shard.position.dx / _worldWidth * size.width - pixelSize / 2;
+    final double top =
+        shard.position.dy / _worldHeight * size.height - pixelSize / 2;
+    return Positioned(
+      left: left,
+      top: top,
+      width: pixelSize,
+      height: pixelSize,
+      child: Opacity(
+        opacity: shard.life.clamp(0.0, 1.0),
+        child: Transform.rotate(
+          angle: shard.angle,
+          child: Image.asset(shard.asset, fit: BoxFit.contain),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTarget(GardenTarget target, Size size) {
     final double pixelSize = target.size / _worldWidth * size.width;
     final double left =
@@ -632,16 +764,24 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         target.type == TargetType.flower && target.cooldown > 0;
     final double pulse =
         1 + (flowerCooling ? sin(target.cooldown * 18) * 0.08 : 0);
+    final bool isWeed = target.type == TargetType.weed;
+    final double walkBob = isWeed ? sin(target.walkPhase) * 4 : 0;
+    final double walkLean = isWeed ? target.angle : 0;
+    final double walkSquash = isWeed
+        ? 1 + sin(target.walkPhase * 2) * 0.035
+        : 1;
 
     return Positioned(
+      key: ValueKey('target-${target.id}'),
       left: left,
-      top: top,
+      top: top + walkBob,
       width: pixelSize,
       height: pixelSize,
       child: Transform.rotate(
-        angle: target.angle,
+        angle: walkLean,
         child: Transform.scale(
-          scale: pulse,
+          scaleX: walkSquash,
+          scaleY: pulse / walkSquash,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -659,6 +799,33 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   ),
                 ),
               Image.asset(target.asset, fit: BoxFit.contain),
+              if (isWeed && target.maxCuts > 1)
+                Positioned(
+                  left: pixelSize * 0.2,
+                  right: pixelSize * 0.2,
+                  top: 0,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      target.maxCuts,
+                      (index) => Container(
+                        width: 7,
+                        height: 7,
+                        margin: const EdgeInsets.symmetric(horizontal: 1.4),
+                        decoration: BoxDecoration(
+                          color: index < target.cutsRemaining
+                              ? const Color(0xFFFFE66B)
+                              : const Color(0x88412713),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFF3B260C),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -789,37 +956,131 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       fit: StackFit.expand,
       children: [
         Positioned(
-          left: 24,
-          right: 24,
-          top: 28,
+          left: 20,
+          right: 20,
+          top: 24,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text('Garden', style: _titleStyle(54)),
+              Text('Garden', style: _titleStyle(62)),
               Transform.translate(
-                offset: const Offset(0, -8),
-                child: Text('Ninja', style: _titleStyle(58)),
+                offset: const Offset(0, -10),
+                child: Text('Ninja', style: _titleStyle(66)),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE9B334),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF55370E), width: 2),
-                ),
-                child: const Text(
-                  'PLANT SLASH',
-                  style: TextStyle(
-                    color: Color(0xFF55370E),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
+              Transform.translate(
+                offset: const Offset(0, -10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE9B334),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFF55370E),
+                      width: 2,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0xAA2D1908),
+                        blurRadius: 0,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'PLANT SLASH',
+                    style: TextStyle(
+                      color: Color(0xFF55370E),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ),
             ],
+          ),
+        ),
+        const Positioned(
+          left: 20,
+          right: 20,
+          top: 188,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SizedBox(
+              width: 268,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _HomeFeature(
+                    icon: Icons.shield_rounded,
+                    label: 'Protect',
+                    detail: 'plants',
+                  ),
+                  _HomeFeature(
+                    icon: Icons.cut_rounded,
+                    label: 'Slash',
+                    detail: 'weeds',
+                  ),
+                  _HomeFeature(
+                    icon: Icons.auto_awesome_rounded,
+                    label: 'Power',
+                    detail: 'ups',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          right: -10,
+          bottom: 146,
+          child: Image.asset(
+            'assets/images/sprites/ninja_mascot.png',
+            width: 156,
+            height: 188,
+            fit: BoxFit.contain,
+          ),
+        ),
+        Positioned(
+          right: 18,
+          top: 278,
+          child: Image.asset(
+            'assets/images/sprites/weed_leaf.png',
+            width: 74,
+            height: 82,
+            fit: BoxFit.contain,
+          ),
+        ),
+        Positioned(
+          left: 74,
+          top: 302,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xDD143A16),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFBDEB78)),
+            ),
+            child: const Text(
+              'Some weeds need 2-3 cuts',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 26,
+          right: 26,
+          top: 374,
+          child: _PrimaryButton(
+            label: 'PLAY',
+            icon: Icons.play_arrow_rounded,
+            onPressed: () => _startRun(restartLevel: true),
           ),
         ),
         Positioned(
@@ -828,12 +1089,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           bottom: 28,
           child: Column(
             children: [
-              _PrimaryButton(
-                label: 'PLAY',
-                icon: Icons.play_arrow_rounded,
-                onPressed: () => _startRun(restartLevel: true),
-              ),
-              const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
@@ -1298,6 +1553,63 @@ class _SecondaryButton extends StatelessWidget {
           side: const BorderSide(color: Color(0xFFB8E675), width: 2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
+      ),
+    );
+  }
+}
+
+class _HomeFeature extends StatelessWidget {
+  const _HomeFeature({
+    required this.icon,
+    required this.label,
+    required this.detail,
+  });
+
+  final IconData icon;
+  final String label;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 84,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xDDF8F0CB),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF5FA12A), width: 2),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x6614280A),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: const Color(0xFF2B721E), size: 24),
+          const SizedBox(height: 3),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label.toUpperCase(),
+              style: const TextStyle(
+                color: Color(0xFF245D18),
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Text(
+            detail,
+            style: const TextStyle(
+              color: Color(0xFF315C24),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
