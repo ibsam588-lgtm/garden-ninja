@@ -1,0 +1,12 @@
+Garden Ninja is a colorful swipe-action game where you protect a magical garden from mischievous weeds.
+
+Slash weeds before they reach your flowers, avoid friendly plants, and use power-ups to keep the garden blooming. Some weeds fall with one perfect swipe, while tougher invaders need multiple cuts and split apart in the direction of your slash.
+
+Features:
+- Fast swipe-action gameplay built for short, satisfying sessions
+- Cute weeds, blossoms, garden plants, and avatar characters
+- Power-ups including freeze effects to control the chaos
+- Garden health, slash combos, rewards, and level progression
+- Bright fantasy garden backgrounds designed for mobile play
+
+Your mission is simple: protect the plants, slash the weeds, and keep the garden alive.

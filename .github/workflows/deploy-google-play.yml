@@ -1,0 +1,116 @@
+name: Deploy Android to Google Play
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ANDROID_PACKAGE_NAME: com.gardenninja.garden_ninja
+  FLUTTER_VERSION: "3.44.2"
+  PLAY_TRACK: internal
+
+jobs:
+  deploy-android:
+    name: Build and deploy Android
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Check Google Play deploy secrets
+        id: deploy_secrets
+        shell: bash
+        run: |
+          missing=()
+
+          [ -n "$ANDROID_KEYSTORE_BASE64" ] || missing+=("ANDROID_KEYSTORE_BASE64")
+          [ -n "$ANDROID_KEYSTORE_PASSWORD" ] || missing+=("ANDROID_KEYSTORE_PASSWORD")
+          [ -n "$ANDROID_KEY_PASSWORD" ] || missing+=("ANDROID_KEY_PASSWORD")
+          [ -n "$ANDROID_KEY_ALIAS" ] || missing+=("ANDROID_KEY_ALIAS")
+          [ -n "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" ] || missing+=("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Google Play deploy skipped. Missing GitHub secrets: ${missing[*]}"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip deploy until secrets are configured
+        if: steps.deploy_secrets.outputs.configured != 'true'
+        run: echo "Checks passed. Add the required GitHub secrets to enable Google Play deploys."
+
+      - name: Set up Ruby
+        if: steps.deploy_secrets.outputs.configured == 'true'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Install Fastlane
+        if: steps.deploy_secrets.outputs.configured == 'true'
+        run: bundle install --jobs 4 --retry 3
+
+      - name: Decode Android upload keystore
+        if: steps.deploy_secrets.outputs.configured == 'true'
+        shell: bash
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+
+          {
+            echo "storePassword=$ANDROID_KEYSTORE_PASSWORD"
+            echo "keyPassword=$ANDROID_KEY_PASSWORD"
+            echo "keyAlias=$ANDROID_KEY_ALIAS"
+            echo "storeFile=app/upload-keystore.jks"
+          } > android/key.properties
+
+      - name: Build release app bundle
+        if: steps.deploy_secrets.outputs.configured == 'true'
+        shell: bash
+        run: |
+          build_number=$((10000 + GITHUB_RUN_NUMBER))
+          flutter build appbundle --release --build-number "$build_number"
+
+      - name: Write Google Play service account
+        if: steps.deploy_secrets.outputs.configured == 'true'
+        shell: bash
+        run: printf '%s' "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" > fastlane/play-store-service-account.json
+
+      - name: Upload internal release to Google Play
+        if: steps.deploy_secrets.outputs.configured == 'true'
+        env:
+          ANDROID_PACKAGE_NAME: ${{ env.ANDROID_PACKAGE_NAME }}
+          PLAY_TRACK: ${{ env.PLAY_TRACK }}
+        run: bundle exec fastlane android internal
