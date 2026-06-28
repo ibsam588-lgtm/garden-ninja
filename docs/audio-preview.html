@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Garden Ninja Audio Preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #122015;
+      --panel: #1e351f;
+      --panel-2: #294b24;
+      --line: rgba(255, 255, 255, 0.16);
+      --text: #fff8dc;
+      --muted: #c8dca7;
+      --accent: #a6ff3f;
+      --gold: #ffd867;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 10%, rgba(166, 255, 63, 0.18), transparent 28rem),
+        linear-gradient(140deg, #0f1b12 0%, #16351c 42%, #07130d 100%);
+    }
+
+    main {
+      width: min(980px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 48px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(32px, 6vw, 64px);
+      line-height: 0.95;
+      color: var(--accent);
+      text-shadow: 0 4px 0 #163313, 0 8px 22px rgba(0, 0, 0, 0.45);
+    }
+
+    p {
+      margin: 0 0 24px;
+      color: var(--muted);
+      max-width: 720px;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    h2 {
+      margin: 28px 0 12px;
+      font-size: 22px;
+      color: var(--gold);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }
+
+    article {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(41, 75, 36, 0.95), rgba(23, 42, 22, 0.95));
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.3);
+      padding: 16px;
+    }
+
+    h3 {
+      margin: 0 0 6px;
+      font-size: 18px;
+    }
+
+    .tag {
+      display: inline-block;
+      margin-bottom: 12px;
+      color: #e9ffd4;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    audio {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Garden Ninja Audio</h1>
+    <p>Playable draft loops and slash sounds generated for quick direction picking. These are intentionally lightweight game-audio sketches, ready to replace or polish once you choose favorites.</p>
+
+    <h2>Soundtrack Options</h2>
+    <section class="grid">
+      <article>
+        <h3>Ninja Bloom</h3>
+        <span class="tag">flute, taiko, playful</span>
+        <audio controls loop src="../assets/audio/music/ninja_bloom.ogg"></audio>
+      </article>
+      <article>
+        <h3>Garden Groove</h3>
+        <span class="tag">marimba, pizzicato, sunny</span>
+        <audio controls loop src="../assets/audio/music/garden_groove.ogg"></audio>
+      </article>
+      <article>
+        <h3>Blossom Rush</h3>
+        <span class="tag">fast drums, bells, harder levels</span>
+        <audio controls loop src="../assets/audio/music/blossom_rush.ogg"></audio>
+      </article>
+      <article>
+        <h3>Moonlit Greenhouse</h3>
+        <span class="tag">calm night menu loop</span>
+        <audio controls loop src="../assets/audio/music/moonlit_greenhouse.ogg"></audio>
+      </article>
+      <article>
+        <h3>Weed Invasion</h3>
+        <span class="tag">cute tension, later waves</span>
+        <audio controls loop src="../assets/audio/music/weed_invasion.ogg"></audio>
+      </article>
+    </section>
+
+    <h2>Weed Slash Sounds</h2>
+    <section class="grid">
+      <article>
+        <h3>Crisp Leaf Cut</h3>
+        <span class="tag">leaf rip, tiny pop</span>
+        <audio controls src="../assets/audio/sfx/crisp_leaf_cut.ogg"></audio>
+      </article>
+      <article>
+        <h3>Bamboo Blade Slice</h3>
+        <span class="tag">sharp slash, stem snap</span>
+        <audio controls src="../assets/audio/sfx/bamboo_blade_slice.ogg"></audio>
+      </article>
+      <article>
+        <h3>Wet Vine Chop</h3>
+        <span class="tag">squishy vine tear</span>
+        <audio controls src="../assets/audio/sfx/wet_vine_chop.ogg"></audio>
+      </article>
+      <article>
+        <h3>Combo Spark Slash</h3>
+        <span class="tag">slash plus chime</span>
+        <audio controls src="../assets/audio/sfx/combo_spark_slash.ogg"></audio>
+      </article>
+      <article>
+        <h3>Frozen Weed Shatter</h3>
+        <span class="tag">ice crack, leaf snap</span>
+        <audio controls src="../assets/audio/sfx/frozen_weed_shatter.ogg"></audio>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

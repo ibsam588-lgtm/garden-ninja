@@ -26,4 +26,4 @@ This policy may be updated as the game changes. Any updates will be published wi
 
 ## Contact
 
-TODO_SUPPORT_EMAIL
+ibsam588@gmail.com
