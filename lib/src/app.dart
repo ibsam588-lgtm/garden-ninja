@@ -116,8 +116,18 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const double _gardenDamageLineY = _worldHeight - 106;
   static const List<String> _backgrounds = [
     'assets/images/backgrounds/garden_playfield.png',
+    'assets/images/backgrounds/bamboo_dawn.png',
     'assets/images/backgrounds/greenhouse_night.png',
     'assets/images/backgrounds/rainy_garden.png',
+    'assets/images/backgrounds/autumn_pond.png',
+    'assets/images/backgrounds/cherry_blossom_bridge.png',
+    'assets/images/backgrounds/moonlit_lotus.png',
+    'assets/images/backgrounds/winter_conservatory.png',
+    'assets/images/backgrounds/mushroom_grove.png',
+    'assets/images/backgrounds/desert_cactus_bloom.png',
+    'assets/images/backgrounds/rooftop_greenhouse.png',
+    'assets/images/backgrounds/crystal_cave_garden.png',
+    'assets/images/backgrounds/tropical_orchid_jungle.png',
   ];
 
   final Random _random = Random();
@@ -141,7 +151,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int _gardenDamage = 0;
   int _weedsSlashed = 0;
   int _flowersSaved = 0;
-  int _seeds = 280;
+  int _seeds = 1250;
   int _sunDrops = 4;
   int _waterCharges = 3;
   int _iceCharges = 2;
@@ -160,6 +170,18 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   String get _currentBackground =>
       _backgrounds[(_level - 1) % _backgrounds.length];
+
+  String _formatNumber(int value) {
+    final String text = value.toString();
+    final StringBuffer buffer = StringBuffer();
+    for (int i = 0; i < text.length; i += 1) {
+      if (i > 0 && (text.length - i) % 3 == 0) {
+        buffer.write(',');
+      }
+      buffer.write(text[i]);
+    }
+    return buffer.toString();
+  }
 
   @override
   void initState() {
@@ -451,12 +473,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         target.cutsRemaining -= 1;
         target.cooldown = 0.22;
         final bool defeated = target.cutsRemaining <= 0;
-        final int base = defeated ? 110 + (_combo * 10) : 50 + (_combo * 8);
-        _score += (_sunTime > 0 ? base * 2 : base);
+        final int base = defeated ? 140 + (_combo * 15) : 70 + (_combo * 12);
+        final int earned = _sunTime > 0 ? base * 2 : base;
+        _score += earned;
         if (defeated) {
           _targets.remove(target);
           _weedsSlashed += 1;
-          _addBurst(target.position, '+$base', const Color(0xFFEFFF94));
+          _addBurst(target.position, '+$earned Weed', const Color(0xFFEFFF94));
           if (_weedsSlashed >= _goalWeeds) {
             _finishRun(won: true);
           }
@@ -470,27 +493,29 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           target.velocity += shove * 0.8;
           _addBurst(
             target.position,
-            '${target.cutsRemaining} cuts',
+            '+$earned | ${target.cutsRemaining} cuts',
             const Color(0xFFEFFF94),
           );
         }
       case TargetType.flower:
         target.cooldown = 0.7;
         _combo = 0;
-        _score = max(0, _score - 25);
+        _score = max(0, _score - 150);
+        _flowersSaved = max(0, _flowersSaved - 1);
         _flowerPenaltyCooldown = 0.45;
-        _addBurst(target.position, 'Protected', const Color(0xFFFF9FCA));
+        _addBurst(target.position, '-150 Plant', const Color(0xFFFF9FCA));
       case TargetType.bonus:
         _targets.remove(target);
         _combo += 1;
-        _score += 260;
+        _maxCombo = max(_maxCombo, _combo);
+        _score += 320 + (_combo * 10);
         _waterCharges = min(5, _waterCharges + 1);
-        _addBurst(target.position, '+Water', const Color(0xFF86E7FF));
+        _addBurst(target.position, '+Nice +Water', const Color(0xFF86E7FF));
       case TargetType.reward:
         _targets.remove(target);
-        _seeds += 35;
-        _score += 140;
-        _addBurst(target.position, '+Seeds', const Color(0xFFFFD36A));
+        _seeds += 55;
+        _score += 180;
+        _addBurst(target.position, '+55 Seeds', const Color(0xFFFFD36A));
     }
   }
 
@@ -697,43 +722,50 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget _buildGameSurface(Size size) {
+    final bool acceptsSlashInput = _phase == GamePhase.playing;
+    final Widget surface = ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          _buildBackdrop(),
+          if (_phase == GamePhase.playing || _phase == GamePhase.paused) ...[
+            _buildGardenHealthBed(),
+            ..._targets.map((target) => _buildTarget(target, size)),
+            ..._shards.map((shard) => _buildShard(shard, size)),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: SlashPainter(
+                    trails: List<SlashTrail>.from(_slashes),
+                    worldSize: const Size(_worldWidth, _worldHeight),
+                  ),
+                ),
+              ),
+            ),
+            ..._bursts.map((burst) => _buildBurst(burst, size)),
+            if (_gardenDamageFlash > 0) _buildGardenDamageFlash(),
+            _buildHud(),
+            _buildPowerUps(),
+          ],
+          if (_phase == GamePhase.home) _buildHomeLayer(),
+          if (_phase == GamePhase.paused) _buildPausedLayer(),
+          if (_phase == GamePhase.results) _buildResultsLayer(),
+          if (_phase == GamePhase.upgrades) _buildUpgradesLayer(),
+        ],
+      ),
+    );
+
+    if (!acceptsSlashInput) {
+      return surface;
+    }
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onPanStart: (details) => _handleSlash(details.localPosition, size),
       onPanUpdate: (details) => _handleSlash(details.localPosition, size),
       onPanEnd: (_) => _endSlash(),
       onTapDown: (details) => _handleSlash(details.localPosition, size),
-      child: ClipRect(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _buildBackdrop(),
-            if (_phase == GamePhase.playing || _phase == GamePhase.paused) ...[
-              _buildGardenHealthBed(),
-              ..._targets.map((target) => _buildTarget(target, size)),
-              ..._shards.map((shard) => _buildShard(shard, size)),
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: CustomPaint(
-                    painter: SlashPainter(
-                      trails: List<SlashTrail>.from(_slashes),
-                      worldSize: const Size(_worldWidth, _worldHeight),
-                    ),
-                  ),
-                ),
-              ),
-              ..._bursts.map((burst) => _buildBurst(burst, size)),
-              if (_gardenDamageFlash > 0) _buildGardenDamageFlash(),
-              _buildHud(),
-              _buildPowerUps(),
-            ],
-            if (_phase == GamePhase.home) _buildHomeLayer(),
-            if (_phase == GamePhase.paused) _buildPausedLayer(),
-            if (_phase == GamePhase.results) _buildResultsLayer(),
-            if (_phase == GamePhase.upgrades) _buildUpgradesLayer(),
-          ],
-        ),
-      ),
+      child: surface,
     );
   }
 
@@ -1020,7 +1052,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               width: 362,
               child: Row(
                 children: [
-                  _StatPill(label: 'Score', value: '$_score'),
+                  _StatPill(label: 'Score', value: _formatNumber(_score)),
                   const SizedBox(width: 8),
                   _StatPill(label: 'Combo', value: 'x$_combo'),
                   const Spacer(),
@@ -1098,22 +1130,34 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget _buildHomeLayer() {
+    return FittedBox(
+      fit: BoxFit.fill,
+      child: SizedBox(
+        width: _worldWidth,
+        height: _worldHeight,
+        child: _buildHomeContent(),
+      ),
+    );
+  }
+
+  Widget _buildHomeContent() {
     return Stack(
       fit: StackFit.expand,
       children: [
+        Positioned(left: 18, right: 18, top: 16, child: _buildHomeTopBar()),
         Positioned(
-          left: 14,
-          right: 14,
-          top: 16,
+          left: 12,
+          right: 12,
+          top: 76,
           child: FittedBox(
             fit: BoxFit.scaleDown,
-            child: SizedBox(width: 344, child: _buildHomeLogo()),
+            child: SizedBox(width: 356, child: _buildHomeLogo()),
           ),
         ),
         const Positioned(
           left: 16,
           right: 16,
-          top: 186,
+          top: 278,
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: SizedBox(
@@ -1144,7 +1188,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         Positioned(
           left: 56,
           right: 56,
-          top: 276,
+          top: 365,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
@@ -1184,7 +1228,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         ),
         Positioned(
           right: 14,
-          top: 252,
+          top: 338,
           child: Image.asset(
             'assets/images/sprites/weed_leaf.png',
             width: 76,
@@ -1194,7 +1238,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         ),
         Positioned(
           left: 14,
-          top: 328,
+          top: 430,
           child: Transform.rotate(
             angle: -0.16,
             child: Image.asset(
@@ -1208,7 +1252,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         Positioned(
           left: 26,
           right: 26,
-          top: 348,
+          top: 424,
           child: _PrimaryButton(
             label: 'PLAY',
             icon: Icons.play_arrow_rounded,
@@ -1254,7 +1298,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 children: [
                   _CurrencyChip(
                     asset: 'assets/images/icons/seed_coin.png',
-                    value: '$_seeds',
+                    value: _formatNumber(_seeds),
                   ),
                   const SizedBox(width: 8),
                   _CurrencyChip(
@@ -1267,6 +1311,33 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildHomeTopBar() {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: SizedBox(
+        width: 350,
+        child: Row(
+          children: [
+            _RoundIconButton(
+              icon: Icons.settings_rounded,
+              onPressed: _openUpgrades,
+            ),
+            const Spacer(),
+            _CurrencyChip(
+              asset: 'assets/images/icons/seed_coin.png',
+              value: _formatNumber(_seeds),
+            ),
+            const SizedBox(width: 8),
+            _CurrencyChip(
+              asset: 'assets/images/icons/sun_boost.png',
+              value: '$_sunDrops',
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1381,7 +1452,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             ),
           ),
           const SizedBox(height: 16),
-          _ResultLine(label: 'Score', value: '$_score'),
+          _ResultLine(label: 'Score', value: _formatNumber(_score)),
           _ResultLine(label: 'Weeds slashed', value: '$_weedsSlashed'),
           _ResultLine(label: 'Flowers protected', value: '$_flowersSaved'),
           _ResultLine(label: 'Max combo', value: 'x$_maxCombo'),
@@ -1396,7 +1467,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               const SizedBox(width: 10),
               _CurrencyChip(
                 asset: 'assets/images/icons/star_reward.png',
-                value: 'Best $_bestScore',
+                value: 'Best ${_formatNumber(_bestScore)}',
               ),
             ],
           ),
@@ -1454,7 +1525,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               ),
               _CurrencyChip(
                 asset: 'assets/images/icons/seed_coin.png',
-                value: '$_seeds',
+                value: _formatNumber(_seeds),
               ),
             ],
           ),
@@ -1745,23 +1816,86 @@ class _PrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
+      key: ValueKey('primary-$label'),
       width: double.infinity,
-      height: 58,
-      child: FilledButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 30),
-        label: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900),
+      height: label == 'PLAY' ? 74 : 58,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onPressed,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFB7F75B), Color(0xFF5FBB2D), Color(0xFF3F8F1F)],
+            ),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFF5D65E), width: 3),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0xFF68400D),
+                blurRadius: 0,
+                offset: Offset(0, 5),
+              ),
+              BoxShadow(
+                color: Color(0x88000000),
+                blurRadius: 14,
+                offset: Offset(0, 8),
+              ),
+            ],
           ),
-        ),
-        style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF55A924),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          side: const BorderSide(color: Color(0xFFD8F383), width: 2),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (label == 'PLAY') ...[
+                const Positioned(
+                  left: 22,
+                  top: 19,
+                  child: Icon(
+                    Icons.spa_rounded,
+                    color: Color(0xBBE8FF9A),
+                    size: 32,
+                  ),
+                ),
+                const Positioned(
+                  right: 22,
+                  top: 19,
+                  child: Icon(
+                    Icons.eco_rounded,
+                    color: Color(0xBBE8FF9A),
+                    size: 32,
+                  ),
+                ),
+              ],
+              Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, color: Colors.white, size: 34),
+                      const SizedBox(width: 10),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: label == 'PLAY' ? 34 : 25,
+                          fontWeight: FontWeight.w900,
+                          shadows: const [
+                            Shadow(
+                              color: Color(0xAA17310F),
+                              blurRadius: 2,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

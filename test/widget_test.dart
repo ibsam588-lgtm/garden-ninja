@@ -9,9 +9,10 @@ void main() {
     expect(find.text('Garden'), findsAtLeastNWidgets(1));
     expect(find.text('NINJA'), findsAtLeastNWidgets(1));
     expect(find.text('SWIPE. SLASH. SAVE THE GARDEN!'), findsOneWidget);
+    expect(find.text('1,250'), findsWidgets);
     expect(find.text('PLAY'), findsOneWidget);
 
-    await tester.tap(find.text('PLAY'));
+    await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
     await tester.pump(const Duration(milliseconds: 64));
 
     expect(find.text('SCORE'), findsOneWidget);
@@ -24,9 +25,9 @@ void main() {
     await tester.tap(weed);
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('58'), findsOneWidget);
+    expect(find.text('82'), findsOneWidget);
     expect(weed, findsOneWidget);
-    expect(find.text('1 cuts'), findsOneWidget);
+    expect(find.text('+82 | 1 cuts'), findsOneWidget);
     expect(
       find.byWidgetPredicate(
         (widget) => widget is ClipPath && widget.clipper is SliceHalfClipper,
@@ -41,13 +42,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+    expect(find.text('-150 Plant'), findsOneWidget);
     expect(find.text('Garden Saved'), findsNothing);
   });
 
   testWidgets('escaped weeds visibly damage the garden', (tester) async {
     await tester.pumpWidget(const GardenNinjaApp());
 
-    await tester.tap(find.text('PLAY'));
+    await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
     await tester.pump(const Duration(milliseconds: 64));
 
     var gardenWasDamaged = false;
