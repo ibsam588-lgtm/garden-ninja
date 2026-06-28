@@ -64,4 +64,24 @@ void main() {
     expect(gardenWasDamaged, isTrue);
     expect(find.byIcon(Icons.favorite_rounded), findsOneWidget);
   });
+
+  testWidgets('ice power visibly freezes active weeds', (tester) async {
+    await tester.pumpWidget(const GardenNinjaApp());
+
+    await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
+    await tester.pump(const Duration(milliseconds: 64));
+
+    expect(find.text('Ice x2'), findsOneWidget);
+
+    await tester.tap(find.text('Ice x2'));
+    await tester.pump();
+
+    expect(find.text('Freeze!'), findsOneWidget);
+    expect(find.text('Ice 7s x1'), findsOneWidget);
+    expect(find.byIcon(Icons.ac_unit_rounded), findsAtLeastNWidgets(1));
+
+    await tester.pump(const Duration(milliseconds: 1100));
+
+    expect(find.byIcon(Icons.ac_unit_rounded), findsAtLeastNWidgets(1));
+  });
 }
