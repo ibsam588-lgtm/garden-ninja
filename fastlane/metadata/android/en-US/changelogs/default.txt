@@ -1,0 +1,1 @@
+Garden Ninja's first playable release is ready for internal testing with swipe-to-slash gameplay, animated weeds, garden damage, power-ups, rewards, and multiple garden backgrounds.

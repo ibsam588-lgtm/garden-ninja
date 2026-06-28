@@ -1,0 +1,2 @@
+package_name(ENV.fetch("ANDROID_PACKAGE_NAME", "com.gardenninja.garden_ninja"))
+json_key_file("play-store-service-account.json")
