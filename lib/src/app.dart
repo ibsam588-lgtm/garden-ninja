@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:math';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -24,6 +26,20 @@ class GardenNinjaApp extends StatelessWidget {
 enum GamePhase { home, playing, paused, results, upgrades }
 
 enum TargetType { weed, flower, bonus, reward }
+
+enum TutorialStep { slashWeed, avoidFlowers, toughWeed, useIce, frozenSlash }
+
+class MusicTrack {
+  const MusicTrack({
+    required this.title,
+    required this.mood,
+    required this.asset,
+  });
+
+  final String title;
+  final String mood;
+  final String asset;
+}
 
 class GardenTarget {
   GardenTarget({
@@ -158,6 +174,38 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     'assets/images/backgrounds/crystal_cave_garden.png',
     'assets/images/backgrounds/tropical_orchid_jungle.png',
   ];
+  static const List<MusicTrack> _musicTracks = [
+    MusicTrack(
+      title: 'Weed Invasion',
+      mood: 'Action',
+      asset: 'audio/music/weed_invasion.ogg',
+    ),
+    MusicTrack(
+      title: 'Ninja Bloom',
+      mood: 'Playful',
+      asset: 'audio/music/ninja_bloom.ogg',
+    ),
+    MusicTrack(
+      title: 'Garden Groove',
+      mood: 'Sunny',
+      asset: 'audio/music/garden_groove.ogg',
+    ),
+    MusicTrack(
+      title: 'Blossom Rush',
+      mood: 'Fast',
+      asset: 'audio/music/blossom_rush.ogg',
+    ),
+    MusicTrack(
+      title: 'Moonlit Greenhouse',
+      mood: 'Calm',
+      asset: 'audio/music/moonlit_greenhouse.ogg',
+    ),
+  ];
+  static const String _sfxCrispLeaf = 'audio/sfx/crisp_leaf_cut.ogg';
+  static const String _sfxBambooBlade = 'audio/sfx/bamboo_blade_slice.ogg';
+  static const String _sfxWetVine = 'audio/sfx/wet_vine_chop.ogg';
+  static const String _sfxComboSpark = 'audio/sfx/combo_spark_slash.ogg';
+  static const String _sfxFrozenWeed = 'audio/sfx/frozen_weed_shatter.ogg';
 
   final Random _random = Random();
   final List<GardenTarget> _targets = [];
@@ -166,6 +214,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   final List<FloatingBurst> _bursts = [];
 
   late final Ticker _ticker;
+  late final AudioPlayer _musicPlayer;
+  late final List<AudioPlayer> _sfxPlayers;
   Duration _lastElapsed = Duration.zero;
   GamePhase _phase = GamePhase.home;
   GamePhase _phaseBeforePause = GamePhase.home;
@@ -186,7 +236,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int _iceCharges = 2;
   int _rewardSeeds = 0;
   int _selectedAvatar = 0;
+  int _selectedMusicTrack = 0;
+  int _sfxCursor = 0;
   bool _lastRunWon = false;
+  bool _musicEnabled = true;
+  bool _sfxEnabled = true;
+  bool _audioReady = false;
+  bool _musicStartQueued = false;
+  bool _tutorialMode = false;
+  bool _tutorialMistake = false;
+  TutorialStep _tutorialStep = TutorialStep.slashWeed;
   double _spawnTimer = 0;
   double _timeLeft = 60;
   double _iceTime = 0;
@@ -204,6 +263,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   String get _currentAvatar => _avatarAssets[_selectedAvatar];
 
+  MusicTrack get _currentMusicTrack => _musicTracks[_selectedMusicTrack];
+
   String _formatNumber(int value) {
     final String text = value.toString();
     final StringBuffer buffer = StringBuffer();
@@ -219,13 +280,88 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   @override
   void initState() {
     super.initState();
+    _musicPlayer = AudioPlayer(playerId: 'garden-ninja-music');
+    _sfxPlayers = List.generate(
+      4,
+      (index) => AudioPlayer(playerId: 'garden-ninja-sfx-$index'),
+    );
     _ticker = createTicker(_tick)..start();
+    _primeAudio();
   }
 
   @override
   void dispose() {
     _ticker.dispose();
+    unawaited(_musicPlayer.dispose());
+    for (final player in _sfxPlayers) {
+      unawaited(player.dispose());
+    }
     super.dispose();
+  }
+
+  Future<void> _primeAudio() async {
+    try {
+      await _musicPlayer.setReleaseMode(ReleaseMode.loop);
+      await _musicPlayer.setVolume(0.42);
+      for (final player in _sfxPlayers) {
+        await player.setReleaseMode(ReleaseMode.stop);
+        await player.setPlayerMode(PlayerMode.lowLatency);
+        await player.setVolume(0.72);
+      }
+      _audioReady = true;
+      await _playSelectedMusic();
+    } catch (_) {
+      _musicStartQueued = true;
+    }
+  }
+
+  Future<void> _playSelectedMusic() async {
+    if (!_musicEnabled) {
+      await _musicPlayer.stop();
+      return;
+    }
+
+    try {
+      await _musicPlayer.setReleaseMode(ReleaseMode.loop);
+      await _musicPlayer.play(
+        AssetSource(_currentMusicTrack.asset),
+        volume: _phase == GamePhase.playing ? 0.46 : 0.34,
+      );
+      _audioReady = true;
+      _musicStartQueued = false;
+    } catch (_) {
+      _musicStartQueued = true;
+    }
+  }
+
+  void _ensureMusicStarted() {
+    if (!_musicEnabled) {
+      return;
+    }
+    if (!_audioReady || _musicStartQueued) {
+      unawaited(_playSelectedMusic());
+      return;
+    }
+    unawaited(
+      _musicPlayer.setVolume(_phase == GamePhase.playing ? 0.46 : 0.34),
+    );
+  }
+
+  void _playSfx(String asset, {double volume = 0.78}) {
+    if (!_sfxEnabled) {
+      return;
+    }
+
+    final AudioPlayer player = _sfxPlayers[_sfxCursor];
+    _sfxCursor = (_sfxCursor + 1) % _sfxPlayers.length;
+    unawaited(
+      (() async {
+        try {
+          await player.stop();
+          await player.play(AssetSource(asset), volume: volume);
+        } catch (_) {}
+      })(),
+    );
   }
 
   void _tick(Duration elapsed) {
@@ -257,10 +393,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   void _startRun({bool restartLevel = false}) {
+    _ensureMusicStarted();
     setState(() {
       if (!restartLevel) {
         _level = max(1, _level);
       }
+      _tutorialMode = false;
+      _tutorialMistake = false;
       _phase = GamePhase.playing;
       _score = 0;
       _combo = 0;
@@ -283,9 +422,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _bursts.clear();
       _spawnOpeningWave();
     });
+    unawaited(_musicPlayer.setVolume(0.46));
   }
 
   void _step(double dt) {
+    if (_tutorialMode) {
+      _stepTutorial(dt);
+      return;
+    }
+
     _timeLeft -= dt;
     if (_timeLeft <= 0) {
       _finishRun(won: _weedsSlashed >= (_goalWeeds * 0.75));
@@ -341,6 +486,69 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _spawnTimer =
           (1.05 - min(_level * 0.055, 0.35)) *
           (0.75 + _random.nextDouble() * 0.65);
+    }
+
+    for (final slash in _slashes) {
+      slash.life -= dt * 2.8;
+    }
+    _slashes.removeWhere((slash) => slash.life <= 0);
+
+    for (final shard in _shards) {
+      shard.life -= dt * 1.55;
+      shard.position += shard.velocity * dt;
+      shard.velocity = Offset(
+        shard.velocity.dx * 0.96,
+        shard.velocity.dy + 280 * dt,
+      );
+      shard.angle += shard.spin * dt;
+    }
+    _shards.removeWhere((shard) => shard.life <= 0);
+
+    for (final burst in _bursts) {
+      burst.life -= dt;
+      burst.position -= Offset(0, 42 * dt);
+    }
+    _bursts.removeWhere((burst) => burst.life <= 0);
+  }
+
+  void _stepTutorial(double dt) {
+    _iceTime = max(0, _iceTime - dt);
+    _sunTime = max(0, _sunTime - dt);
+    _flowerPenaltyCooldown = max(0, _flowerPenaltyCooldown - dt);
+    _gardenDamageFlash = max(0, _gardenDamageFlash - dt * 2.4);
+    _gardenDamageCooldown = max(0, _gardenDamageCooldown - dt);
+
+    final bool movingLesson =
+        _tutorialStep == TutorialStep.useIce ||
+        _tutorialStep == TutorialStep.frozenSlash;
+    final bool iceActive = _iceTime > 0;
+    final double speedScale = movingLesson ? (iceActive ? 0.08 : 0.7) : 0.0;
+    final double animationScale = iceActive ? 0.18 : 1;
+
+    for (final target in List<GardenTarget>.from(_targets)) {
+      target.cooldown = max(0, target.cooldown - dt);
+      target.splitAmount = max(0, target.splitAmount - dt * 2.8);
+      target.walkPhase +=
+          dt * (target.type == TargetType.weed ? 8.5 : 2.2) * animationScale;
+
+      if (target.type == TargetType.weed) {
+        target.angle =
+            sin(target.walkPhase * 1.15) * 0.075 +
+            cos(target.walkPhase * 0.52) * 0.025;
+        target.position += target.velocity * dt * speedScale;
+      }
+
+      if (target.position.dy > _gardenDamageLineY) {
+        _targets.remove(target);
+        if (target.type == TargetType.weed) {
+          _damageGardenFromWeed(target);
+          _tutorialMistake = true;
+          if (_lives <= 0) {
+            _restartTutorialStep();
+            return;
+          }
+        }
+      }
     }
 
     for (final slash in _slashes) {
@@ -470,6 +678,147 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _flowersSaved += 1;
   }
 
+  void _startTutorial() {
+    _ensureMusicStarted();
+    setState(() {
+      _tutorialMode = true;
+      _tutorialStep = TutorialStep.slashWeed;
+      _tutorialMistake = false;
+      _phase = GamePhase.playing;
+      _score = 0;
+      _combo = 0;
+      _maxCombo = 0;
+      _lives = 3;
+      _gardenDamage = 0;
+      _weedsSlashed = 0;
+      _flowersSaved = 0;
+      _timeLeft = 99;
+      _iceTime = 0;
+      _sunTime = 0;
+      _iceCharges = max(_iceCharges, 1);
+      _lastSlashPoint = null;
+      _targets.clear();
+      _shards.clear();
+      _slashes.clear();
+      _bursts.clear();
+      _spawnTutorialTargets();
+    });
+    unawaited(_musicPlayer.setVolume(0.46));
+  }
+
+  void _spawnTutorialTargets() {
+    _targets.clear();
+    switch (_tutorialStep) {
+      case TutorialStep.slashWeed:
+        _targets.add(
+          _tutorialTarget(
+            type: TargetType.weed,
+            asset: 'assets/images/sprites/weed_leaf.png',
+            position: const Offset(196, 390),
+            size: 88,
+            cutsRequired: 1,
+          ),
+        );
+      case TutorialStep.avoidFlowers:
+        _targets
+          ..add(
+            _tutorialTarget(
+              type: TargetType.flower,
+              asset: 'assets/images/sprites/pink_blossom_plant.png',
+              position: const Offset(132, 474),
+              size: 86,
+              cutsRequired: 1,
+            ),
+          )
+          ..add(
+            _tutorialTarget(
+              type: TargetType.weed,
+              asset: 'assets/images/sprites/weed_spike.png',
+              position: const Offset(270, 474),
+              size: 86,
+              cutsRequired: 1,
+            ),
+          );
+        _flowersSaved = max(_flowersSaved, 1);
+      case TutorialStep.toughWeed:
+        _targets.add(
+          _tutorialTarget(
+            type: TargetType.weed,
+            asset: 'assets/images/sprites/weed_vine_gobbler.png',
+            position: const Offset(196, 418),
+            size: 104,
+            cutsRequired: 3,
+          ),
+        );
+      case TutorialStep.useIce:
+      case TutorialStep.frozenSlash:
+        _iceCharges = max(_iceCharges, 1);
+        _targets
+          ..add(
+            _tutorialTarget(
+              type: TargetType.weed,
+              asset: 'assets/images/sprites/weed_seed_chomper.png',
+              position: const Offset(116, 300),
+              velocity: const Offset(8, 58),
+              size: 82,
+              cutsRequired: 1,
+            ),
+          )
+          ..add(
+            _tutorialTarget(
+              type: TargetType.weed,
+              asset: 'assets/images/sprites/weed_bramble_bulb.png',
+              position: const Offset(196, 260),
+              velocity: const Offset(-3, 54),
+              size: 92,
+              cutsRequired: 2,
+            ),
+          )
+          ..add(
+            _tutorialTarget(
+              type: TargetType.weed,
+              asset: 'assets/images/sprites/weed_thorn_sprout.png',
+              position: const Offset(284, 312),
+              velocity: const Offset(-8, 56),
+              size: 82,
+              cutsRequired: 1,
+            ),
+          );
+    }
+  }
+
+  GardenTarget _tutorialTarget({
+    required TargetType type,
+    required String asset,
+    required Offset position,
+    required double size,
+    required int cutsRequired,
+    Offset velocity = Offset.zero,
+  }) {
+    return GardenTarget(
+      id: _nextTargetId++,
+      type: type,
+      asset: asset,
+      position: position,
+      velocity: velocity,
+      size: size,
+      radius: size * 0.42,
+      spin: 0,
+      cutsRequired: cutsRequired,
+    );
+  }
+
+  void _restartTutorialStep() {
+    _lives = 3;
+    _gardenDamage = 0;
+    _iceTime = 0;
+    _lastSlashPoint = null;
+    _targets.clear();
+    _shards.clear();
+    _slashes.clear();
+    _spawnTutorialTargets();
+  }
+
   void _handleSlash(Offset localPosition, Size size) {
     if (_phase != GamePhase.playing) {
       return;
@@ -555,11 +904,24 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         final int base = defeated ? 140 + (_combo * 15) : 70 + (_combo * 12);
         final int earned = _sunTime > 0 ? base * 2 : base;
         _score += earned;
+        if (_iceTime > 0) {
+          _playSfx(_sfxFrozenWeed, volume: 0.86);
+        } else if (_combo > 1 && _combo % 5 == 0) {
+          _playSfx(_sfxComboSpark, volume: 0.82);
+        } else if (target.maxCuts >= 3) {
+          _playSfx(_sfxWetVine, volume: 0.78);
+        } else if (defeated && target.maxCuts == 1) {
+          _playSfx(_sfxCrispLeaf, volume: 0.75);
+        } else {
+          _playSfx(_sfxBambooBlade, volume: 0.78);
+        }
         if (defeated) {
           _targets.remove(target);
           _weedsSlashed += 1;
           _addBurst(target.position, '+$earned Weed', const Color(0xFFEFFF94));
-          if (_weedsSlashed >= _goalWeeds) {
+          if (_tutorialMode) {
+            _handleTutorialWeedDefeated();
+          } else if (_weedsSlashed >= _goalWeeds) {
             _finishRun(won: true);
           }
         } else {
@@ -578,6 +940,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         }
       case TargetType.flower:
         target.cooldown = 0.7;
+        _playSfx(_sfxCrispLeaf, volume: 0.56);
+        if (_tutorialMode) {
+          _tutorialMistake = true;
+          _addBurst(target.position, 'Avoid flowers!', const Color(0xFFFF9FCA));
+          return;
+        }
         _combo = 0;
         _score = max(0, _score - 150);
         _flowersSaved = max(0, _flowersSaved - 1);
@@ -585,6 +953,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _addBurst(target.position, '-150 Plant', const Color(0xFFFF9FCA));
       case TargetType.bonus:
         _targets.remove(target);
+        _playSfx(_sfxComboSpark, volume: 0.78);
         _combo += 1;
         _maxCombo = max(_maxCombo, _combo);
         _score += 320 + (_combo * 10);
@@ -592,6 +961,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _addBurst(target.position, '+Nice +Water', const Color(0xFF86E7FF));
       case TargetType.reward:
         _targets.remove(target);
+        _playSfx(_sfxComboSpark, volume: 0.7);
         _seeds += 55;
         _score += 180;
         _addBurst(target.position, '+55 Seeds', const Color(0xFFFFD36A));
@@ -658,10 +1028,52 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _bursts.add(FloatingBurst(position: position, label: label, color: color));
   }
 
+  void _handleTutorialWeedDefeated() {
+    final bool anyWeedsLeft = _targets.any((t) => t.type == TargetType.weed);
+    switch (_tutorialStep) {
+      case TutorialStep.slashWeed:
+        _advanceTutorial(TutorialStep.avoidFlowers);
+      case TutorialStep.avoidFlowers:
+        if (!anyWeedsLeft) {
+          _advanceTutorial(TutorialStep.toughWeed);
+        }
+      case TutorialStep.toughWeed:
+        _advanceTutorial(TutorialStep.useIce);
+      case TutorialStep.useIce:
+        if (!anyWeedsLeft) {
+          _advanceTutorial(TutorialStep.frozenSlash);
+        }
+      case TutorialStep.frozenSlash:
+        if (!anyWeedsLeft) {
+          _completeTutorial();
+        }
+    }
+  }
+
+  void _advanceTutorial(TutorialStep step) {
+    _tutorialStep = step;
+    _tutorialMistake = false;
+    _iceTime = step == TutorialStep.frozenSlash ? _iceTime : 0;
+    _lastSlashPoint = null;
+    _targets.clear();
+    _shards.clear();
+    _slashes.clear();
+    _spawnTutorialTargets();
+  }
+
+  void _completeTutorial() {
+    _tutorialMode = false;
+    _tutorialMistake = false;
+    _lastSlashPoint = null;
+    _level = max(_level, 1);
+    _startRun(restartLevel: true);
+  }
+
   void _activateWater() {
     if (_phase != GamePhase.playing || _waterCharges <= 0) {
       return;
     }
+    _playSfx(_sfxWetVine, volume: 0.86);
     setState(() {
       _waterCharges -= 1;
       final weeds = _targets.where((t) => t.type == TargetType.weed).toList();
@@ -684,6 +1096,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (_phase != GamePhase.playing || _sunDrops <= 0) {
       return;
     }
+    _playSfx(_sfxComboSpark, volume: 0.8);
     setState(() {
       _sunDrops -= 1;
       _sunTime = 7;
@@ -700,9 +1113,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (_phase != GamePhase.playing || _iceCharges <= 0) {
       return;
     }
+    _playSfx(_sfxFrozenWeed, volume: 0.82);
     setState(() {
       _iceCharges -= 1;
       _iceTime = max(_iceTime, 6.5);
+      if (_tutorialMode && _tutorialStep == TutorialStep.useIce) {
+        _tutorialStep = TutorialStep.frozenSlash;
+        _tutorialMistake = false;
+      }
       _addBurst(
         const Offset(_worldWidth / 2, 220),
         'Freeze!',
@@ -712,6 +1130,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   void _finishRun({required bool won}) {
+    unawaited(_musicPlayer.setVolume(0.34));
     _lastRunWon = won;
     _bestScore = max(_bestScore, _score);
     _rewardSeeds = (won ? 110 : 45) + (_weedsSlashed * 2) + (_maxCombo * 3);
@@ -731,6 +1150,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _phaseBeforePause = _phase;
       _phase = GamePhase.paused;
     });
+    unawaited(_musicPlayer.setVolume(0.24));
   }
 
   void _resume() {
@@ -740,24 +1160,57 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     setState(() {
       _phase = _phaseBeforePause;
     });
+    unawaited(_musicPlayer.setVolume(0.46));
   }
 
   void _openUpgrades() {
+    _ensureMusicStarted();
     setState(() {
       _phase = GamePhase.upgrades;
     });
+    unawaited(_musicPlayer.setVolume(0.32));
   }
 
   void _selectAvatar(int index) {
+    _playSfx(_sfxComboSpark, volume: 0.48);
     setState(() {
       _selectedAvatar = index.clamp(0, _avatarAssets.length - 1).toInt();
     });
+  }
+
+  void _selectMusicTrack(int index) {
+    _playSfx(_sfxComboSpark, volume: 0.42);
+    setState(() {
+      _selectedMusicTrack = index.clamp(0, _musicTracks.length - 1).toInt();
+    });
+    unawaited(_playSelectedMusic());
+  }
+
+  void _toggleMusic() {
+    setState(() {
+      _musicEnabled = !_musicEnabled;
+    });
+    if (_musicEnabled) {
+      unawaited(_playSelectedMusic());
+    } else {
+      unawaited(_musicPlayer.stop());
+    }
+  }
+
+  void _toggleSfx() {
+    setState(() {
+      _sfxEnabled = !_sfxEnabled;
+    });
+    if (_sfxEnabled) {
+      _playSfx(_sfxCrispLeaf, volume: 0.44);
+    }
   }
 
   void _buyCharge(String kind, int cost) {
     if (_seeds < cost) {
       return;
     }
+    _playSfx(_sfxComboSpark, volume: 0.55);
     setState(() {
       _seeds -= cost;
       switch (kind) {
@@ -835,6 +1288,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             if (_gardenDamageFlash > 0) _buildGardenDamageFlash(),
             _buildHud(),
             _buildPowerUps(),
+            if (_tutorialMode) _buildTutorialOverlay(size),
           ],
           if (_phase == GamePhase.home) _buildHomeLayer(),
           if (_phase == GamePhase.paused) _buildPausedLayer(),
@@ -1327,6 +1781,211 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
   }
 
+  Widget _buildTutorialOverlay(Size size) {
+    GardenTarget? focus;
+    for (final target in _targets) {
+      final bool isFocusTarget = _tutorialStep == TutorialStep.useIce
+          ? false
+          : target.type == TargetType.weed;
+      if (isFocusTarget) {
+        focus = target;
+        break;
+      }
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned(
+          left: 18,
+          right: 18,
+          top: 74,
+          child: IgnorePointer(
+            child: _TutorialPrompt(
+              title: _tutorialTitle,
+              body: _tutorialBody,
+              progress: '${_tutorialStep.index + 1}/5',
+              warning: _tutorialMistake,
+            ),
+          ),
+        ),
+        if (focus != null) _buildTutorialFocus(focus, size),
+        if (_tutorialStep == TutorialStep.avoidFlowers)
+          for (final flower in _targets.where(
+            (t) => t.type == TargetType.flower,
+          ))
+            _buildTutorialFlowerWarning(flower, size),
+        if (_tutorialStep == TutorialStep.useIce) _buildIceTutorialCallout(),
+        Positioned(
+          right: 16,
+          top: 18,
+          child: _TutorialSkipButton(
+            onTap: () {
+              setState(() {
+                _tutorialMode = false;
+                _phase = GamePhase.home;
+                _targets.clear();
+                _shards.clear();
+                _slashes.clear();
+                _bursts.clear();
+              });
+              unawaited(_musicPlayer.setVolume(0.34));
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  String get _tutorialTitle {
+    switch (_tutorialStep) {
+      case TutorialStep.slashWeed:
+        return 'Slash the weed';
+      case TutorialStep.avoidFlowers:
+        return _tutorialMistake ? 'Careful!' : 'Protect flowers';
+      case TutorialStep.toughWeed:
+        return 'Tough weeds split';
+      case TutorialStep.useIce:
+        return 'Use Ice';
+      case TutorialStep.frozenSlash:
+        return 'Shatter them';
+    }
+  }
+
+  String get _tutorialBody {
+    switch (_tutorialStep) {
+      case TutorialStep.slashWeed:
+        return 'Swipe through the weed to cut it.';
+      case TutorialStep.avoidFlowers:
+        return _tutorialMistake
+            ? 'Flowers are friends. Swipe the weed only.'
+            : 'Slash the weed beside the flower.';
+      case TutorialStep.toughWeed:
+        return 'Big weeds need more than one swipe.';
+      case TutorialStep.useIce:
+        return 'Tap Ice before the weeds reach your plants.';
+      case TutorialStep.frozenSlash:
+        return 'Now slash the frozen weeds.';
+    }
+  }
+
+  Widget _buildTutorialFocus(GardenTarget target, Size size) {
+    final double pixelSize = target.size / _worldWidth * size.width;
+    final double left =
+        target.position.dx / _worldWidth * size.width - pixelSize * 0.58;
+    final double top =
+        target.position.dy / _worldHeight * size.height - pixelSize * 0.58;
+    final double pulse = 1 + sin(_motionTime * 5.2).abs() * 0.08;
+    return Positioned(
+      left: left,
+      top: top,
+      width: pixelSize * 1.16,
+      height: pixelSize * 1.16,
+      child: IgnorePointer(
+        child: Transform.scale(
+          scale: pulse,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFFFF17C), width: 3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFFF17C).withValues(alpha: 0.42),
+                      blurRadius: 20,
+                      spreadRadius: 6,
+                    ),
+                  ],
+                ),
+              ),
+              if (_tutorialStep != TutorialStep.useIce)
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: Transform.rotate(
+                    angle: -0.7 + sin(_motionTime * 5) * 0.08,
+                    child: const Icon(
+                      Icons.swipe_rounded,
+                      color: Colors.white,
+                      size: 36,
+                      shadows: [
+                        Shadow(color: Color(0xAA14350D), blurRadius: 7),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTutorialFlowerWarning(GardenTarget flower, Size size) {
+    final double pixelSize = flower.size / _worldWidth * size.width;
+    final double left =
+        flower.position.dx / _worldWidth * size.width - pixelSize * 0.58;
+    final double top =
+        flower.position.dy / _worldHeight * size.height - pixelSize * 0.58;
+    return Positioned(
+      left: left,
+      top: top,
+      width: pixelSize * 1.16,
+      height: pixelSize * 1.16,
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFFF8DB8), width: 3),
+          ),
+          child: const Align(
+            alignment: Alignment.topCenter,
+            child: Icon(
+              Icons.favorite_rounded,
+              color: Color(0xFFFF8DB8),
+              size: 24,
+              shadows: [Shadow(color: Color(0xAA4A1023), blurRadius: 6)],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIceTutorialCallout() {
+    return Positioned(
+      right: 22,
+      bottom: 78,
+      child: IgnorePointer(
+        child: Transform.translate(
+          offset: Offset(0, sin(_motionTime * 5) * 4),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Tap Ice',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  shadows: [Shadow(color: Color(0xAA0A2B35), blurRadius: 5)],
+                ),
+              ),
+              SizedBox(width: 4),
+              Icon(
+                Icons.arrow_downward_rounded,
+                color: Color(0xFF9CF8FF),
+                size: 30,
+                shadows: [Shadow(color: Color(0xAA0A2B35), blurRadius: 5)],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHomeLayer() {
     return FittedBox(
       fit: BoxFit.fill,
@@ -1481,6 +2140,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               onPressed: () => _startRun(restartLevel: true),
             ),
           ),
+        ),
+        Positioned(
+          left: 106,
+          right: 106,
+          top: 558,
+          child: _TutorialHomeButton(onTap: _startTutorial, phase: t),
         ),
         Positioned(
           left: 24,
@@ -1940,6 +2605,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                _buildAudioPanel(),
                 const SizedBox(height: 18),
                 Container(
                   padding: const EdgeInsets.all(14),
@@ -1997,6 +2664,65 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAudioPanel() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xEEF7E9BC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF4C7E26), width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Audio',
+                  style: TextStyle(
+                    color: Color(0xFF234B18),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _AudioToggle(
+                icon: _musicEnabled
+                    ? Icons.music_note_rounded
+                    : Icons.music_off_rounded,
+                active: _musicEnabled,
+                onTap: _toggleMusic,
+              ),
+              const SizedBox(width: 8),
+              _AudioToggle(
+                icon: _sfxEnabled
+                    ? Icons.graphic_eq_rounded
+                    : Icons.volume_off_rounded,
+                active: _sfxEnabled,
+                onTap: _toggleSfx,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: [
+              for (int index = 0; index < _musicTracks.length; index += 1)
+                _MusicTrackChip(
+                  title: _musicTracks[index].title,
+                  mood: _musicTracks[index].mood,
+                  selected: index == _selectedMusicTrack,
+                  onTap: () => _selectMusicTrack(index),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2302,6 +3028,301 @@ class _SecondaryButton extends StatelessWidget {
           foregroundColor: Colors.white,
           side: const BorderSide(color: Color(0xFFB8E675), width: 2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+    );
+  }
+}
+
+class _TutorialHomeButton extends StatelessWidget {
+  const _TutorialHomeButton({required this.onTap, required this.phase});
+
+  final VoidCallback onTap;
+  final double phase;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.scale(
+      scale: 1 + sin(phase * 2.4).abs() * 0.025,
+      child: SizedBox(
+        height: 42,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xDD173B16),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE7FF9A), width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x77071506),
+                  blurRadius: 10,
+                  offset: Offset(0, 5),
+                ),
+              ],
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.school_rounded, color: Color(0xFFE7FF9A), size: 22),
+                SizedBox(width: 7),
+                Text(
+                  'Tutorial',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TutorialPrompt extends StatelessWidget {
+  const _TutorialPrompt({
+    required this.title,
+    required this.body,
+    required this.progress,
+    required this.warning,
+  });
+
+  final String title;
+  final String body;
+  final String progress;
+  final bool warning;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: warning ? const Color(0xEE5E1D25) : const Color(0xEE173B16),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: warning ? const Color(0xFFFF9FCA) : const Color(0xFFE7FF9A),
+          width: 2,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x88071506),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: warning
+                    ? const Color(0xFFFF7BA8)
+                    : const Color(0xFF63B92A),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                progress,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    body,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFE7FFCC),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TutorialSkipButton extends StatelessWidget {
+  const _TutorialSkipButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Skip tutorial',
+      child: SizedBox(
+        width: 42,
+        height: 42,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xDD173B16),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE7FF9A), width: 2),
+            ),
+            child: const Icon(
+              Icons.close_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AudioToggle extends StatelessWidget {
+  const _AudioToggle({
+    required this.icon,
+    required this.active,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: active ? 'On' : 'Off',
+      child: SizedBox(
+        width: 42,
+        height: 42,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: active ? const Color(0xFF5DBA28) : const Color(0xFF6D784C),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE9FFC6), width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x662C421B),
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 23),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MusicTrackChip extends StatelessWidget {
+  const _MusicTrackChip({
+    required this.title,
+    required this.mood,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final String mood;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 109,
+      height: 58,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF4D9E22) : const Color(0xFFFFF9D8),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFFE9FFC6)
+                  : const Color(0xFF74A846),
+              width: 2,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x44233A13),
+                blurRadius: 7,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: selected ? Colors.white : const Color(0xFF234B18),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  mood,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected
+                        ? const Color(0xFFE9FFC6)
+                        : const Color(0xFF577A38),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

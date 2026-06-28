@@ -14,6 +14,8 @@ Add these repository secrets in GitHub:
 
 Do not commit keystores, key properties, service account JSON, or copied secret values to the public repository.
 
+The Android upload keystore has been generated locally at `android/app/upload-keystore.jks`, with `android/key.properties` pointing to it. Both files are intentionally ignored by Git. The matching Android signing secrets are already configured in GitHub; `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` still must be created from the `ibsam588@gmail.com` Play Console account and added before CI can upload to Google Play.
+
 ## Create an Upload Keystore
 
 From a private local folder, create the upload key:

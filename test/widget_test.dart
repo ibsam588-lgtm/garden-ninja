@@ -84,4 +84,18 @@ void main() {
 
     expect(find.byIcon(Icons.ac_unit_rounded), findsAtLeastNWidgets(1));
   });
+
+  testWidgets('new players can start the interactive tutorial', (tester) async {
+    await tester.pumpWidget(const GardenNinjaApp());
+
+    expect(find.text('Tutorial'), findsOneWidget);
+
+    await tester.tap(find.text('Tutorial'));
+    await tester.pump(const Duration(milliseconds: 120));
+
+    expect(find.text('Slash the weed'), findsOneWidget);
+    expect(find.text('Swipe through the weed to cut it.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('target-1')), findsOneWidget);
+    expect(find.byIcon(Icons.swipe_rounded), findsOneWidget);
+  });
 }

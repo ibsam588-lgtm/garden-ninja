@@ -11,9 +11,9 @@ Use these values in Google Play Console. Replace all `TODO` items before submitt
 - Category: Casual
 - Tags to consider: Action, Casual, Single player, Offline, Stylized
 - Package name: `com.gardenninja.garden_ninja`
-- Contact email: TODO_SUPPORT_EMAIL
+- Contact email: `ibsam588@gmail.com`
 - Website: TODO_WEBSITE_URL
-- Privacy policy URL: TODO_PUBLIC_PRIVACY_POLICY_URL
+- Privacy policy URL: `https://github.com/ibsam588-lgtm/garden-ninja/blob/main/docs/privacy-policy.md`
 
 ## Store Listing
 
@@ -55,7 +55,7 @@ These are the recommended first-release answers based on the current app. Rechec
 
 - App access: All features are available without login or special access.
 - Ads: No ads.
-- Privacy policy: Host `docs/privacy-policy.md` at a public URL after replacing `TODO_SUPPORT_EMAIL`.
+- Privacy policy: `https://github.com/ibsam588-lgtm/garden-ninja/blob/main/docs/privacy-policy.md`
 - Data safety: No data collected and no data shared.
 - Data deletion: Not applicable while there is no account system and no collected user data.
 - Target audience: 13+ recommended for the first public release.
