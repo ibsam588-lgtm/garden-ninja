@@ -86,7 +86,7 @@ class SliceShard {
   final double spin;
   final double cutAngle;
   final bool keepPositiveSide;
-  double life = 0.72;
+  double life = 0.56;
 }
 
 class FloatingBurst {
@@ -114,6 +114,35 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const double _worldWidth = 390;
   static const double _worldHeight = 844;
   static const double _gardenDamageLineY = _worldHeight - 106;
+  static const double _minSlashSegment = 7;
+  static const int _maxSlashTrails = 22;
+  static const int _maxSliceShards = 20;
+  static const List<String> _weedAssets = [
+    'assets/images/sprites/weed_spike.png',
+    'assets/images/sprites/weed_vine.png',
+    'assets/images/sprites/weed_leaf.png',
+    'assets/images/sprites/weed_thorn_sprout.png',
+    'assets/images/sprites/weed_vine_gobbler.png',
+    'assets/images/sprites/weed_bramble_bulb.png',
+    'assets/images/sprites/weed_seed_chomper.png',
+  ];
+  static const List<String> _flowerAssets = [
+    'assets/images/sprites/flower_daisy.png',
+    'assets/images/sprites/flower_shield.png',
+    'assets/images/sprites/pink_blossom_plant.png',
+    'assets/images/sprites/blue_bell_bloom.png',
+    'assets/images/sprites/cherry_blossom_sapling.png',
+    'assets/images/sprites/pink_blossom_bush.png',
+  ];
+  static const List<String> _gardenPatchAssets = [
+    'assets/images/sprites/flower_shield.png',
+    'assets/images/sprites/pink_blossom_plant.png',
+    'assets/images/sprites/cherry_blossom_sapling.png',
+  ];
+  static const List<String> _avatarAssets = [
+    'assets/images/sprites/avatar_male.png',
+    'assets/images/sprites/avatar_female.png',
+  ];
   static const List<String> _backgrounds = [
     'assets/images/backgrounds/garden_playfield.png',
     'assets/images/backgrounds/bamboo_dawn.png',
@@ -156,6 +185,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int _waterCharges = 3;
   int _iceCharges = 2;
   int _rewardSeeds = 0;
+  int _selectedAvatar = 0;
   bool _lastRunWon = false;
   double _spawnTimer = 0;
   double _timeLeft = 60;
@@ -164,12 +194,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   double _flowerPenaltyCooldown = 0;
   double _gardenDamageFlash = 0;
   double _gardenDamageCooldown = 0;
+  double _motionTime = 0;
   Offset? _lastSlashPoint;
 
   int get _goalWeeds => 18 + (_level * 4);
 
   String get _currentBackground =>
       _backgrounds[(_level - 1) % _backgrounds.length];
+
+  String get _currentAvatar => _avatarAssets[_selectedAvatar];
 
   String _formatNumber(int value) {
     final String text = value.toString();
@@ -202,17 +235,25 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
 
     final double dt =
-        (elapsed - _lastElapsed).inMicroseconds /
-        Duration.microsecondsPerSecond;
+        ((elapsed - _lastElapsed).inMicroseconds /
+                Duration.microsecondsPerSecond)
+            .clamp(0.0, 0.05)
+            .toDouble();
     _lastElapsed = elapsed;
 
-    if (_phase != GamePhase.playing) {
+    if (_phase == GamePhase.playing) {
+      setState(() {
+        _motionTime += dt;
+        _step(dt);
+      });
       return;
     }
 
-    setState(() {
-      _step(dt.clamp(0.0, 0.05).toDouble());
-    });
+    if (_phase == GamePhase.home) {
+      setState(() {
+        _motionTime += dt;
+      });
+    }
   }
 
   void _startRun({bool restartLevel = false}) {
@@ -264,7 +305,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       target.walkPhase += dt * (target.type == TargetType.weed ? 8.5 : 2.2);
 
       if (target.type == TargetType.weed) {
-        target.angle = sin(target.walkPhase * 0.85) * 0.055;
+        target.angle =
+            sin(target.walkPhase * 1.15) * 0.075 +
+            cos(target.walkPhase * 0.52) * 0.025;
         target.position += target.velocity * dt * speedScale;
       } else if (target.type != TargetType.flower) {
         target.angle += target.spin * dt * speedScale;
@@ -330,22 +373,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
     if (roll < 0.64) {
       type = TargetType.weed;
-      final weeds = <String>[
-        'assets/images/sprites/weed_spike.png',
-        'assets/images/sprites/weed_vine.png',
-        'assets/images/sprites/weed_leaf.png',
-      ];
-      asset = weeds[_random.nextInt(weeds.length)];
+      asset = _weedAssets[_random.nextInt(_weedAssets.length)];
       size = 70 + _random.nextDouble() * 20;
       radius = size * 0.4;
       cutsRequired = _weedCutCountFor(asset);
     } else if (roll < 0.82) {
       type = TargetType.flower;
-      final flowers = <String>[
-        'assets/images/sprites/flower_daisy.png',
-        'assets/images/sprites/flower_shield.png',
-      ];
-      asset = flowers[_random.nextInt(flowers.length)];
+      asset = _flowerAssets[_random.nextInt(_flowerAssets.length)];
       size = 76 + _random.nextDouble() * 20;
       radius = size * 0.42;
       _flowersSaved += 1;
@@ -391,10 +425,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   int _weedCutCountFor(String asset) {
-    if (asset.contains('weed_vine')) {
+    if (asset.contains('weed_bramble_bulb')) {
+      return 4;
+    }
+    if (asset.contains('weed_vine_gobbler') || asset.contains('weed_vine')) {
       return 3;
     }
-    if (asset.contains('weed_leaf')) {
+    if (asset.contains('weed_leaf') || asset.contains('weed_thorn_sprout')) {
       return 2;
     }
     return _random.nextDouble() < 0.34 + min(_level, 5) * 0.05 ? 2 : 1;
@@ -405,7 +442,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       GardenTarget(
         id: _nextTargetId++,
         type: TargetType.weed,
-        asset: 'assets/images/sprites/weed_spike.png',
+        asset: 'assets/images/sprites/weed_thorn_sprout.png',
         position: const Offset(_worldWidth / 2, 315),
         velocity: Offset(8.0 + _level, 24.0 + _level * 2),
         size: 82,
@@ -418,7 +455,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       GardenTarget(
         id: _nextTargetId++,
         type: TargetType.flower,
-        asset: 'assets/images/sprites/flower_shield.png',
+        asset: 'assets/images/sprites/pink_blossom_plant.png',
         position: const Offset(92, 560),
         velocity: Offset.zero,
         size: 78,
@@ -436,10 +473,23 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
 
     final Offset world = _toWorld(localPosition, size);
-    final Offset start = _lastSlashPoint ?? world;
-    _slashes.add(SlashTrail(start, world, 1));
+    if (!_isSlashInPlayArea(world)) {
+      _lastSlashPoint = world;
+      return;
+    }
+
+    final Offset? previous = _lastSlashPoint;
+    final Offset start = previous ?? world;
+    if (previous != null && (world - start).distance < _minSlashSegment) {
+      return;
+    }
+
+    _slashes.add(SlashTrail(start, world, previous == null ? 0.45 : 0.65));
+    if (_slashes.length > _maxSlashTrails) {
+      _slashes.removeRange(0, _slashes.length - _maxSlashTrails);
+    }
     _lastSlashPoint = world;
-    _checkHits(world, world - start);
+    _checkHits(start, world);
   }
 
   void _endSlash() {
@@ -453,15 +503,41 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
   }
 
-  void _checkHits(Offset point, Offset direction) {
+  bool _isSlashInPlayArea(Offset point) {
+    return point.dy > 82 && point.dy < _worldHeight - 104;
+  }
+
+  void _checkHits(Offset start, Offset end) {
+    final Offset direction = end - start;
+    int hitCount = 0;
     for (final target in List<GardenTarget>.from(_targets)) {
       if (target.cooldown > 0) {
         continue;
       }
-      if ((target.position - point).distance <= target.radius) {
+      if (_distanceToSegment(target.position, start, end) <= target.radius) {
         _hitTarget(target, direction);
+        hitCount += 1;
+        if (_phase != GamePhase.playing || hitCount >= 3) {
+          break;
+        }
       }
     }
+  }
+
+  double _distanceToSegment(Offset point, Offset start, Offset end) {
+    final Offset segment = end - start;
+    final double lengthSquared = segment.distanceSquared;
+    if (lengthSquared <= 0.001) {
+      return (point - end).distance;
+    }
+
+    final double projection =
+        (((point.dx - start.dx) * segment.dx) +
+            ((point.dy - start.dy) * segment.dy)) /
+        lengthSquared;
+    final double t = projection.clamp(0.0, 1.0).toDouble();
+    final Offset closest = start + segment * t;
+    return (point - closest).distance;
   }
 
   void _hitTarget(GardenTarget target, Offset direction) {
@@ -527,6 +603,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   void _spawnSliceShards(GardenTarget target, Offset direction) {
+    if (_shards.length > _maxSliceShards - 2) {
+      _shards.removeRange(0, _shards.length - (_maxSliceShards - 2));
+    }
+
     final Offset slash = _safeDirection(direction);
     final Offset normal = Offset(-slash.dy, slash.dx);
     final double cutAngle = atan2(slash.dy, slash.dx);
@@ -665,6 +745,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     });
   }
 
+  void _selectAvatar(int index) {
+    setState(() {
+      _selectedAvatar = index.clamp(0, _avatarAssets.length - 1).toInt();
+    });
+  }
+
   void _buyCharge(String kind, int cost) {
     if (_seeds < cost) {
       return;
@@ -782,6 +868,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             3,
             (index) => _GardenPatch(
               index: index,
+              asset: _gardenPatchAssets[index % _gardenPatchAssets.length],
               damaged: index < _gardenDamage,
               active: _gardenDamageFlash > 0 && index == _gardenDamage - 1,
             ),
@@ -822,10 +909,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       children: [
         Image.asset(
           useSplash
-              ? 'assets/images/splash/garden_ninja_key_art.png'
+              ? 'assets/images/splash/home_garden_path.png'
               : _currentBackground,
           fit: BoxFit.cover,
-          alignment: useSplash ? Alignment.centerRight : Alignment.topCenter,
+          alignment: Alignment.topCenter,
         ),
         DecoratedBox(
           decoration: BoxDecoration(
@@ -834,15 +921,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               end: Alignment.bottomCenter,
               colors: useSplash
                   ? const [
-                      Color(0x77041507),
-                      Color(0x33041507),
-                      Color(0xDD06190B),
+                      Color(0x11FFFFFF),
+                      Color(0x00000000),
+                      Color(0x220B2A0D),
+                      Color(0x6607190B),
                     ]
                   : const [
                       Color(0x5511290D),
                       Color(0x0011290D),
                       Color(0x8811290D),
                     ],
+              stops: useSplash ? const [0, 0.34, 0.7, 1] : null,
             ),
           ),
         ),
@@ -888,68 +977,114 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final double pulse =
         1 + (flowerCooling ? sin(target.cooldown * 18) * 0.08 : 0);
     final bool isWeed = target.type == TargetType.weed;
+    final bool weedCooling = isWeed && target.cooldown > 0;
+    final double hitPulse = weedCooling
+        ? 1 + sin(target.cooldown * 42).abs() * 0.12
+        : 1;
     final double walkBob = isWeed ? sin(target.walkPhase) * 4 : 0;
+    final double walkHop = isWeed ? -sin(target.walkPhase * 2).abs() * 2.4 : 0;
+    final double walkSide = isWeed ? cos(target.walkPhase * 0.75) * 2.5 : 0;
     final double walkLean = isWeed ? target.angle : 0;
     final double walkSquash = isWeed
-        ? 1 + sin(target.walkPhase * 2) * 0.035
+        ? 1 + sin(target.walkPhase * 2.2) * 0.05
         : 1;
 
     return Positioned(
       key: ValueKey('target-${target.id}'),
       left: left,
-      top: top + walkBob,
+      top: top,
       width: pixelSize,
       height: pixelSize,
-      child: Transform.rotate(
-        angle: walkLean,
+      child: Transform.translate(
+        offset: Offset(walkSide, walkBob + walkHop),
         child: Transform.scale(
-          scaleX: walkSquash,
-          scaleY: pulse / walkSquash,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (target.type == TargetType.flower)
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFB6F2FF).withValues(alpha: 0.5),
-                        blurRadius: 22,
-                        spreadRadius: 6,
-                      ),
-                    ],
-                  ),
-                ),
-              _buildTargetImage(target),
-              if (isWeed && target.maxCuts > 1)
-                Positioned(
-                  left: pixelSize * 0.2,
-                  right: pixelSize * 0.2,
-                  top: 0,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      target.maxCuts,
-                      (index) => Container(
-                        width: 7,
-                        height: 7,
-                        margin: const EdgeInsets.symmetric(horizontal: 1.4),
-                        decoration: BoxDecoration(
-                          color: index < target.cutsRemaining
-                              ? const Color(0xFFFFE66B)
-                              : const Color(0x88412713),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: const Color(0xFF3B260C),
-                            width: 1,
+          scale: hitPulse,
+          child: Transform.rotate(
+            angle: walkLean,
+            child: Transform.scale(
+              scaleX: walkSquash,
+              scaleY: pulse / walkSquash,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (isWeed)
+                    Positioned(
+                      left: pixelSize * 0.2,
+                      right: pixelSize * 0.2,
+                      bottom: pixelSize * 0.06,
+                      height: pixelSize * 0.12,
+                      child: Transform.scale(
+                        scaleX: 1.1 + sin(target.walkPhase * 2).abs() * 0.16,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: const Color(0x66081507),
+                            borderRadius: BorderRadius.circular(999),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-            ],
+                  if (target.type == TargetType.flower)
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFFB6F2FF,
+                            ).withValues(alpha: 0.5),
+                            blurRadius: 22,
+                            spreadRadius: 6,
+                          ),
+                        ],
+                      ),
+                    ),
+                  _buildTargetImage(target),
+                  if (isWeed && target.maxCuts > 1)
+                    Positioned(
+                      left: pixelSize * 0.2,
+                      right: pixelSize * 0.2,
+                      top: 0,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            target.maxCuts,
+                            (index) => Container(
+                              width: 7,
+                              height: 7,
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 1.4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: index < target.cutsRemaining
+                                    ? const Color(0xFFFFE66B)
+                                    : const Color(0x88412713),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFF3B260C),
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (weedCooling)
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xAAEEFF79),
+                          width: 3,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -1141,23 +1276,33 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget _buildHomeContent() {
+    final double t = _motionTime;
+    final double logoBob = sin(t * 1.35) * 3.0;
+    final double playPulse = 1 + sin(t * 2.6) * 0.028;
+    final double mascotBob = sin(t * 2.05) * 5.0;
+    final double weedBob = sin(t * 2.8 + 0.7) * 4.0;
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        Positioned(left: 18, right: 18, top: 16, child: _buildHomeTopBar()),
+        ..._buildHomeAtmosphere(t),
+        Positioned(left: 18, right: 18, top: 14, child: _buildHomeTopBar()),
         Positioned(
-          left: 12,
-          right: 12,
-          top: 76,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: SizedBox(width: 356, child: _buildHomeLogo()),
+          left: 8,
+          right: 8,
+          top: 76 + logoBob,
+          child: Transform.scale(
+            scale: 1 + sin(t * 1.1) * 0.01,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: SizedBox(width: 374, child: _buildHomeLogo()),
+            ),
           ),
         ),
-        const Positioned(
+        Positioned(
           left: 16,
           right: 16,
-          top: 278,
+          top: 284,
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: SizedBox(
@@ -1165,20 +1310,26 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _HomeFeature(
+                  _AnimatedHomeFeature(
                     icon: Icons.shield_rounded,
                     label: 'Protect',
                     detail: 'plants',
+                    phase: t,
+                    delay: 0,
                   ),
-                  _HomeFeature(
+                  _AnimatedHomeFeature(
                     icon: Icons.cut_rounded,
                     label: 'Slash',
                     detail: 'weeds',
+                    phase: t,
+                    delay: 0.6,
                   ),
-                  _HomeFeature(
+                  _AnimatedHomeFeature(
                     icon: Icons.auto_awesome_rounded,
                     label: 'Power',
                     detail: 'ups',
+                    phase: t,
+                    delay: 1.2,
                   ),
                 ],
               ),
@@ -1188,11 +1339,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         Positioned(
           left: 56,
           right: 56,
-          top: 365,
+          top: 374,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xDD143A16),
+              color: const Color(0xE0153B17),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFFBDEB78), width: 2),
               boxShadow: const [
@@ -1218,33 +1369,39 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         ),
         Positioned(
           right: -6,
-          bottom: 134,
-          child: Image.asset(
-            'assets/images/sprites/ninja_mascot.png',
-            width: 146,
-            height: 176,
-            fit: BoxFit.contain,
-          ),
-        ),
-        Positioned(
-          right: 14,
-          top: 338,
-          child: Image.asset(
-            'assets/images/sprites/weed_leaf.png',
-            width: 76,
-            height: 84,
-            fit: BoxFit.contain,
-          ),
-        ),
-        Positioned(
-          left: 14,
-          top: 430,
+          bottom: 134 + mascotBob,
           child: Transform.rotate(
-            angle: -0.16,
+            angle: sin(t * 1.9) * 0.025,
+            child: Image.asset(
+              _currentAvatar,
+              width: 151,
+              height: 182,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+        Positioned(
+          right: -8,
+          top: 356 + weedBob,
+          child: Transform.rotate(
+            angle: sin(t * 3.1) * 0.08,
+            child: Image.asset(
+              'assets/images/sprites/weed_leaf.png',
+              width: 64,
+              height: 72,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+        Positioned(
+          left: 18,
+          top: 438 + sin(t * 2.2 + 1.4) * 3,
+          child: Transform.rotate(
+            angle: -0.16 + sin(t * 2.5) * 0.025,
             child: Image.asset(
               'assets/images/sprites/weed_spike.png',
-              width: 76,
-              height: 84,
+              width: 72,
+              height: 80,
               fit: BoxFit.contain,
             ),
           ),
@@ -1252,11 +1409,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         Positioned(
           left: 26,
           right: 26,
-          top: 424,
-          child: _PrimaryButton(
-            label: 'PLAY',
-            icon: Icons.play_arrow_rounded,
-            onPressed: () => _startRun(restartLevel: true),
+          top: 462,
+          child: Transform.scale(
+            scale: playPulse,
+            child: _PrimaryButton(
+              label: 'PLAY',
+              icon: Icons.play_arrow_rounded,
+              onPressed: () => _startRun(restartLevel: true),
+            ),
           ),
         ),
         Positioned(
@@ -1268,26 +1428,32 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               Row(
                 children: [
                   Expanded(
-                    child: _MenuTile(
+                    child: _AnimatedHomeMenuTile(
                       icon: Icons.task_alt_rounded,
                       label: 'Missions',
                       onTap: _openUpgrades,
+                      phase: t,
+                      delay: 0,
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: _MenuTile(
+                    child: _AnimatedHomeMenuTile(
                       icon: Icons.storefront_rounded,
                       label: 'Shop',
                       onTap: _openUpgrades,
+                      phase: t,
+                      delay: 0.5,
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: _MenuTile(
+                    child: _AnimatedHomeMenuTile(
                       icon: Icons.local_florist_rounded,
                       label: 'Garden',
                       onTap: _openUpgrades,
+                      phase: t,
+                      delay: 1.0,
                     ),
                   ),
                 ],
@@ -1299,6 +1465,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   _CurrencyChip(
                     asset: 'assets/images/icons/seed_coin.png',
                     value: _formatNumber(_seeds),
+                    showPlus: true,
                   ),
                   const SizedBox(width: 8),
                   _CurrencyChip(
@@ -1312,6 +1479,58 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         ),
       ],
     );
+  }
+
+  List<Widget> _buildHomeAtmosphere(double t) {
+    const specs = [
+      (x: 28.0, y: 232.0, size: 18.0, delay: 0.0),
+      (x: 342.0, y: 242.0, size: 15.0, delay: 1.0),
+      (x: 78.0, y: 612.0, size: 14.0, delay: 2.1),
+      (x: 318.0, y: 644.0, size: 17.0, delay: 3.0),
+      (x: 210.0, y: 404.0, size: 12.0, delay: 4.0),
+    ];
+
+    return [
+      for (final spec in specs)
+        Positioned(
+          left: spec.x + sin(t * 0.85 + spec.delay) * 7,
+          top: spec.y + ((t * 18 + spec.delay * 23) % 36) - 18,
+          child: IgnorePointer(
+            child: Opacity(
+              opacity: 0.35 + sin(t * 1.3 + spec.delay).abs() * 0.28,
+              child: Transform.rotate(
+                angle: t * 0.8 + spec.delay,
+                child: Icon(
+                  Icons.eco_rounded,
+                  color: const Color(0xFFDFFF8A),
+                  size: spec.size,
+                  shadows: const [
+                    Shadow(color: Color(0xAA245710), blurRadius: 5),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      Positioned(
+        left: 16,
+        right: 16,
+        top: 92,
+        height: 170,
+        child: IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                colors: [
+                  Colors.white.withValues(alpha: 0.28),
+                  Colors.white.withValues(alpha: 0),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ];
   }
 
   Widget _buildHomeTopBar() {
@@ -1329,6 +1548,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             _CurrencyChip(
               asset: 'assets/images/icons/seed_coin.png',
               value: _formatNumber(_seeds),
+              showPlus: true,
             ),
             const SizedBox(width: 8),
             _CurrencyChip(
@@ -1342,53 +1562,97 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget _buildHomeLogo() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const _OutlinedTitle(
-          text: 'Garden',
-          size: 68,
-          fill: Color(0xFF8EE242),
-          stroke: Color(0xFF17310F),
-          strokeWidth: 7,
-        ),
-        Transform.translate(
-          offset: const Offset(0, -12),
-          child: const _OutlinedTitle(
-            text: 'NINJA',
-            size: 64,
-            fill: Color(0xFFF7F8F2),
-            stroke: Color(0xFF17310F),
-            strokeWidth: 7,
-          ),
-        ),
-        Transform.translate(
-          offset: const Offset(0, -18),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE9B334),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF55370E), width: 2),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0xAA2D1908),
-                  blurRadius: 0,
-                  offset: Offset(0, 3),
-                ),
-              ],
-            ),
-            child: const Text(
-              'PLANT SLASH',
-              style: TextStyle(
-                color: Color(0xFF55370E),
-                fontWeight: FontWeight.w900,
-                fontSize: 17,
+    return SizedBox(
+      height: 190,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 24,
+            top: 76,
+            child: Transform.rotate(
+              angle: -0.12,
+              child: Image.asset(
+                'assets/images/sprites/blue_bell_bloom.png',
+                width: 54,
+                height: 54,
+                fit: BoxFit.contain,
               ),
             ),
           ),
-        ),
-      ],
+          Positioned(
+            right: 28,
+            top: 78,
+            child: Transform.rotate(
+              angle: 0.14,
+              child: Image.asset(
+                'assets/images/sprites/pink_blossom_plant.png',
+                width: 52,
+                height: 52,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const _OutlinedTitle(
+                  text: 'Garden',
+                  size: 76,
+                  fill: Color(0xFF9AF044),
+                  stroke: Color(0xFF17310F),
+                  strokeWidth: 8,
+                ),
+                Transform.translate(
+                  offset: const Offset(0, -14),
+                  child: const _OutlinedTitle(
+                    text: 'NINJA',
+                    size: 72,
+                    fill: Color(0xFFF9FAF3),
+                    stroke: Color(0xFF17310F),
+                    strokeWidth: 8,
+                  ),
+                ),
+                Transform.translate(
+                  offset: const Offset(0, -20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFB937),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF55370E),
+                        width: 2,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0xAA2D1908),
+                          blurRadius: 0,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Text(
+                      'PLANT SLASH',
+                      style: TextStyle(
+                        color: Color(0xFF55370E),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1585,6 +1849,34 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _UpgradeTile(
+                        asset: _avatarAssets[0],
+                        title: 'Male Ninja',
+                        body: 'Leaf hero',
+                        status: _selectedAvatar == 0 ? 'Equipped' : 'Choose',
+                        onTap: _selectedAvatar == 0
+                            ? null
+                            : () => _selectAvatar(0),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _UpgradeTile(
+                        asset: _avatarAssets[1],
+                        title: 'Female Ninja',
+                        body: 'Bloom hero',
+                        status: _selectedAvatar == 1 ? 'Equipped' : 'Choose',
+                        onTap: _selectedAvatar == 1
+                            ? null
+                            : () => _selectAvatar(1),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 18),
                 Container(
                   padding: const EdgeInsets.all(14),
@@ -1599,7 +1891,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   child: Row(
                     children: [
                       Image.asset(
-                        'assets/images/sprites/ninja_mascot.png',
+                        _currentAvatar,
                         width: 96,
                         height: 118,
                         fit: BoxFit.contain,
@@ -1818,83 +2110,104 @@ class _PrimaryButton extends StatelessWidget {
     return SizedBox(
       key: ValueKey('primary-$label'),
       width: double.infinity,
-      height: label == 'PLAY' ? 74 : 58,
+      height: label == 'PLAY' ? 82 : 58,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onPressed,
-        child: DecoratedBox(
+        child: Container(
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFB7F75B), Color(0xFF5FBB2D), Color(0xFF3F8F1F)],
-            ),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFF5D65E), width: 3),
             boxShadow: const [
               BoxShadow(
-                color: Color(0xFF68400D),
+                color: Color(0xFF7A4B0E),
                 blurRadius: 0,
-                offset: Offset(0, 5),
+                offset: Offset(0, 6),
               ),
               BoxShadow(
                 color: Color(0x88000000),
-                blurRadius: 14,
-                offset: Offset(0, 8),
+                blurRadius: 16,
+                offset: Offset(0, 9),
               ),
             ],
           ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (label == 'PLAY') ...[
-                const Positioned(
-                  left: 22,
-                  top: 19,
-                  child: Icon(
-                    Icons.spa_rounded,
-                    color: Color(0xBBE8FF9A),
-                    size: 32,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFD8FF63),
+                  Color(0xFF7FE339),
+                  Color(0xFF42A622),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFFFD760), width: 3.5),
+            ),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Positioned(
+                  left: 10,
+                  right: 10,
+                  top: 7,
+                  height: 20,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
-                const Positioned(
-                  right: 22,
-                  top: 19,
-                  child: Icon(
-                    Icons.eco_rounded,
-                    color: Color(0xBBE8FF9A),
-                    size: 32,
+                if (label == 'PLAY') ...[
+                  const Positioned(
+                    left: 22,
+                    top: 23,
+                    child: Icon(
+                      Icons.spa_rounded,
+                      color: Color(0xBBE8FF9A),
+                      size: 32,
+                    ),
+                  ),
+                  const Positioned(
+                    right: 22,
+                    top: 23,
+                    child: Icon(
+                      Icons.eco_rounded,
+                      color: Color(0xBBE8FF9A),
+                      size: 32,
+                    ),
+                  ),
+                ],
+                Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon, color: Colors.white, size: 34),
+                        const SizedBox(width: 10),
+                        Text(
+                          label,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: label == 'PLAY' ? 38 : 25,
+                            fontWeight: FontWeight.w900,
+                            shadows: const [
+                              Shadow(
+                                color: Color(0xAA17310F),
+                                blurRadius: 2,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
-              Center(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, color: Colors.white, size: 34),
-                      const SizedBox(width: 10),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: label == 'PLAY' ? 34 : 25,
-                          fontWeight: FontWeight.w900,
-                          shadows: const [
-                            Shadow(
-                              color: Color(0xAA17310F),
-                              blurRadius: 2,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1997,43 +2310,80 @@ class _HomeFeature extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 102,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+      height: 92,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xDDF8F0CB),
+        color: const Color(0xF7FFFDF2),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF5FA12A), width: 2),
+        border: Border.all(color: const Color(0xFF88C83E), width: 2),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x6614280A),
+            color: Color(0x661C420F),
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+          BoxShadow(
+            color: Color(0x99FFFFFF),
             blurRadius: 8,
-            offset: Offset(0, 4),
+            offset: Offset(0, -2),
           ),
         ],
       ),
-      child: Column(
-        children: [
-          Icon(icon, color: const Color(0xFF2B721E), size: 27),
-          const SizedBox(height: 3),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: const Color(0xFF58A91F), size: 29),
+            const SizedBox(height: 4),
+            Text(
               label.toUpperCase(),
               style: const TextStyle(
                 color: Color(0xFF245D18),
-                fontSize: 11,
+                fontSize: 12.5,
                 fontWeight: FontWeight.w900,
+                height: 1,
               ),
             ),
-          ),
-          Text(
-            detail,
-            style: const TextStyle(
-              color: Color(0xFF315C24),
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
+            Text(
+              detail,
+              style: const TextStyle(
+                color: Color(0xFF315C24),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                height: 1.05,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AnimatedHomeFeature extends StatelessWidget {
+  const _AnimatedHomeFeature({
+    required this.icon,
+    required this.label,
+    required this.detail,
+    required this.phase,
+    required this.delay,
+  });
+
+  final IconData icon;
+  final String label;
+  final String detail;
+  final double phase;
+  final double delay;
+
+  @override
+  Widget build(BuildContext context) {
+    final double float = sin(phase * 1.7 + delay) * 3;
+    return Transform.translate(
+      offset: Offset(0, float),
+      child: Transform.scale(
+        scale: 1 + sin(phase * 1.35 + delay).abs() * 0.018,
+        child: _HomeFeature(icon: icon, label: label, detail: detail),
       ),
     );
   }
@@ -2042,11 +2392,13 @@ class _HomeFeature extends StatelessWidget {
 class _GardenPatch extends StatelessWidget {
   const _GardenPatch({
     required this.index,
+    required this.asset,
     required this.damaged,
     required this.active,
   });
 
   final int index;
+  final String asset;
   final bool damaged;
   final bool active;
 
@@ -2112,9 +2464,7 @@ class _GardenPatch extends StatelessWidget {
                     child: Opacity(
                       opacity: damaged ? 0.58 : 1,
                       child: Image.asset(
-                        damaged
-                            ? 'assets/images/sprites/flower_daisy.png'
-                            : 'assets/images/sprites/flower_shield.png',
+                        asset,
                         width: damaged ? 42 : 50,
                         height: damaged ? 50 : 58,
                         fit: BoxFit.contain,
@@ -2187,31 +2537,79 @@ class _MenuTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        height: 68,
+        height: 76,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xDD6B431C),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFB67A35), Color(0xFF6D421C)],
+          ),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFF1CF7E), width: 2),
+          border: Border.all(color: const Color(0xFFF6D584), width: 2.5),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0xAA3A220C),
+              blurRadius: 0,
+              offset: Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Color(0x66000000),
+              blurRadius: 9,
+              offset: Offset(0, 5),
+            ),
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: const Color(0xFFFFE8A2), size: 24),
-            const SizedBox(height: 2),
+            Icon(icon, color: const Color(0xFFFFF3C2), size: 27),
+            const SizedBox(height: 3),
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                label,
+                label.toUpperCase(),
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  shadows: [
+                    Shadow(
+                      color: Color(0xAA1E1005),
+                      blurRadius: 3,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
                 ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AnimatedHomeMenuTile extends StatelessWidget {
+  const _AnimatedHomeMenuTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.phase,
+    required this.delay,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final double phase;
+  final double delay;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(
+      offset: Offset(0, sin(phase * 1.45 + delay) * 2),
+      child: _MenuTile(icon: icon, label: label, onTap: onTap),
     );
   }
 }
@@ -2366,10 +2764,15 @@ class _PowerButton extends StatelessWidget {
 }
 
 class _CurrencyChip extends StatelessWidget {
-  const _CurrencyChip({required this.asset, required this.value});
+  const _CurrencyChip({
+    required this.asset,
+    required this.value,
+    this.showPlus = false,
+  });
 
   final String asset;
   final String value;
+  final bool showPlus;
 
   @override
   Widget build(BuildContext context) {
@@ -2392,6 +2795,15 @@ class _CurrencyChip extends StatelessWidget {
               fontWeight: FontWeight.w900,
             ),
           ),
+          if (showPlus) ...[
+            const SizedBox(width: 5),
+            const Icon(
+              Icons.add_circle,
+              color: Color(0xFF9FFF45),
+              size: 21,
+              shadows: [Shadow(color: Color(0xAA17330D), blurRadius: 3)],
+            ),
+          ],
         ],
       ),
     );
