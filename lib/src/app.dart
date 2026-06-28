@@ -298,11 +298,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _gardenDamageFlash = max(0, _gardenDamageFlash - dt * 2.4);
     _gardenDamageCooldown = max(0, _gardenDamageCooldown - dt);
 
-    final double speedScale = _iceTime > 0 ? 0.35 : 1;
+    final bool iceActive = _iceTime > 0;
+    final double speedScale = iceActive ? 0.08 : 1;
+    final double animationScale = iceActive ? 0.18 : 1;
     for (final target in List<GardenTarget>.from(_targets)) {
       target.cooldown = max(0, target.cooldown - dt);
       target.splitAmount = max(0, target.splitAmount - dt * 2.8);
-      target.walkPhase += dt * (target.type == TargetType.weed ? 8.5 : 2.2);
+      target.walkPhase +=
+          dt * (target.type == TargetType.weed ? 8.5 : 2.2) * animationScale;
 
       if (target.type == TargetType.weed) {
         target.angle =
@@ -332,7 +335,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       }
     }
 
-    _spawnTimer -= dt;
+    _spawnTimer -= dt * (iceActive ? 0.3 : 1);
     if (_spawnTimer <= 0 && _targets.length < 7 + min(_level, 3)) {
       _spawnTarget();
       _spawnTimer =
@@ -699,10 +702,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
     setState(() {
       _iceCharges -= 1;
-      _iceTime = 5;
+      _iceTime = max(_iceTime, 6.5);
       _addBurst(
         const Offset(_worldWidth / 2, 220),
-        'Frozen',
+        'Freeze!',
         const Color(0xFF8EF5FF),
       );
     });
@@ -977,6 +980,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final double pulse =
         1 + (flowerCooling ? sin(target.cooldown * 18) * 0.08 : 0);
     final bool isWeed = target.type == TargetType.weed;
+    final bool isFrozen =
+        _iceTime > 0 &&
+        target.type != TargetType.flower &&
+        target.type != TargetType.reward;
     final bool weedCooling = isWeed && target.cooldown > 0;
     final double hitPulse = weedCooling
         ? 1 + sin(target.cooldown * 42).abs() * 0.12
@@ -1038,7 +1045,63 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                         ],
                       ),
                     ),
-                  _buildTargetImage(target),
+                  ColorFiltered(
+                    colorFilter: isFrozen
+                        ? const ColorFilter.mode(
+                            Color(0xFFBDEFFF),
+                            BlendMode.modulate,
+                          )
+                        : const ColorFilter.mode(
+                            Colors.white,
+                            BlendMode.modulate,
+                          ),
+                    child: _buildTargetImage(target),
+                  ),
+                  if (isFrozen)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xAA8EF5FF),
+                              width: 3,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(
+                                  0xFF8EF5FF,
+                                ).withValues(alpha: 0.42),
+                                blurRadius: 20,
+                                spreadRadius: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (isFrozen)
+                    Positioned(
+                      right: 0,
+                      top: 4,
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: const Color(0xEE163E4D),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFFBDF8FF),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.ac_unit_rounded,
+                          color: Color(0xFFBDF8FF),
+                          size: 15,
+                        ),
+                      ),
+                    ),
                   if (isWeed && target.maxCuts > 1)
                     Positioned(
                       left: pixelSize * 0.2,
@@ -1253,7 +1316,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           Expanded(
             child: _PowerButton(
               asset: 'assets/images/icons/ice_freeze.png',
-              label: 'Ice',
+              label: _iceTime > 0 ? 'Ice ${_iceTime.ceil()}s' : 'Ice',
               count: _iceCharges,
               active: _iceTime > 0,
               onTap: _activateIce,
