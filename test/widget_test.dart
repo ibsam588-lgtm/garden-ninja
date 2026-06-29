@@ -152,8 +152,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
     await tester.pump(const Duration(milliseconds: 160));
 
-    expect(find.text('MY GARDEN'), findsOneWidget);
-    expect(find.text('Daily Water'), findsOneWidget);
+    expect(find.textContaining('MY GARDEN'), findsOneWidget);
+    expect(find.text('Pick a plant, tap an empty plot'), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-plant-option-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-tool-clear')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('garden-tool-clear')));
@@ -161,20 +162,51 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('player-garden-plot-8')));
     await tester.pump(const Duration(milliseconds: 160));
 
-    expect(find.text('+18 seeds, weed cleared'), findsOneWidget);
+    expect(find.text('+18 seeds, tap plot to plant'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('garden-tool-plant')));
     await tester.pump(const Duration(milliseconds: 80));
-    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
-    await tester.pump(const Duration(milliseconds: 160));
-
-    expect(find.text('Seed planted'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('garden-tool-water')));
+    await tester.tap(find.byKey(const ValueKey('garden-plant-option-2')));
     await tester.pump(const Duration(milliseconds: 80));
     await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
     await tester.pump(const Duration(milliseconds: 160));
 
-    expect(find.text('Daily Water'), findsOneWidget);
+    expect(find.text('Pink Bloom planted: +150 pts'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.text('Watered Pink Bloom'), findsOneWidget);
+  });
+
+  testWidgets('garden plants harvest into points and weeds stay capped', (
+    tester,
+  ) async {
+    await pumpGardenNinja(tester);
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.text('Weed!'), findsNWidgets(2));
+
+    await tester.pump(const Duration(seconds: 90));
+    expect(find.text('Weed!'), findsNWidgets(2));
+
+    await tester.tap(find.byKey(const ValueKey('garden-plant-option-0')));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.pump(const Duration(milliseconds: 120));
+
+    for (var i = 0; i < 3; i += 1) {
+      await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+      await tester.pump(const Duration(milliseconds: 120));
+    }
+
+    expect(find.text('Daisy ready: +80 pts'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.text('+80 pts, +46 seeds'), findsOneWidget);
   });
 }
