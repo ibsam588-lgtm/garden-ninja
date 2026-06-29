@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class GardenNinjaApp extends StatelessWidget {
   const GardenNinjaApp({super.key});
@@ -30,7 +32,7 @@ enum TargetType { weed, flower, bonus, reward }
 
 enum TutorialStep { slashWeed, avoidFlowers, toughWeed, useIce, frozenSlash }
 
-enum GardenTool { water, plant, clear, harvest }
+enum GardenTool { plant, water, clear, sun }
 
 class MusicTrack {
   const MusicTrack({
@@ -50,12 +52,18 @@ class GardenPlantOption {
     required this.asset,
     required this.seedCost,
     required this.points,
+    required this.seedReward,
+    required this.growDuration,
+    required this.role,
   });
 
   final String name;
   final String asset;
   final int seedCost;
   final int points;
+  final int seedReward;
+  final Duration growDuration;
+  final String role;
 }
 
 class GardenTarget {
@@ -98,6 +106,9 @@ class PlayerGardenPlot {
     required this.unlockLevel,
     this.asset,
     this.plantIndex,
+    this.plantedAt,
+    this.readyAt,
+    this.lastWateredDay,
     this.growth = 0,
     this.weed = false,
     this.watered = false,
@@ -109,6 +120,9 @@ class PlayerGardenPlot {
   final int unlockLevel;
   String? asset;
   int? plantIndex;
+  DateTime? plantedAt;
+  DateTime? readyAt;
+  String? lastWateredDay;
   double growth;
   bool weed;
   bool watered;
@@ -194,6 +208,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const int _maxSliceShards = 20;
   static const Duration _minSfxGap = Duration(milliseconds: 42);
   static const Duration _sameSfxGap = Duration(milliseconds: 82);
+  static const String _gardenSaveKey = 'garden_ninja_garden_v2';
+  static const int _dailyWaterGrant = 3;
+  static const int _dailySunGrant = 1;
   static const List<String> _weedAssets = [
     'assets/images/sprites/weed_spike.png',
     'assets/images/sprites/weed_vine.png',
@@ -222,36 +239,54 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       asset: 'assets/images/sprites/flower_daisy.png',
       seedCost: 40,
       points: 80,
+      seedReward: 46,
+      growDuration: Duration(hours: 4),
+      role: 'Quick bloom',
     ),
     GardenPlantOption(
       name: 'Blue Bell',
       asset: 'assets/images/sprites/blue_bell_bloom.png',
       seedCost: 55,
       points: 110,
+      seedReward: 62,
+      growDuration: Duration(hours: 8),
+      role: '+1 water',
     ),
     GardenPlantOption(
       name: 'Pink Bloom',
       asset: 'assets/images/sprites/pink_blossom_plant.png',
       seedCost: 75,
       points: 150,
+      seedReward: 82,
+      growDuration: Duration(hours: 12),
+      role: 'Balanced',
     ),
     GardenPlantOption(
       name: 'Cherry',
       asset: 'assets/images/sprites/cherry_blossom_sapling.png',
       seedCost: 95,
       points: 200,
+      seedReward: 110,
+      growDuration: Duration(hours: 20),
+      role: '+1 sun',
     ),
     GardenPlantOption(
       name: 'Blossom Bush',
       asset: 'assets/images/sprites/pink_blossom_bush.png',
       seedCost: 120,
       points: 260,
+      seedReward: 135,
+      growDuration: Duration(hours: 24),
+      role: 'Big harvest',
     ),
     GardenPlantOption(
       name: 'Shield Flower',
       asset: 'assets/images/sprites/flower_shield.png',
       seedCost: 100,
       points: 230,
+      seedReward: 120,
+      growDuration: Duration(hours: 18),
+      role: 'Blocks weeds',
     ),
   ];
   static const List<String> _playerGardenWeedAssets = [
@@ -391,6 +426,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   late final Ticker _ticker;
   late final AudioPlayer _musicPlayer;
   late final TransformationController _gardenMapController;
+  SharedPreferences? _prefs;
   final Map<String, AudioPool> _sfxPools = {};
   final AudioContext _musicAudioContext = AudioContextConfig(
     focus: AudioContextConfigFocus.gain,
@@ -428,6 +464,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int _selectedAvatar = 0;
   int _selectedMusicTrack = 0;
   int _selectedGardenPlant = 0;
+  int _gardenLoginStreak = 1;
   bool _lastRunWon = false;
   bool _musicEnabled = true;
   bool _sfxEnabled = true;
@@ -435,6 +472,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   bool _musicStartQueued = false;
   bool _tutorialMode = false;
   bool _tutorialMistake = false;
+  bool _gardenSaveLoaded = false;
   TutorialStep _tutorialStep = TutorialStep.slashWeed;
   double _spawnTimer = 0;
   double _timeLeft = 60;
@@ -448,6 +486,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   double _motionTime = 0;
   Offset? _lastSlashPoint;
   String _gardenMessage = 'Pick a plant, tap an empty plot';
+  String? _gardenLastLoginDay;
 
   int get _goalWeeds => 18 + (_level * 4);
 
@@ -470,16 +509,216 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     return buffer.toString();
   }
 
+  DateTime get _gardenNow => DateTime.now();
+
+  String _dayKey(DateTime date) {
+    String two(int value) => value.toString().padLeft(2, '0');
+    return '${date.year}-${two(date.month)}-${two(date.day)}';
+  }
+
+  String _durationLabel(Duration duration) {
+    if (duration.isNegative || duration.inSeconds <= 0) {
+      return 'Ready';
+    }
+    if (duration.inDays >= 1) {
+      final int hours = duration.inHours % 24;
+      return hours == 0
+          ? '${duration.inDays}d'
+          : '${duration.inDays}d ${hours}h';
+    }
+    if (duration.inHours >= 1) {
+      final int minutes = duration.inMinutes % 60;
+      return minutes == 0
+          ? '${duration.inHours}h'
+          : '${duration.inHours}h ${minutes}m';
+    }
+    return '${max(1, duration.inMinutes)}m';
+  }
+
+  Future<void> _loadGardenSave() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? raw = prefs.getString(_gardenSaveKey);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _prefs = prefs;
+      if (raw != null) {
+        try {
+          final Object? decoded = jsonDecode(raw);
+          if (decoded is Map<String, dynamic>) {
+            _applyGardenSave(decoded);
+          }
+        } catch (_) {
+          // Bad local save data should never block the Garden from opening.
+        }
+      }
+      _gardenSaveLoaded = true;
+      _refreshAllGardenPlots(_gardenNow);
+      _syncDailyGarden(_gardenNow, announce: false);
+    });
+    _queueGardenSave();
+  }
+
+  void _applyGardenSave(Map<String, dynamic> data) {
+    _seeds = (data['seeds'] as num?)?.toInt() ?? _seeds;
+    _waterCharges = (data['waterCharges'] as num?)?.toInt() ?? _waterCharges;
+    _sunDrops = (data['sunDrops'] as num?)?.toInt() ?? _sunDrops;
+    _gardenPoints = (data['gardenPoints'] as num?)?.toInt() ?? _gardenPoints;
+    _gardenLevel = (data['gardenLevel'] as num?)?.toInt() ?? _gardenLevel;
+    _gardenHarvests =
+        (data['gardenHarvests'] as num?)?.toInt() ?? _gardenHarvests;
+    _selectedGardenPlant =
+        (data['selectedGardenPlant'] as num?)?.toInt() ?? _selectedGardenPlant;
+    _gardenLoginStreak =
+        (data['gardenLoginStreak'] as num?)?.toInt() ?? _gardenLoginStreak;
+    _gardenLastLoginDay = data['gardenLastLoginDay'] as String?;
+
+    final Object? plots = data['plots'];
+    if (plots is List) {
+      for (final Object? rawPlot in plots) {
+        if (rawPlot is! Map<String, dynamic>) {
+          continue;
+        }
+        final int? id = (rawPlot['id'] as num?)?.toInt();
+        if (id == null || id < 0 || id >= _playerGardenPlots.length) {
+          continue;
+        }
+        final PlayerGardenPlot plot = _playerGardenPlots[id];
+        final int? plantIndex = (rawPlot['plantIndex'] as num?)?.toInt();
+        if (plantIndex == null) {
+          plot.asset = null;
+          plot.plantIndex = null;
+          plot.plantedAt = null;
+          plot.readyAt = null;
+          plot.lastWateredDay = null;
+          plot.growth = 0;
+          plot.watered = false;
+        } else {
+          final GardenPlantOption option = _gardenPlantOptionAt(plantIndex);
+          plot.asset = option.asset;
+          plot.plantIndex = plantIndex;
+          plot.plantedAt = _dateFromMs(rawPlot['plantedAt']);
+          plot.readyAt = _dateFromMs(rawPlot['readyAt']);
+          plot.lastWateredDay = rawPlot['lastWateredDay'] as String?;
+          plot.growth = ((rawPlot['growth'] as num?)?.toDouble() ?? plot.growth)
+              .clamp(0.0, 1.0);
+          plot.watered = rawPlot['watered'] == true;
+        }
+        plot.weed = rawPlot['weed'] == true;
+        plot.sparkle = 0;
+      }
+    }
+  }
+
+  DateTime? _dateFromMs(Object? value) {
+    if (value is num) {
+      return DateTime.fromMillisecondsSinceEpoch(value.toInt());
+    }
+    return null;
+  }
+
+  Map<String, dynamic> _gardenSavePayload() {
+    return {
+      'version': 2,
+      'seeds': _seeds,
+      'waterCharges': _waterCharges,
+      'sunDrops': _sunDrops,
+      'gardenPoints': _gardenPoints,
+      'gardenLevel': _gardenLevel,
+      'gardenHarvests': _gardenHarvests,
+      'selectedGardenPlant': _selectedGardenPlant,
+      'gardenLoginStreak': _gardenLoginStreak,
+      'gardenLastLoginDay': _gardenLastLoginDay,
+      'plots': [
+        for (final plot in _playerGardenPlots)
+          {
+            'id': plot.id,
+            'plantIndex': plot.plantIndex,
+            'plantedAt': plot.plantedAt?.millisecondsSinceEpoch,
+            'readyAt': plot.readyAt?.millisecondsSinceEpoch,
+            'lastWateredDay': plot.lastWateredDay,
+            'growth': plot.growth,
+            'watered': plot.watered,
+            'weed': plot.weed,
+          },
+      ],
+    };
+  }
+
+  void _queueGardenSave() {
+    final SharedPreferences? prefs = _prefs;
+    if (prefs == null || !_gardenSaveLoaded) {
+      return;
+    }
+    unawaited(
+      prefs.setString(_gardenSaveKey, jsonEncode(_gardenSavePayload())),
+    );
+  }
+
+  void _syncDailyGarden(DateTime now, {required bool announce}) {
+    final String today = _dayKey(now);
+    if (_gardenLastLoginDay == today) {
+      return;
+    }
+
+    final String? previousDay = _gardenLastLoginDay;
+    final bool continuedStreak =
+        previousDay == _dayKey(now.subtract(const Duration(days: 1)));
+    _gardenLoginStreak = previousDay == null || continuedStreak
+        ? _gardenLoginStreak + (previousDay == null ? 0 : 1)
+        : 1;
+    _gardenLastLoginDay = today;
+    _waterCharges = min(12, _waterCharges + _dailyWaterGrant);
+    _sunDrops = min(12, _sunDrops + _dailySunGrant);
+
+    for (final plot in _playerGardenPlots) {
+      if (plot.planted) {
+        plot.watered = plot.lastWateredDay == today;
+      }
+    }
+
+    if (previousDay != null) {
+      _spawnNeglectWeeds();
+    }
+    if (announce) {
+      _gardenMessage =
+          'Daily supplies: +$_dailyWaterGrant water, +$_dailySunGrant sun';
+      _gardenMessageLife = 3.0;
+    }
+    _queueGardenSave();
+  }
+
+  void _spawnNeglectWeeds() {
+    final int shieldCount = _playerGardenPlots
+        .where(
+          (plot) =>
+              plot.planted &&
+              plot.plantIndex != null &&
+              _gardenPlantOptionAt(plot.plantIndex!).name == 'Shield Flower',
+        )
+        .length;
+    final int targetWeeds = max(0, _maxGardenWeeds - (shieldCount > 0 ? 1 : 0));
+    for (int i = 0; i < targetWeeds; i += 1) {
+      if (_activeGardenWeeds >= targetWeeds || _random.nextDouble() >= 0.55) {
+        break;
+      }
+      _spawnPlayerGardenWeed(showMessage: false);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _musicPlayer = AudioPlayer(playerId: 'garden-ninja-music');
     _gardenMapController = TransformationController(
-      Matrix4.translationValues(-185.0, -260.0, 0.0),
+      Matrix4.translationValues(-120.0, -200.0, 0.0),
     );
     _ticker = createTicker(_tick)..start();
     _primeAudio();
+    unawaited(_loadGardenSave());
   }
 
   @override
@@ -1424,12 +1663,18 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void _openGarden() {
     _ensureMusicStarted();
     setState(() {
+      final DateTime now = _gardenNow;
+      _syncDailyGarden(now, announce: true);
+      _refreshAllGardenPlots(now);
       _phase = GamePhase.garden;
       _gardenTool = GardenTool.plant;
-      _gardenMessage = 'Pick a plant, tap an empty plot';
-      _gardenMessageLife = 2.4;
+      if (_gardenMessageLife <= 0) {
+        _gardenMessage = 'Pick a plant, tap an empty plot';
+        _gardenMessageLife = 2.4;
+      }
       _gardenWeedTimer = max(_gardenWeedTimer, 12);
     });
+    _queueGardenSave();
     unawaited(_musicPlayer.setVolume(0.3));
   }
 
@@ -1474,23 +1719,81 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   int _gardenSeedRewardFor(GardenPlantOption option) {
-    final int reward = (option.points * 0.45).round();
-    return reward < 24 ? 24 : reward;
+    return option.seedReward;
+  }
+
+  bool _isWateredToday(PlayerGardenPlot plot, DateTime now) {
+    return plot.lastWateredDay == _dayKey(now);
+  }
+
+  void _refreshAllGardenPlots(DateTime now) {
+    for (final plot in _playerGardenPlots) {
+      _refreshGardenPlot(plot, now);
+    }
+  }
+
+  void _refreshGardenPlot(PlayerGardenPlot plot, DateTime now) {
+    if (!plot.planted) {
+      plot.growth = 0;
+      plot.watered = false;
+      plot.plantedAt = null;
+      plot.readyAt = null;
+      plot.lastWateredDay = null;
+      return;
+    }
+
+    final GardenPlantOption option = _plantOptionForPlot(plot);
+    plot.plantedAt ??= now.subtract(
+      Duration(
+        milliseconds: (option.growDuration.inMilliseconds * plot.growth)
+            .round(),
+      ),
+    );
+    plot.readyAt ??= plot.plantedAt!.add(option.growDuration);
+    plot.watered = _isWateredToday(plot, now);
+
+    final int totalMs = max(1, option.growDuration.inMilliseconds);
+    final int remainingMs = plot.readyAt!.difference(now).inMilliseconds;
+    final double progress = (1 - (remainingMs / totalMs)).clamp(0.08, 1.0);
+    plot.growth = plot.watered || progress < 0.92
+        ? progress
+        : min(progress, 0.92);
+  }
+
+  Duration _remainingGardenTime(PlayerGardenPlot plot, DateTime now) {
+    final DateTime? readyAt = plot.readyAt;
+    if (readyAt == null) {
+      return Duration.zero;
+    }
+    return readyAt.difference(now);
+  }
+
+  String _gardenPlotStatus(PlayerGardenPlot plot, DateTime now) {
+    if (plot.weed) {
+      return 'Weed!';
+    }
+    if (!plot.planted) {
+      return 'Plant';
+    }
+    final GardenPlantOption option = _plantOptionForPlot(plot);
+    if (plot.ready) {
+      return '+${option.points} pts';
+    }
+    if (!_isWateredToday(plot, now)) {
+      return 'Water';
+    }
+    return _durationLabel(_remainingGardenTime(plot, now));
   }
 
   void _stepPlayerGarden(double dt) {
+    final DateTime now = _gardenNow;
+    _syncDailyGarden(now, announce: false);
+    _refreshAllGardenPlots(now);
     _gardenMessageLife = max(0, _gardenMessageLife - dt);
     _gardenWeedTimer -= dt;
 
     for (final plot in _playerGardenPlots) {
       plot.sparkle = max(0, plot.sparkle - dt * 1.8);
-      if (_isGardenPlotUnlocked(plot) &&
-          plot.planted &&
-          plot.watered &&
-          !plot.weed &&
-          plot.growth < 1) {
-        plot.growth = min(1, plot.growth + dt * 0.012);
-      }
     }
 
     if (_gardenWeedTimer <= 0) {
@@ -1501,7 +1804,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
   }
 
-  void _spawnPlayerGardenWeed() {
+  void _spawnPlayerGardenWeed({bool showMessage = true}) {
     if (_activeGardenWeeds >= _maxGardenWeeds) {
       return;
     }
@@ -1522,8 +1825,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final plot = candidates[_random.nextInt(candidates.length)];
     plot.weed = true;
     plot.sparkle = 1;
-    _gardenMessage = 'Weed popped up!';
-    _gardenMessageLife = 2.2;
+    if (showMessage) {
+      _gardenMessage = 'Weed popped up!';
+      _gardenMessageLife = 2.2;
+    }
+    _queueGardenSave();
   }
 
   void _selectGardenTool(GardenTool tool) {
@@ -1531,10 +1837,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     setState(() {
       _gardenTool = tool;
       _gardenMessage = switch (tool) {
-        GardenTool.water => 'Tap growing plants to water',
         GardenTool.plant => 'Pick a plant, tap an empty plot',
+        GardenTool.water => 'Tap growing plants to water',
         GardenTool.clear => 'Tap weeds to clear',
-        GardenTool.harvest => 'Tap ready plants for points',
+        GardenTool.sun => 'Tap growing plants for sun boost',
       };
       _gardenMessageLife = 2.1;
     });
@@ -1548,9 +1854,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           .toInt();
       _gardenTool = GardenTool.plant;
       final GardenPlantOption option = _selectedGardenPlantOption;
-      _gardenMessage = '${option.name}: tap an empty plot';
+      _gardenMessage =
+          '${option.name}: ${_durationLabel(option.growDuration)} grow';
       _gardenMessageLife = 2.2;
     });
+    _queueGardenSave();
   }
 
   void _handleGardenPlotTap(PlayerGardenPlot plot) {
@@ -1572,8 +1880,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _harvestGardenPlot(plot);
         return;
       }
+      if (_gardenTool == GardenTool.sun) {
+        _sunGardenPlot(plot);
+        return;
+      }
       _waterGardenPlot(plot);
     });
+    _queueGardenSave();
   }
 
   void _tryExpandGarden() {
@@ -1593,6 +1906,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _gardenMessage = 'New garden land unlocked!';
     _gardenMessageLife = 2.6;
     _playSfx(_sfxComboSpark, volume: 0.62);
+    _queueGardenSave();
   }
 
   void _plantGardenPlot(PlayerGardenPlot plot) {
@@ -1619,17 +1933,24 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
 
     _seeds -= seedCost;
+    final DateTime now = _gardenNow;
     plot.asset = option.asset;
     plot.plantIndex = _selectedGardenPlant;
-    plot.growth = 0.18;
+    plot.plantedAt = now;
+    plot.readyAt = now.add(option.growDuration);
+    plot.lastWateredDay = null;
+    plot.growth = 0.08;
     plot.watered = false;
     plot.sparkle = 1;
-    _gardenMessage = '${option.name} planted: +${option.points} pts';
+    _gardenMessage =
+        '${option.name} planted: ready in ${_durationLabel(option.growDuration)}';
     _gardenMessageLife = 2.0;
     _playSfx(_sfxCrispLeaf, volume: 0.48);
   }
 
   void _waterGardenPlot(PlayerGardenPlot plot) {
+    final DateTime now = _gardenNow;
+    _refreshGardenPlot(plot, now);
     if (plot.weed) {
       _gardenMessage = 'Clear the weed first';
       _gardenMessageLife = 2.0;
@@ -1646,6 +1967,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _gardenMessageLife = 2.0;
       return;
     }
+    if (_isWateredToday(plot, now)) {
+      _gardenMessage =
+          'Already watered. Ready in ${_durationLabel(_remainingGardenTime(plot, now))}';
+      _gardenMessageLife = 2.0;
+      return;
+    }
 
     if (_waterCharges > 0) {
       _waterCharges -= 1;
@@ -1657,15 +1984,67 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return;
     }
 
-    plot.watered = true;
-    plot.growth = min(1, plot.growth + 0.34);
-    plot.sparkle = 1;
     final GardenPlantOption option = _plantOptionForPlot(plot);
+    plot.lastWateredDay = _dayKey(now);
+    plot.watered = true;
+    plot.readyAt = plot.readyAt?.subtract(
+      Duration(
+        milliseconds: (option.growDuration.inMilliseconds * 0.12).round(),
+      ),
+    );
+    _refreshGardenPlot(plot, now);
+    plot.sparkle = 1;
     _gardenMessage = plot.ready
         ? '${option.name} ready: +${option.points} pts'
-        : 'Watered ${option.name}';
+        : 'Watered ${option.name}. Ready in ${_durationLabel(_remainingGardenTime(plot, now))}';
     _gardenMessageLife = 2.1;
     _playSfx(_sfxComboSpark, volume: 0.5);
+  }
+
+  void _sunGardenPlot(PlayerGardenPlot plot) {
+    final DateTime now = _gardenNow;
+    _refreshGardenPlot(plot, now);
+    if (plot.weed) {
+      _gardenMessage = 'Clear the weed first';
+      _gardenMessageLife = 2.0;
+      return;
+    }
+    if (!plot.planted) {
+      _gardenMessage = 'Plant seeds here first';
+      _gardenMessageLife = 2.0;
+      return;
+    }
+    if (plot.ready) {
+      final GardenPlantOption option = _plantOptionForPlot(plot);
+      _gardenMessage = 'Tap to harvest +${option.points} pts';
+      _gardenMessageLife = 2.0;
+      return;
+    }
+    if (!_isWateredToday(plot, now)) {
+      _gardenMessage = 'Water before using sun';
+      _gardenMessageLife = 2.0;
+      return;
+    }
+    if (_sunDrops <= 0) {
+      _gardenMessage = 'Need sun drops';
+      _gardenMessageLife = 2.0;
+      return;
+    }
+
+    final GardenPlantOption option = _plantOptionForPlot(plot);
+    _sunDrops -= 1;
+    plot.readyAt = plot.readyAt?.subtract(
+      Duration(
+        milliseconds: (option.growDuration.inMilliseconds * 0.22).round(),
+      ),
+    );
+    _refreshGardenPlot(plot, now);
+    plot.sparkle = 1;
+    _gardenMessage = plot.ready
+        ? '${option.name} ready: +${option.points} pts'
+        : 'Sun boost: ready in ${_durationLabel(_remainingGardenTime(plot, now))}';
+    _gardenMessageLife = 2.2;
+    _playSfx(_sfxComboSpark, volume: 0.56);
   }
 
   void _clearGardenWeed(PlayerGardenPlot plot) {
@@ -1700,16 +2079,26 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final GardenPlantOption option = _plantOptionForPlot(plot);
     final int pointReward = option.points + ((plot.unlockLevel - 1) * 35);
     final int seedReward =
-        _gardenSeedRewardFor(option) + (plot.unlockLevel * 10);
+        _gardenSeedRewardFor(option) + ((plot.unlockLevel - 1) * 10);
     _gardenPoints += pointReward;
     _score += pointReward;
     _seeds += seedReward;
+    if (option.name == 'Blue Bell') {
+      _waterCharges = min(12, _waterCharges + 1);
+    } else if (option.name == 'Cherry') {
+      _sunDrops = min(12, _sunDrops + 1);
+    } else if (option.name == 'Shield Flower') {
+      _gardenWeedTimer += 18;
+    }
     _gardenHarvests += 1;
     if (_gardenHarvests % 2 == 0) {
       _sunDrops += 1;
     }
     plot.asset = null;
     plot.plantIndex = null;
+    plot.plantedAt = null;
+    plot.readyAt = null;
+    plot.lastWateredDay = null;
     plot.growth = 0;
     plot.watered = false;
     plot.sparkle = 1;
@@ -3036,29 +3425,28 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             Positioned(
               left: 0,
               right: 0,
-              top: 64,
-              bottom: 92,
+              top: 122,
+              bottom: 206,
               child: _buildScrollableGardenMap(),
             ),
             _buildGardenTopHud(),
-            Positioned(right: 12, top: 78, child: _buildGardenExpandBadge()),
+            Positioned(right: 12, top: 112, child: _buildGardenExpandBadge()),
             if (_gardenMessageLife > 0)
               Positioned(
                 left: 54,
                 right: 54,
-                top: 124,
+                top: 162,
                 child: Opacity(
                   opacity: _gardenMessageLife.clamp(0.0, 1.0),
                   child: _GardenToast(message: _gardenMessage),
                 ),
               ),
-            if (_gardenTool == GardenTool.plant)
-              Positioned(
-                left: 12,
-                right: 12,
-                bottom: 94,
-                child: _buildGardenPlantPicker(),
-              ),
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 94,
+              child: _buildGardenPlantPicker(),
+            ),
             Positioned(
               left: 12,
               right: 12,
@@ -3124,12 +3512,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget _buildGardenPlot(PlayerGardenPlot plot) {
+    final DateTime now = _gardenNow;
+    _refreshGardenPlot(plot, now);
     final bool unlocked = _isGardenPlotUnlocked(plot);
     final String weedAsset =
         _playerGardenWeedAssets[plot.id % _playerGardenWeedAssets.length];
-    final GardenPlantOption? plantOption = plot.planted
-        ? _plantOptionForPlot(plot)
-        : null;
+    final String status = _gardenPlotStatus(plot, now);
     final double pulse = 1 + sin(_motionTime * 3.2 + plot.id).abs() * 0.035;
     final double sparkle = plot.sparkle.clamp(0.0, 1.0);
     final double plantScale = switch (plot.growthStage) {
@@ -3194,62 +3582,26 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 else if (!plot.planted)
                   Positioned(
                     top: 23,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Image.asset(
-                          _selectedGardenPlantOption.asset,
-                          width: 42,
-                          height: 42,
-                          filterQuality: FilterQuality.medium,
-                        ),
-                        const SizedBox(height: 1),
-                        const _GardenTinyBadge(
-                          text: 'Plant',
-                          color: Color(0xEE2C701F),
-                          borderColor: Color(0xFFDAFF91),
-                        ),
-                      ],
+                    child: Image.asset(
+                      _selectedGardenPlantOption.asset,
+                      width: 46,
+                      height: 46,
+                      filterQuality: FilterQuality.medium,
                     ),
                   )
                 else
                   Positioned(
-                    top: 8 + (1 - plantScale) * 30,
+                    bottom: 41,
                     child: Transform.scale(
+                      alignment: Alignment.bottomCenter,
                       scale: plantScale,
                       child: Image.asset(
                         plot.asset!,
-                        width: 72,
-                        height: 76,
+                        width: 78,
+                        height: 82,
                         fit: BoxFit.contain,
                         filterQuality: FilterQuality.medium,
                       ),
-                    ),
-                  ),
-                if (plantOption != null && unlocked && !plot.weed)
-                  Positioned(
-                    top: plot.ready ? -9 : 2,
-                    left: 16,
-                    child: _GardenTinyBadge(
-                      text: '+${plantOption.points} pts',
-                      color: plot.ready
-                          ? const Color(0xEEF0A51A)
-                          : const Color(0xEE2E6D24),
-                      borderColor: const Color(0xFFFFFFAA),
-                    ),
-                  ),
-                if (plot.planted &&
-                    unlocked &&
-                    !plot.weed &&
-                    !plot.ready &&
-                    !plot.watered)
-                  const Positioned(
-                    top: 4,
-                    right: 13,
-                    child: _GardenTinyBadge(
-                      text: 'Water',
-                      color: Color(0xEE1D6C85),
-                      borderColor: Color(0xFFC8F7FF),
                     ),
                   ),
                 if (plot.weed && unlocked)
@@ -3274,10 +3626,24 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                       size: 21,
                     ),
                   ),
-                if (plot.weed && unlocked)
-                  const Positioned(
+                if (unlocked)
+                  Positioned(
                     top: -10,
-                    child: _GardenTinyBadge(text: 'Weed!'),
+                    child: _GardenTinyBadge(
+                      text: status,
+                      color: plot.weed
+                          ? const Color(0xEE67221D)
+                          : plot.ready
+                          ? const Color(0xEEF0A51A)
+                          : !plot.planted
+                          ? const Color(0xEE2C701F)
+                          : !plot.watered
+                          ? const Color(0xEE1D6C85)
+                          : const Color(0xEE2E6D24),
+                      borderColor: plot.watered && !plot.ready && !plot.weed
+                          ? const Color(0xFFE4FFAA)
+                          : const Color(0xFFFFD36A),
+                    ),
                   ),
                 if (plot.planted && unlocked)
                   Positioned(
@@ -3348,68 +3714,101 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       left: 10,
       right: 10,
       top: 10,
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _RoundIconButton(icon: Icons.arrow_back_rounded, onPressed: _goHome),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Container(
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xDD143A18),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF9FE866), width: 1.8),
+          Row(
+            children: [
+              _RoundIconButton(
+                icon: Icons.arrow_back_rounded,
+                onPressed: _goHome,
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FittedBox(
-                      alignment: Alignment.centerLeft,
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        'MY GARDEN  ${_formatNumber(_gardenPoints)} pts',
-                        maxLines: 1,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w900,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xDD143A18),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFF9FE866),
+                      width: 1.8,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: FittedBox(
+                          alignment: Alignment.centerLeft,
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'MY GARDEN  ${_formatNumber(_gardenPoints)} pts',
+                            maxLines: 1,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 19,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xAA2C5F1E),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '$unlockedPlots/${_playerGardenPlots.length}',
-                      style: const TextStyle(
-                        color: Color(0xFFDDF9A6),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xAA2C5F1E),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '$unlockedPlots/${_playerGardenPlots.length}',
+                          style: const TextStyle(
+                            color: Color(0xFFDDF9A6),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(width: 8),
-          _GardenResourcePill(
-            asset: 'assets/images/icons/seed_coin.png',
-            value: _formatNumber(_seeds),
-          ),
-          const SizedBox(width: 6),
-          _GardenResourcePill(
-            asset: 'assets/images/icons/water_drop.png',
-            value: '$_waterCharges',
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: _GardenStatChip(
+                  asset: 'assets/images/icons/seed_coin.png',
+                  value: _formatNumber(_seeds),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _GardenStatChip(
+                  asset: 'assets/images/icons/water_drop.png',
+                  value: '$_waterCharges',
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _GardenStatChip(
+                  asset: 'assets/images/icons/sun_boost.png',
+                  value: '$_sunDrops',
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _GardenStatChip(
+                  icon: Icons.local_fire_department_rounded,
+                  value: '${_gardenLoginStreak}d',
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -3513,11 +3912,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           const SizedBox(width: 7),
           Expanded(
             child: _GardenToolButton(
-              key: const ValueKey('garden-tool-harvest'),
-              icon: Icons.local_florist_rounded,
-              label: 'Harvest',
-              selected: _gardenTool == GardenTool.harvest,
-              onTap: () => _selectGardenTool(GardenTool.harvest),
+              key: const ValueKey('garden-tool-sun'),
+              icon: Icons.wb_sunny_rounded,
+              label: 'Sun',
+              selected: _gardenTool == GardenTool.sun,
+              onTap: () => _selectGardenTool(GardenTool.sun),
             ),
           ),
         ],
@@ -4747,27 +5146,30 @@ class GardenCrackPainter extends CustomPainter {
   bool shouldRepaint(covariant GardenCrackPainter oldDelegate) => false;
 }
 
-class _GardenResourcePill extends StatelessWidget {
-  const _GardenResourcePill({required this.asset, required this.value});
+class _GardenStatChip extends StatelessWidget {
+  const _GardenStatChip({required this.value, this.asset, this.icon});
 
-  final String asset;
   final String value;
+  final String? asset;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 40,
-      constraints: const BoxConstraints(minWidth: 58, maxWidth: 92),
-      padding: const EdgeInsets.symmetric(horizontal: 7),
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
         color: const Color(0xDD193D16),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFF95D957), width: 1.5),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Image.asset(asset, width: 23, height: 23),
+          if (asset != null)
+            Image.asset(asset!, width: 20, height: 20)
+          else
+            Icon(icon, color: const Color(0xFFFFD36A), size: 19),
           const SizedBox(width: 4),
           Flexible(
             child: FittedBox(
@@ -4937,11 +5339,34 @@ class _GardenPlantOptionCard extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 1),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '${_staticDurationLabel(option.growDuration)} - ${option.role}',
+                maxLines: 1,
+                style: const TextStyle(
+                  color: Color(0xFF4B6E28),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+String _staticDurationLabel(Duration duration) {
+  if (duration.inDays >= 1) {
+    return '${duration.inDays}d';
+  }
+  if (duration.inHours >= 1) {
+    return '${duration.inHours}h';
+  }
+  return '${max(1, duration.inMinutes)}m';
 }
 
 class _GardenProgressBar extends StatelessWidget {

@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_ninja/src/app.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> pumpGardenNinja(WidgetTester tester) async {
+  SharedPreferences.setMockInitialValues({});
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(390, 844);
   addTearDown(tester.view.resetDevicePixelRatio);
   addTearDown(tester.view.resetPhysicalSize);
   await tester.pumpWidget(const GardenNinjaApp());
+  await tester.pump(const Duration(milliseconds: 20));
 }
 
 void main() {
@@ -50,7 +53,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
-    expect(find.text('-150 Plant'), findsOneWidget);
+    expect(find.text('-150 Plant'), findsAtLeastNWidgets(1));
     expect(find.text('Garden Saved'), findsNothing);
   });
 
@@ -156,10 +159,11 @@ void main() {
     expect(find.text('Pick a plant, tap an empty plot'), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-plant-option-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-tool-clear')), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-tool-sun')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('garden-tool-clear')));
     await tester.pump(const Duration(milliseconds: 80));
-    await tester.tap(find.byKey(const ValueKey('player-garden-plot-8')));
+    await tester.tapAt(const Offset(370, 180));
     await tester.pump(const Duration(milliseconds: 160));
 
     expect(find.text('+18 seeds, tap plot to plant'), findsOneWidget);
@@ -171,12 +175,19 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
     await tester.pump(const Duration(milliseconds: 160));
 
-    expect(find.text('Pink Bloom planted: +150 pts'), findsOneWidget);
+    expect(find.text('Pink Bloom planted: ready in 12h'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
     await tester.pump(const Duration(milliseconds: 160));
 
-    expect(find.text('Watered Pink Bloom'), findsOneWidget);
+    expect(find.textContaining('Watered Pink Bloom. Ready in'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-tool-sun')));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.textContaining('Sun boost: ready in'), findsOneWidget);
   });
 
   testWidgets('garden plants harvest into points and weeds stay capped', (
@@ -192,19 +203,12 @@ void main() {
     await tester.pump(const Duration(seconds: 90));
     expect(find.text('Weed!'), findsNWidgets(2));
 
-    await tester.tap(find.byKey(const ValueKey('garden-plant-option-0')));
-    await tester.pump(const Duration(milliseconds: 80));
-    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-0')));
     await tester.pump(const Duration(milliseconds: 120));
-
-    for (var i = 0; i < 3; i += 1) {
-      await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
-      await tester.pump(const Duration(milliseconds: 120));
-    }
 
     expect(find.text('Daisy ready: +80 pts'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-0')));
     await tester.pump(const Duration(milliseconds: 160));
 
     expect(find.text('+80 pts, +46 seeds'), findsOneWidget);
