@@ -106,4 +106,75 @@ void main() {
     expect(find.byKey(const ValueKey('target-1')), findsOneWidget);
     expect(find.byIcon(Icons.swipe_rounded), findsOneWidget);
   });
+
+  testWidgets('players can continue after a completed run', (tester) async {
+    await pumpGardenNinja(tester);
+
+    await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
+    await tester.pump(const Duration(milliseconds: 64));
+
+    var reachedResults = false;
+    for (var i = 0; i < 900 && !reachedResults; i += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+      reachedResults = find
+          .byKey(const ValueKey('primary-NEXT LEVEL'))
+          .evaluate()
+          .isNotEmpty;
+    }
+
+    expect(reachedResults, isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('primary-NEXT LEVEL')));
+    await tester.pump(const Duration(milliseconds: 120));
+
+    expect(find.text('SCORE'), findsOneWidget);
+    expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+  });
+
+  testWidgets('back on home asks before quitting', (tester) async {
+    await pumpGardenNinja(tester);
+
+    final dynamic widgetsAppState = tester.state(find.byType(WidgetsApp));
+    await widgetsAppState.didPopRoute();
+    await tester.pump(const Duration(milliseconds: 220));
+
+    expect(find.text('Quit Garden Ninja?'), findsOneWidget);
+
+    await tester.tap(find.text('Stay'));
+    await tester.pump(const Duration(milliseconds: 220));
+
+    expect(find.text('Quit Garden Ninja?'), findsNothing);
+  });
+
+  testWidgets('players can tend the larger garden', (tester) async {
+    await pumpGardenNinja(tester);
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.text('MY GARDEN'), findsOneWidget);
+    expect(find.text('Daily Water'), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-tool-clear')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-tool-clear')));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-8')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.text('+18 seeds, weed cleared'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-tool-plant')));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.text('Seed planted'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-tool-water')));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.text('Daily Water'), findsOneWidget);
+  });
 }
