@@ -2,9 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_ninja/src/app.dart';
 
+Future<void> pumpGardenNinja(WidgetTester tester) async {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = const Size(390, 844);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
+  await tester.pumpWidget(const GardenNinjaApp());
+}
+
 void main() {
   testWidgets('Garden Ninja shows home and can start play', (tester) async {
-    await tester.pumpWidget(const GardenNinjaApp());
+    await pumpGardenNinja(tester);
 
     expect(find.text('Garden'), findsAtLeastNWidgets(1));
     expect(find.text('NINJA'), findsAtLeastNWidgets(1));
@@ -47,7 +55,7 @@ void main() {
   });
 
   testWidgets('escaped weeds visibly damage the garden', (tester) async {
-    await tester.pumpWidget(const GardenNinjaApp());
+    await pumpGardenNinja(tester);
 
     await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
     await tester.pump(const Duration(milliseconds: 64));
@@ -66,7 +74,7 @@ void main() {
   });
 
   testWidgets('ice power visibly freezes active weeds', (tester) async {
-    await tester.pumpWidget(const GardenNinjaApp());
+    await pumpGardenNinja(tester);
 
     await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
     await tester.pump(const Duration(milliseconds: 64));
@@ -86,7 +94,7 @@ void main() {
   });
 
   testWidgets('new players can start the interactive tutorial', (tester) async {
-    await tester.pumpWidget(const GardenNinjaApp());
+    await pumpGardenNinja(tester);
 
     expect(find.text('Tutorial'), findsOneWidget);
 
