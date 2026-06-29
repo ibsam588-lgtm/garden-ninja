@@ -133,6 +133,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const double _minSlashSegment = 7;
   static const int _maxSlashTrails = 22;
   static const int _maxSliceShards = 20;
+  static const Duration _minSfxGap = Duration(milliseconds: 42);
+  static const Duration _sameSfxGap = Duration(milliseconds: 82);
   static const List<String> _weedAssets = [
     'assets/images/sprites/weed_spike.png',
     'assets/images/sprites/weed_vine.png',
@@ -206,6 +208,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const String _sfxWetVine = 'audio/sfx/wet_vine_chop.ogg';
   static const String _sfxComboSpark = 'audio/sfx/combo_spark_slash.ogg';
   static const String _sfxFrozenWeed = 'audio/sfx/frozen_weed_shatter.ogg';
+  static const List<String> _sfxAssets = [
+    _sfxCrispLeaf,
+    _sfxBambooBlade,
+    _sfxWetVine,
+    _sfxComboSpark,
+    _sfxFrozenWeed,
+  ];
 
   final Random _random = Random();
   final List<GardenTarget> _targets = [];
@@ -215,8 +224,18 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   late final Ticker _ticker;
   late final AudioPlayer _musicPlayer;
-  late final List<AudioPlayer> _sfxPlayers;
+  final Map<String, AudioPool> _sfxPools = {};
+  final AudioContext _musicAudioContext = AudioContextConfig(
+    focus: AudioContextConfigFocus.gain,
+    respectSilence: false,
+  ).build();
+  final AudioContext _sfxAudioContext = AudioContextConfig(
+    focus: AudioContextConfigFocus.mixWithOthers,
+    respectSilence: false,
+  ).build();
+  final Map<String, DateTime> _lastSfxPlayedAt = {};
   Duration _lastElapsed = Duration.zero;
+  DateTime _lastSfxPlayed = DateTime.fromMillisecondsSinceEpoch(0);
   GamePhase _phase = GamePhase.home;
   GamePhase _phaseBeforePause = GamePhase.home;
 
@@ -237,7 +256,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int _rewardSeeds = 0;
   int _selectedAvatar = 0;
   int _selectedMusicTrack = 0;
-  int _sfxCursor = 0;
   bool _lastRunWon = false;
   bool _musicEnabled = true;
   bool _sfxEnabled = true;
@@ -281,10 +299,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void initState() {
     super.initState();
     _musicPlayer = AudioPlayer(playerId: 'garden-ninja-music');
-    _sfxPlayers = List.generate(
-      4,
-      (index) => AudioPlayer(playerId: 'garden-ninja-sfx-$index'),
-    );
     _ticker = createTicker(_tick)..start();
     _primeAudio();
   }
@@ -293,25 +307,32 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void dispose() {
     _ticker.dispose();
     unawaited(_musicPlayer.dispose());
-    for (final player in _sfxPlayers) {
-      unawaited(player.dispose());
+    for (final pool in _sfxPools.values) {
+      unawaited(pool.dispose());
     }
     super.dispose();
   }
 
   Future<void> _primeAudio() async {
     try {
+      await _musicPlayer.setAudioContext(_musicAudioContext);
       await _musicPlayer.setReleaseMode(ReleaseMode.loop);
       await _musicPlayer.setVolume(0.42);
-      for (final player in _sfxPlayers) {
-        await player.setReleaseMode(ReleaseMode.stop);
-        await player.setPlayerMode(PlayerMode.lowLatency);
-        await player.setVolume(0.72);
-      }
       _audioReady = true;
       await _playSelectedMusic();
     } catch (_) {
       _musicStartQueued = true;
+    }
+
+    for (final asset in _sfxAssets) {
+      try {
+        _sfxPools[asset] = await AudioPool.create(
+          source: AssetSource(asset),
+          minPlayers: 1,
+          maxPlayers: 3,
+          audioContext: _sfxAudioContext,
+        );
+      } catch (_) {}
     }
   }
 
@@ -326,6 +347,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       await _musicPlayer.play(
         AssetSource(_currentMusicTrack.asset),
         volume: _phase == GamePhase.playing ? 0.46 : 0.34,
+        ctx: _musicAudioContext,
       );
       _audioReady = true;
       _musicStartQueued = false;
@@ -352,13 +374,25 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return;
     }
 
-    final AudioPlayer player = _sfxPlayers[_sfxCursor];
-    _sfxCursor = (_sfxCursor + 1) % _sfxPlayers.length;
+    final DateTime now = DateTime.now();
+    final DateTime? lastAssetPlay = _lastSfxPlayedAt[asset];
+    if (now.difference(_lastSfxPlayed) < _minSfxGap ||
+        (lastAssetPlay != null &&
+            now.difference(lastAssetPlay) < _sameSfxGap)) {
+      return;
+    }
+    _lastSfxPlayed = now;
+    _lastSfxPlayedAt[asset] = now;
+
+    final AudioPool? pool = _sfxPools[asset];
+    if (pool == null) {
+      return;
+    }
+
     unawaited(
       (() async {
         try {
-          await player.stop();
-          await player.play(AssetSource(asset), volume: volume);
+          await pool.start(volume: volume);
         } catch (_) {}
       })(),
     );
@@ -1228,37 +1262,47 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF102716),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF143C1B), Color(0xFF061B12)],
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final double width = min(
-                  constraints.maxWidth,
-                  constraints.maxHeight * (_worldWidth / _worldHeight),
-                );
-                final double height = width * (_worldHeight / _worldWidth);
-                return SizedBox(
+      resizeToAvoidBottomInset: false,
+      extendBody: true,
+      extendBodyBehindAppBar: true,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final Size viewport = constraints.biggest;
+          if (viewport.width <= 0 || viewport.height <= 0) {
+            return const SizedBox.shrink();
+          }
+
+          final double scale = max(
+            viewport.width / _worldWidth,
+            viewport.height / _worldHeight,
+          );
+          final double width = _worldWidth * scale;
+          final double height = _worldHeight * scale;
+
+          return DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF143C1B), Color(0xFF061B12)],
+              ),
+            ),
+            child: ClipRect(
+              child: OverflowBox(
+                alignment: Alignment.center,
+                minWidth: width,
+                maxWidth: width,
+                minHeight: height,
+                maxHeight: height,
+                child: SizedBox(
                   width: width,
                   height: height,
-                  child: LayoutBuilder(
-                    builder: (context, gameConstraints) {
-                      final Size size = gameConstraints.biggest;
-                      return _buildGameSurface(size);
-                    },
-                  ),
-                );
-              },
+                  child: _buildGameSurface(Size(width, height)),
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
