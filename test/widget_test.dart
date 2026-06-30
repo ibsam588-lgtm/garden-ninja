@@ -156,8 +156,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 160));
 
     expect(find.textContaining('MY GARDEN'), findsOneWidget);
-    expect(find.text('Pick a plant, tap an empty plot'), findsOneWidget);
-    expect(find.byKey(const ValueKey('garden-plant-option-0')), findsOneWidget);
+    expect(find.text('Tap empty plot to open nursery'), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-nursery-sheet')), findsNothing);
     expect(find.byKey(const ValueKey('garden-tool-clear')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-tool-sun')), findsOneWidget);
 
@@ -170,9 +170,14 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('garden-tool-plant')));
     await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.byKey(const ValueKey('garden-nursery-sheet')), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-plant-option-0')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('garden-plant-option-2')));
     await tester.pump(const Duration(milliseconds: 80));
-    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.tap(find.byKey(const ValueKey('garden-confirm-plant')));
     await tester.pump(const Duration(milliseconds: 160));
 
     expect(find.text('Pink Bloom planted: ready in 12h'), findsOneWidget);
@@ -190,7 +195,7 @@ void main() {
     expect(find.textContaining('Sun boost: ready in'), findsOneWidget);
   });
 
-  testWidgets('garden plants harvest into points and weeds stay capped', (
+  testWidgets('garden plants collect blooms and weeds stay capped', (
     tester,
   ) async {
     await pumpGardenNinja(tester);
@@ -206,11 +211,16 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('player-garden-plot-0')));
     await tester.pump(const Duration(milliseconds: 120));
 
-    expect(find.text('Daisy ready: +80 pts'), findsOneWidget);
+    expect(find.text('Daisy blooms ready'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('player-garden-plot-0')));
     await tester.pump(const Duration(milliseconds: 160));
 
-    expect(find.text('+80 pts, +46 seeds'), findsOneWidget);
+    expect(find.text('Collected blooms: +80 pts, +46 seeds'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-0')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.textContaining('Watered Daisy. Ready in'), findsOneWidget);
   });
 }

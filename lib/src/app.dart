@@ -277,7 +277,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       points: 260,
       seedReward: 135,
       growDuration: Duration(hours: 24),
-      role: 'Big harvest',
+      role: 'Big bloom',
     ),
     GardenPlantOption(
       name: 'Shield Flower',
@@ -464,6 +464,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int _selectedAvatar = 0;
   int _selectedMusicTrack = 0;
   int _selectedGardenPlant = 0;
+  int? _gardenNurseryPlotId;
   int _gardenLoginStreak = 1;
   bool _lastRunWon = false;
   bool _musicEnabled = true;
@@ -485,7 +486,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   double _gardenMessageLife = 0;
   double _motionTime = 0;
   Offset? _lastSlashPoint;
-  String _gardenMessage = 'Pick a plant, tap an empty plot';
+  String _gardenMessage = 'Tap empty plot to open nursery';
   String? _gardenLastLoginDay;
 
   int get _goalWeeds => 18 + (_level * 4);
@@ -1669,7 +1670,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _phase = GamePhase.garden;
       _gardenTool = GardenTool.plant;
       if (_gardenMessageLife <= 0) {
-        _gardenMessage = 'Pick a plant, tap an empty plot';
+        _gardenMessage = 'Tap empty plot to open nursery';
         _gardenMessageLife = 2.4;
       }
       _gardenWeedTimer = max(_gardenWeedTimer, 12);
@@ -1700,6 +1701,19 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   GardenPlantOption get _selectedGardenPlantOption =>
       _gardenPlantOptionAt(_selectedGardenPlant);
+
+  PlayerGardenPlot? get _gardenNurseryPlot {
+    final int? id = _gardenNurseryPlotId;
+    if (id == null) {
+      return null;
+    }
+    for (final plot in _playerGardenPlots) {
+      if (plot.id == id) {
+        return plot;
+      }
+    }
+    return null;
+  }
 
   GardenPlantOption _gardenPlantOptionAt(int index) {
     final int safeIndex = index
@@ -1775,9 +1789,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (!plot.planted) {
       return 'Plant';
     }
-    final GardenPlantOption option = _plantOptionForPlot(plot);
     if (plot.ready) {
-      return '+${option.points} pts';
+      return 'Blooms';
     }
     if (!_isWateredToday(plot, now)) {
       return 'Water';
@@ -1837,7 +1850,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     setState(() {
       _gardenTool = tool;
       _gardenMessage = switch (tool) {
-        GardenTool.plant => 'Pick a plant, tap an empty plot',
+        GardenTool.plant => 'Tap an empty plot to open nursery',
         GardenTool.water => 'Tap growing plants to water',
         GardenTool.clear => 'Tap weeds to clear',
         GardenTool.sun => 'Tap growing plants for sun boost',
@@ -1854,9 +1867,44 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           .toInt();
       _gardenTool = GardenTool.plant;
       final GardenPlantOption option = _selectedGardenPlantOption;
-      _gardenMessage =
-          '${option.name}: ${_durationLabel(option.growDuration)} grow';
+      _gardenMessage = _gardenNurseryPlotId == null
+          ? '${option.name}: tap an empty plot'
+          : '${option.name}: ready in ${_durationLabel(option.growDuration)}';
       _gardenMessageLife = 2.2;
+    });
+    _queueGardenSave();
+  }
+
+  void _openGardenNursery(PlayerGardenPlot plot) {
+    _gardenNurseryPlotId = plot.id;
+    _gardenTool = GardenTool.plant;
+    final GardenPlantOption option = _selectedGardenPlantOption;
+    _gardenMessage = 'Choose a plant for this plot';
+    _gardenMessageLife = 1.8;
+    _playSfx(_sfxCrispLeaf, volume: 0.38);
+    if (_seeds < option.seedCost) {
+      _gardenMessage = 'Choose a plant you can afford';
+    }
+  }
+
+  void _closeGardenNursery() {
+    setState(() {
+      _gardenNurseryPlotId = null;
+      _gardenMessage = 'Tap an empty plot to plant';
+      _gardenMessageLife = 1.8;
+    });
+  }
+
+  void _confirmGardenNurseryPlant() {
+    setState(() {
+      final PlayerGardenPlot? plot = _gardenNurseryPlot;
+      if (plot == null) {
+        _gardenNurseryPlotId = null;
+        return;
+      }
+      if (_plantGardenPlot(plot)) {
+        _gardenNurseryPlotId = null;
+      }
     });
     _queueGardenSave();
   }
@@ -1873,11 +1921,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         return;
       }
       if (!plot.planted) {
-        _plantGardenPlot(plot);
+        _openGardenNursery(plot);
         return;
       }
       if (plot.ready) {
-        _harvestGardenPlot(plot);
+        _collectGardenBlooms(plot);
         return;
       }
       if (_gardenTool == GardenTool.sun) {
@@ -1909,19 +1957,19 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _queueGardenSave();
   }
 
-  void _plantGardenPlot(PlayerGardenPlot plot) {
+  bool _plantGardenPlot(PlayerGardenPlot plot) {
     if (plot.weed) {
       _gardenMessage = 'Clear the weed first';
       _gardenMessageLife = 2.0;
-      return;
+      return false;
     }
     if (plot.planted) {
       final GardenPlantOption option = _plantOptionForPlot(plot);
       _gardenMessage = plot.ready
-          ? 'Ready: +${option.points} pts'
+          ? '${option.name} blooms ready'
           : '${option.name} is growing';
       _gardenMessageLife = 2.0;
-      return;
+      return false;
     }
 
     final GardenPlantOption option = _selectedGardenPlantOption;
@@ -1929,7 +1977,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (_seeds < seedCost) {
       _gardenMessage = 'Need $seedCost seeds for ${option.name}';
       _gardenMessageLife = 2.0;
-      return;
+      return false;
     }
 
     _seeds -= seedCost;
@@ -1946,6 +1994,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         '${option.name} planted: ready in ${_durationLabel(option.growDuration)}';
     _gardenMessageLife = 2.0;
     _playSfx(_sfxCrispLeaf, volume: 0.48);
+    return true;
   }
 
   void _waterGardenPlot(PlayerGardenPlot plot) {
@@ -1963,7 +2012,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
     if (plot.ready) {
       final GardenPlantOption option = _plantOptionForPlot(plot);
-      _gardenMessage = 'Tap to harvest +${option.points} pts';
+      _gardenMessage = 'Tap to collect ${option.name} blooms';
       _gardenMessageLife = 2.0;
       return;
     }
@@ -1995,7 +2044,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _refreshGardenPlot(plot, now);
     plot.sparkle = 1;
     _gardenMessage = plot.ready
-        ? '${option.name} ready: +${option.points} pts'
+        ? '${option.name} blooms ready'
         : 'Watered ${option.name}. Ready in ${_durationLabel(_remainingGardenTime(plot, now))}';
     _gardenMessageLife = 2.1;
     _playSfx(_sfxComboSpark, volume: 0.5);
@@ -2016,7 +2065,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
     if (plot.ready) {
       final GardenPlantOption option = _plantOptionForPlot(plot);
-      _gardenMessage = 'Tap to harvest +${option.points} pts';
+      _gardenMessage = 'Tap to collect ${option.name} blooms';
       _gardenMessageLife = 2.0;
       return;
     }
@@ -2041,7 +2090,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _refreshGardenPlot(plot, now);
     plot.sparkle = 1;
     _gardenMessage = plot.ready
-        ? '${option.name} ready: +${option.points} pts'
+        ? '${option.name} blooms ready'
         : 'Sun boost: ready in ${_durationLabel(_remainingGardenTime(plot, now))}';
     _gardenMessageLife = 2.2;
     _playSfx(_sfxComboSpark, volume: 0.56);
@@ -2064,7 +2113,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _playSfx(_sfxBambooBlade, volume: 0.62);
   }
 
-  void _harvestGardenPlot(PlayerGardenPlot plot) {
+  void _collectGardenBlooms(PlayerGardenPlot plot) {
     if (plot.weed) {
       _gardenMessage = 'Clear the weed first';
       _gardenMessageLife = 2.0;
@@ -2094,15 +2143,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (_gardenHarvests % 2 == 0) {
       _sunDrops += 1;
     }
-    plot.asset = null;
-    plot.plantIndex = null;
-    plot.plantedAt = null;
-    plot.readyAt = null;
+    final DateTime now = _gardenNow;
+    plot.plantedAt = now;
+    plot.readyAt = now.add(option.growDuration);
     plot.lastWateredDay = null;
-    plot.growth = 0;
+    plot.growth = 0.22;
     plot.watered = false;
     plot.sparkle = 1;
-    _gardenMessage = '+$pointReward pts, +$seedReward seeds';
+    _gardenMessage = 'Collected blooms: +$pointReward pts, +$seedReward seeds';
     _gardenMessageLife = 2.3;
     _playSfx(_sfxComboSpark, volume: 0.68);
   }
@@ -3426,7 +3474,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               left: 0,
               right: 0,
               top: 122,
-              bottom: 206,
+              bottom: 94,
               child: _buildScrollableGardenMap(),
             ),
             _buildGardenTopHud(),
@@ -3444,15 +3492,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             Positioned(
               left: 12,
               right: 12,
-              bottom: 94,
-              child: _buildGardenPlantPicker(),
-            ),
-            Positioned(
-              left: 12,
-              right: 12,
               bottom: 12,
               child: _buildGardenToolbar(),
             ),
+            if (_gardenNurseryPlot != null) _buildGardenNurseryOverlay(),
           ],
         ),
       ),
@@ -3583,9 +3626,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   Positioned(
                     top: 23,
                     child: Image.asset(
-                      _selectedGardenPlantOption.asset,
-                      width: 46,
-                      height: 46,
+                      'assets/images/icons/nursery_sign.png',
+                      width: 50,
+                      height: 50,
                       filterQuality: FilterQuality.medium,
                     ),
                   )
@@ -3617,13 +3660,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     ),
                   ),
                 if (plot.ready && unlocked)
-                  const Positioned(
-                    top: 0,
-                    right: 13,
-                    child: Icon(
-                      Icons.auto_awesome_rounded,
-                      color: Color(0xFFFFE66B),
-                      size: 21,
+                  Positioned(
+                    top: -4,
+                    right: 9,
+                    child: Image.asset(
+                      'assets/images/icons/bloom_collect.png',
+                      width: 32,
+                      height: 32,
+                      filterQuality: FilterQuality.medium,
                     ),
                   ),
                 if (unlocked)
@@ -3673,35 +3717,130 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
   }
 
-  Widget _buildGardenPlantPicker() {
-    return Container(
-      height: 104,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-      decoration: BoxDecoration(
-        color: const Color(0xEC143A18),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE3FF8F), width: 1.8),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x66000000),
-            blurRadius: 14,
-            offset: Offset(0, 5),
+  Widget _buildGardenNurseryOverlay() {
+    final GardenPlantOption selected = _selectedGardenPlantOption;
+    final bool affordable = _seeds >= selected.seedCost;
+    return Positioned.fill(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _closeGardenNursery,
+              child: ColoredBox(color: Colors.black.withValues(alpha: 0.46)),
+            ),
+          ),
+          Positioned(
+            left: 14,
+            right: 14,
+            top: 116,
+            bottom: 14,
+            child: Container(
+              key: const ValueKey('garden-nursery-sheet'),
+              padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FFE9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2FF6A), width: 2.4),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x99000000),
+                    blurRadius: 18,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Image.asset(
+                        'assets/images/icons/nursery_sign.png',
+                        width: 46,
+                        height: 46,
+                        filterQuality: FilterQuality.medium,
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Choose a plant',
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: Color(0xFF397F1F),
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              'Plants stay here. Collect blooms later.',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Color(0xFF5C952F),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _RoundIconButton(
+                        icon: Icons.close_rounded,
+                        onPressed: _closeGardenNursery,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: GridView.builder(
+                      padding: EdgeInsets.zero,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                            childAspectRatio: 1.35,
+                          ),
+                      itemCount: _gardenPlantOptions.length,
+                      itemBuilder: (context, index) {
+                        final GardenPlantOption option =
+                            _gardenPlantOptions[index];
+                        return _GardenNurseryPlantCard(
+                          key: ValueKey('garden-plant-option-$index'),
+                          option: option,
+                          selected: _selectedGardenPlant == index,
+                          affordable: _seeds >= option.seedCost,
+                          onTap: () => _selectGardenPlant(index),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: _PrimaryButton(
+                      key: const ValueKey('garden-confirm-plant'),
+                      label: affordable
+                          ? 'PLANT ${selected.name.toUpperCase()}'
+                          : 'NEED ${selected.seedCost} SEEDS',
+                      icon: Icons.spa_rounded,
+                      onPressed: _confirmGardenNurseryPlant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
-      ),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _gardenPlantOptions.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 7),
-        itemBuilder: (context, index) {
-          final GardenPlantOption option = _gardenPlantOptions[index];
-          return _GardenPlantOptionCard(
-            key: ValueKey('garden-plant-option-$index'),
-            option: option,
-            selected: _selectedGardenPlant == index,
-            onTap: () => _selectGardenPlant(index),
-          );
-        },
       ),
     );
   }
@@ -4427,6 +4566,7 @@ class _DimmedPanel extends StatelessWidget {
 
 class _PrimaryButton extends StatelessWidget {
   const _PrimaryButton({
+    super.key,
     required this.label,
     required this.icon,
     required this.onPressed,
@@ -5246,110 +5386,151 @@ class _GardenToolButton extends StatelessWidget {
   }
 }
 
-class _GardenPlantOptionCard extends StatelessWidget {
-  const _GardenPlantOptionCard({
+class _GardenNurseryPlantCard extends StatelessWidget {
+  const _GardenNurseryPlantCard({
     super.key,
     required this.option,
     required this.selected,
+    required this.affordable,
     required this.onTap,
   });
 
   final GardenPlantOption option;
   final bool selected;
+  final bool affordable;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final Color titleColor = affordable
+        ? const Color(0xFF2F8322)
+        : const Color(0xFF6C785E);
+    final Color bodyColor = affordable
+        ? const Color(0xFF557C24)
+        : const Color(0xFF7D8472);
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        width: 96,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        padding: const EdgeInsets.fromLTRB(8, 7, 8, 7),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFF7FFE4) : const Color(0xFFDDEBC6),
+          color: selected
+              ? const Color(0xFFFFF9D7)
+              : affordable
+              ? Colors.white
+              : const Color(0xFFE9EBDD),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? const Color(0xFFFFC936) : const Color(0xFF87B25A),
-            width: selected ? 2.5 : 1.4,
+            color: selected
+                ? const Color(0xFFFFD43A)
+                : affordable
+                ? const Color(0xFFB9E75A)
+                : const Color(0xFFB8C6A2),
+            width: selected ? 3 : 1.5,
           ),
           boxShadow: selected
               ? const [
                   BoxShadow(
-                    color: Color(0x66000000),
-                    blurRadius: 8,
-                    offset: Offset(0, 3),
+                    color: Color(0x55000000),
+                    blurRadius: 9,
+                    offset: Offset(0, 4),
                   ),
                 ]
               : null,
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Image.asset(
               option.asset,
-              width: 28,
-              height: 28,
+              width: 46,
+              height: 62,
               fit: BoxFit.contain,
               filterQuality: FilterQuality.medium,
             ),
-            const SizedBox(height: 1),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                option.name,
-                maxLines: 1,
-                style: const TextStyle(
-                  color: Color(0xFF285514),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            const SizedBox(height: 1),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Image.asset(
-                    'assets/images/icons/seed_coin.png',
-                    width: 12,
-                    height: 12,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      option.name,
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: titleColor,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 2),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Image.asset(
+                        'assets/images/icons/seed_coin.png',
+                        width: 13,
+                        height: 13,
+                      ),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(
+                          '${option.seedCost} seeds',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: bodyColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 1),
                   Text(
-                    '${option.seedCost}',
-                    style: const TextStyle(
-                      color: Color(0xFF6B4A0E),
-                      fontSize: 10,
+                    '+${option.points} pts',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: affordable
+                          ? const Color(0xFF18803B)
+                          : const Color(0xFF7D8472),
+                      fontSize: 11,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(height: 1),
                   Text(
-                    '+${option.points} pts',
-                    style: const TextStyle(
-                      color: Color(0xFF226D27),
+                    'Ready ${_staticDurationLabel(option.growDuration)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: bodyColor,
                       fontSize: 10,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      option.role,
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: bodyColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 1),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                '${_staticDurationLabel(option.growDuration)} - ${option.role}',
-                maxLines: 1,
-                style: const TextStyle(
-                  color: Color(0xFF4B6E28),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                ),
               ),
             ),
           ],
