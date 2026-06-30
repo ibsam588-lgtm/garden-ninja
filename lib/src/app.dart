@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:in_app_update/in_app_update.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class GardenNinjaApp extends StatelessWidget {
@@ -33,6 +35,8 @@ enum TargetType { weed, flower, bonus, reward }
 enum TutorialStep { slashWeed, avoidFlowers, toughWeed, useIce, frozenSlash }
 
 enum GardenTool { plant, water, clear, sun }
+
+enum ForceUpdateState { idle, checking, updating, blocked }
 
 class MusicTrack {
   const MusicTrack({
@@ -468,6 +472,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   GamePhase _phase = GamePhase.home;
   GamePhase _phaseBeforePause = GamePhase.home;
   GardenTool _gardenTool = GardenTool.water;
+  ForceUpdateState _forceUpdateState = ForceUpdateState.idle;
 
   int _nextTargetId = 1;
   int _level = 1;
@@ -497,6 +502,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   bool _sfxEnabled = true;
   bool _audioReady = false;
   bool _musicStartQueued = false;
+  bool _forceUpdateCheckInFlight = false;
   bool _tutorialMode = false;
   bool _tutorialMistake = false;
   bool _gardenSaveLoaded = false;
@@ -514,6 +520,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   Offset? _lastSlashPoint;
   String _gardenMessage = 'Tap empty plot to open nursery';
   String? _gardenLastLoginDay;
+  String _forceUpdateMessage = 'Checking for the latest update...';
 
   int get _goalWeeds => 18 + (_level * 4);
 
@@ -523,6 +530,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   String get _currentAvatar => _avatarAssets[_selectedAvatar];
 
   MusicTrack get _currentMusicTrack => _musicTracks[_selectedMusicTrack];
+
+  bool get _supportsPlayInAppUpdates =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  bool get _forceUpdateVisible => _forceUpdateState != ForceUpdateState.idle;
 
   String _formatNumber(int value) {
     final String text = value.toString();
@@ -746,6 +758,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _ticker = createTicker(_tick)..start();
     _primeAudio();
     unawaited(_loadGardenSave());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_checkForcedPlayUpdate());
+    });
   }
 
   @override
@@ -768,6 +783,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         if (_musicEnabled && _phase != GamePhase.paused) {
           unawaited(_musicPlayer.resume());
         }
+        unawaited(_checkForcedPlayUpdate());
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
@@ -778,6 +794,100 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         unawaited(_musicPlayer.stop());
         break;
     }
+  }
+
+  Future<void> _checkForcedPlayUpdate() async {
+    if (!_supportsPlayInAppUpdates ||
+        _forceUpdateCheckInFlight ||
+        _forceUpdateState == ForceUpdateState.updating) {
+      return;
+    }
+
+    _forceUpdateCheckInFlight = true;
+    final bool retryingFromBlock =
+        _forceUpdateState == ForceUpdateState.blocked;
+    if (retryingFromBlock && mounted) {
+      setState(() {
+        _forceUpdateState = ForceUpdateState.checking;
+        _forceUpdateMessage = 'Checking for the latest update...';
+      });
+    }
+
+    try {
+      final AppUpdateInfo updateInfo = await InAppUpdate.checkForUpdate();
+      if (!mounted) {
+        return;
+      }
+
+      final bool updateRequired =
+          updateInfo.updateAvailability == UpdateAvailability.updateAvailable ||
+          updateInfo.updateAvailability ==
+              UpdateAvailability.developerTriggeredUpdateInProgress;
+
+      if (!updateRequired) {
+        setState(() {
+          _forceUpdateState = ForceUpdateState.idle;
+        });
+        return;
+      }
+
+      final bool canStartImmediate =
+          updateInfo.immediateUpdateAllowed ||
+          updateInfo.updateAvailability ==
+              UpdateAvailability.developerTriggeredUpdateInProgress;
+
+      if (!canStartImmediate) {
+        setState(() {
+          _forceUpdateState = ForceUpdateState.blocked;
+          _forceUpdateMessage =
+              'A new Garden Ninja version is required. Update from Google Play to continue.';
+        });
+        return;
+      }
+
+      setState(() {
+        _forceUpdateState = ForceUpdateState.updating;
+        _forceUpdateMessage =
+            'Installing the latest Garden Ninja update from Google Play...';
+      });
+      unawaited(_musicPlayer.pause());
+
+      final AppUpdateResult result = await InAppUpdate.performImmediateUpdate();
+      if (!mounted) {
+        return;
+      }
+
+      if (result == AppUpdateResult.success) {
+        setState(() {
+          _forceUpdateState = ForceUpdateState.idle;
+        });
+        return;
+      }
+
+      setState(() {
+        _forceUpdateState = ForceUpdateState.blocked;
+        _forceUpdateMessage = result == AppUpdateResult.userDeniedUpdate
+            ? 'Update required. Install the latest version to keep playing.'
+            : 'The required update could not start. Please try again.';
+      });
+    } on MissingPluginException {
+      _clearForcedUpdateForNonPlayBuild();
+    } on PlatformException {
+      _clearForcedUpdateForNonPlayBuild();
+    } catch (_) {
+      _clearForcedUpdateForNonPlayBuild();
+    } finally {
+      _forceUpdateCheckInFlight = false;
+    }
+  }
+
+  void _clearForcedUpdateForNonPlayBuild() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _forceUpdateState = ForceUpdateState.idle;
+    });
   }
 
   Future<void> _primeAudio() async {
@@ -2377,7 +2487,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget _buildGameSurface(Size size) {
-    final bool acceptsSlashInput = _phase == GamePhase.playing;
+    final bool acceptsSlashInput =
+        _phase == GamePhase.playing && !_forceUpdateVisible;
     final Widget surface = ClipRect(
       child: Stack(
         fit: StackFit.expand,
@@ -2408,6 +2519,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           if (_phase == GamePhase.results) _buildResultsLayer(),
           if (_phase == GamePhase.upgrades) _buildUpgradesLayer(),
           if (_phase == GamePhase.garden) _buildPlayerGardenLayer(),
+          if (_forceUpdateVisible) _buildForcedUpdateLayer(),
         ],
       ),
     );
@@ -3937,6 +4049,113 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildForcedUpdateLayer() {
+    final bool canRetry = _forceUpdateState == ForceUpdateState.blocked;
+    final String title = switch (_forceUpdateState) {
+      ForceUpdateState.checking => 'Checking Update',
+      ForceUpdateState.updating => 'Updating Garden Ninja',
+      ForceUpdateState.blocked => 'Update Required',
+      ForceUpdateState.idle => 'Garden Ninja',
+    };
+    final IconData icon = switch (_forceUpdateState) {
+      ForceUpdateState.checking => Icons.manage_search_rounded,
+      ForceUpdateState.updating => Icons.system_update_rounded,
+      ForceUpdateState.blocked => Icons.lock_rounded,
+      ForceUpdateState.idle => Icons.eco_rounded,
+    };
+
+    return Positioned.fill(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ModalBarrier(
+            dismissible: false,
+            color: Colors.black.withValues(alpha: 0.68),
+          ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(22),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xF21A4017),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFFBDF17A),
+                    width: 2.4,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x99000000),
+                      blurRadius: 24,
+                      offset: Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF65B92F),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: const Color(0xFFFFED86),
+                          width: 2.5,
+                        ),
+                      ),
+                      child: Icon(icon, color: Colors.white, size: 32),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      _forceUpdateMessage,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xFFE9FFD0),
+                        fontSize: 15,
+                        height: 1.25,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    if (!canRetry)
+                      const SizedBox(
+                        width: 42,
+                        height: 42,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 4,
+                          color: Color(0xFFFFED86),
+                        ),
+                      )
+                    else
+                      _PrimaryButton(
+                        label: 'UPDATE NOW',
+                        icon: Icons.system_update_alt_rounded,
+                        onPressed: _checkForcedPlayUpdate,
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
