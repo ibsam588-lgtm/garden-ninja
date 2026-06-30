@@ -224,6 +224,10 @@ void main() {
     expect(find.byKey(const ValueKey('garden-action-hint')), findsOneWidget);
     expect(find.text('Plant: tap a glowing empty plot'), findsOneWidget);
     expect(find.text('Plant here'), findsAtLeastNWidgets(1));
+    expect(
+      find.byKey(const ValueKey('garden-plant-target-glow-4')),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('garden-nursery-sheet')), findsNothing);
     expect(find.byKey(const ValueKey('garden-tool-clear')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-tool-sun')), findsOneWidget);
