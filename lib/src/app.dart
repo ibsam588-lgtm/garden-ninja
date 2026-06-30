@@ -99,10 +99,10 @@ class GardenTarget {
     required this.radius,
     required this.spin,
     required int cutsRequired,
-  }) : angle = 0,
-       maxCuts = cutsRequired,
-       cutsRemaining = cutsRequired,
-       walkPhase = 0;
+  })  : angle = 0,
+        maxCuts = cutsRequired,
+        cutsRemaining = cutsRequired,
+        walkPhase = 0;
 
   final int id;
   final TargetType type;
@@ -821,8 +821,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
       final bool updateRequired =
           updateInfo.updateAvailability == UpdateAvailability.updateAvailable ||
-          updateInfo.updateAvailability ==
-              UpdateAvailability.developerTriggeredUpdateInProgress;
+              updateInfo.updateAvailability ==
+                  UpdateAvailability.developerTriggeredUpdateInProgress;
 
       if (!updateRequired) {
         setState(() {
@@ -831,8 +831,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         return;
       }
 
-      final bool canStartImmediate =
-          updateInfo.immediateUpdateAllowed ||
+      final bool canStartImmediate = updateInfo.immediateUpdateAllowed ||
           updateInfo.updateAvailability ==
               UpdateAvailability.developerTriggeredUpdateInProgress;
 
@@ -990,11 +989,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return;
     }
 
-    final double dt =
-        ((elapsed - _lastElapsed).inMicroseconds /
-                Duration.microsecondsPerSecond)
-            .clamp(0.0, 0.05)
-            .toDouble();
+    final double dt = ((elapsed - _lastElapsed).inMicroseconds /
+            Duration.microsecondsPerSecond)
+        .clamp(0.0, 0.05)
+        .toDouble();
     _lastElapsed = elapsed;
 
     if (_phase == GamePhase.playing) {
@@ -1076,8 +1074,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           dt * (target.type == TargetType.weed ? 8.5 : 2.2) * animationScale;
 
       if (target.type == TargetType.weed) {
-        target.angle =
-            sin(target.walkPhase * 1.15) * 0.075 +
+        target.angle = sin(target.walkPhase * 1.15) * 0.075 +
             cos(target.walkPhase * 0.52) * 0.025;
         target.position += target.velocity * dt * speedScale;
       } else if (target.type != TargetType.flower) {
@@ -1106,8 +1103,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _spawnTimer -= dt * (iceActive ? 0.3 : 1);
     if (_spawnTimer <= 0 && _targets.length < 7 + min(_level, 3)) {
       _spawnTarget();
-      _spawnTimer =
-          (1.05 - min(_level * 0.055, 0.35)) *
+      _spawnTimer = (1.05 - min(_level * 0.055, 0.35)) *
           (0.75 + _random.nextDouble() * 0.65);
     }
 
@@ -1141,8 +1137,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _gardenDamageFlash = max(0, _gardenDamageFlash - dt * 2.4);
     _gardenDamageCooldown = max(0, _gardenDamageCooldown - dt);
 
-    final bool movingLesson =
-        _tutorialStep == TutorialStep.useIce ||
+    final bool movingLesson = _tutorialStep == TutorialStep.useIce ||
         _tutorialStep == TutorialStep.frozenSlash;
     final bool iceActive = _iceTime > 0;
     final double speedScale = movingLesson ? (iceActive ? 0.08 : 0.7) : 0.0;
@@ -1155,8 +1150,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           dt * (target.type == TargetType.weed ? 8.5 : 2.2) * animationScale;
 
       if (target.type == TargetType.weed) {
-        target.angle =
-            sin(target.walkPhase * 1.15) * 0.075 +
+        target.angle = sin(target.walkPhase * 1.15) * 0.075 +
             cos(target.walkPhase * 0.52) * 0.025;
         target.position += target.velocity * dt * speedScale;
       }
@@ -1250,9 +1244,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         velocity: velocity,
         size: size,
         radius: radius,
-        spin: type == TargetType.flower
-            ? 0
-            : (_random.nextDouble() - 0.5) * 0.7,
+        spin:
+            type == TargetType.flower ? 0 : (_random.nextDouble() - 0.5) * 0.7,
         cutsRequired: cutsRequired,
       ),
     );
@@ -1519,8 +1512,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return (point - end).distance;
     }
 
-    final double projection =
-        (((point.dx - start.dx) * segment.dx) +
+    final double projection = (((point.dx - start.dx) * segment.dx) +
             ((point.dy - start.dy) * segment.dy)) /
         lengthSquared;
     final double t = projection.clamp(0.0, 1.0).toDouble();
@@ -1626,8 +1618,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         SliceShard(
           asset: target.asset,
           position: target.position + normal * side * 5,
-          velocity:
-              slash * (55 + _random.nextDouble() * 45) +
+          velocity: slash * (55 + _random.nextDouble() * 45) +
               normal * side * (150 + _random.nextDouble() * 80) +
               Offset(jitter, -80 - _random.nextDouble() * 45),
           size: target.size * 0.95,
@@ -1865,9 +1856,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   GardenPlantOption _gardenPlantOptionAt(int index) {
-    final int safeIndex = index
-        .clamp(0, _gardenPlantOptions.length - 1)
-        .toInt();
+    final int safeIndex =
+        index.clamp(0, _gardenPlantOptions.length - 1).toInt();
     return _gardenPlantOptions[safeIndex];
   }
 
@@ -1915,8 +1905,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final GardenPlantOption option = _plantOptionForPlot(plot);
     plot.plantedAt ??= now.subtract(
       Duration(
-        milliseconds: (option.growDuration.inMilliseconds * plot.growth)
-            .round(),
+        milliseconds:
+            (option.growDuration.inMilliseconds * plot.growth).round(),
       ),
     );
     plot.readyAt ??= plot.plantedAt!.add(option.growDuration);
@@ -1925,9 +1915,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final int totalMs = max(1, option.growDuration.inMilliseconds);
     final int remainingMs = plot.readyAt!.difference(now).inMilliseconds;
     final double progress = (1 - (remainingMs / totalMs)).clamp(0.08, 1.0);
-    plot.growth = plot.watered || progress < 0.92
-        ? progress
-        : min(progress, 0.92);
+    plot.growth =
+        plot.watered || progress < 0.92 ? progress : min(progress, 0.92);
   }
 
   Duration _remainingGardenTime(PlayerGardenPlot plot, DateTime now) {
@@ -1985,9 +1974,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final growingCandidates = _playerGardenPlots
         .where((plot) => _isGardenPlotUnlocked(plot) && !plot.weed)
         .toList();
-    final candidates = emptyCandidates.isNotEmpty
-        ? emptyCandidates
-        : growingCandidates;
+    final candidates =
+        emptyCandidates.isNotEmpty ? emptyCandidates : growingCandidates;
     if (candidates.isEmpty) {
       return;
     }
@@ -2018,9 +2006,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void _selectGardenPlant(int index) {
     _playSfx(_sfxComboSpark, volume: 0.44);
     setState(() {
-      _selectedGardenPlant = index
-          .clamp(0, _gardenPlantOptions.length - 1)
-          .toInt();
+      _selectedGardenPlant =
+          index.clamp(0, _gardenPlantOptions.length - 1).toInt();
       _gardenTool = GardenTool.plant;
       final GardenPlantOption option = _selectedGardenPlantOption;
       _gardenMessage = _gardenNurseryPlotId == null
@@ -2377,8 +2364,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return;
     }
 
-    final bool shouldQuit =
-        await showDialog<bool>(
+    final bool shouldQuit = await showDialog<bool>(
           context: context,
           builder: (context) {
             return AlertDialog(
@@ -2660,21 +2646,18 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final double pulse =
         1 + (flowerCooling ? sin(target.cooldown * 18) * 0.08 : 0);
     final bool isWeed = target.type == TargetType.weed;
-    final bool isFrozen =
-        _iceTime > 0 &&
+    final bool isFrozen = _iceTime > 0 &&
         target.type != TargetType.flower &&
         target.type != TargetType.reward;
     final bool weedCooling = isWeed && target.cooldown > 0;
-    final double hitPulse = weedCooling
-        ? 1 + sin(target.cooldown * 42).abs() * 0.12
-        : 1;
+    final double hitPulse =
+        weedCooling ? 1 + sin(target.cooldown * 42).abs() * 0.12 : 1;
     final double walkBob = isWeed ? sin(target.walkPhase) * 4 : 0;
     final double walkHop = isWeed ? -sin(target.walkPhase * 2).abs() * 2.4 : 0;
     final double walkSide = isWeed ? cos(target.walkPhase * 0.75) * 2.5 : 0;
     final double walkLean = isWeed ? target.angle : 0;
-    final double walkSquash = isWeed
-        ? 1 + sin(target.walkPhase * 2.2) * 0.05
-        : 1;
+    final double walkSquash =
+        isWeed ? 1 + sin(target.walkPhase * 2.2) * 0.05 : 1;
 
     return Positioned(
       key: ValueKey('target-${target.id}'),
@@ -2835,9 +2818,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget _buildTargetImage(GardenTarget target) {
-    final double split = target.type == TargetType.weed
-        ? target.splitAmount.clamp(0.0, 1.0)
-        : 0;
+    final double split =
+        target.type == TargetType.weed ? target.splitAmount.clamp(0.0, 1.0) : 0;
     if (split <= 0) {
       return Image.asset(target.asset, fit: BoxFit.contain);
     }
@@ -3674,7 +3656,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         constrained: false,
         minScale: 0.58,
         maxScale: 1.08,
-        boundaryMargin: const EdgeInsets.all(220),
+        boundaryMargin: EdgeInsets.zero,
         child: SizedBox(
           width: _playerGardenWidth,
           height: _playerGardenHeight,
@@ -3735,11 +3717,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       2 => 0.78,
       _ => 0.92,
     };
-    final GardenPlantRenderSpec? plantSpec = plot.planted
-        ? _plantRenderSpecForPlot(plot)
-        : null;
-    final bool plantTarget =
-        unlocked &&
+    final GardenPlantRenderSpec? plantSpec =
+        plot.planted ? _plantRenderSpecForPlot(plot) : null;
+    final bool plantTarget = unlocked &&
         !plot.weed &&
         !plot.planted &&
         _gardenTool == GardenTool.plant;
@@ -3877,12 +3857,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                       color: plot.weed
                           ? const Color(0xEE67221D)
                           : plot.ready
-                          ? const Color(0xEEF0A51A)
-                          : !plot.planted
-                          ? const Color(0xEE2C701F)
-                          : !plot.watered
-                          ? const Color(0xEE1D6C85)
-                          : const Color(0xEE2E6D24),
+                              ? const Color(0xEEF0A51A)
+                              : !plot.planted
+                                  ? const Color(0xEE2C701F)
+                                  : !plot.watered
+                                      ? const Color(0xEE1D6C85)
+                                      : const Color(0xEE2E6D24),
                       borderColor: plot.watered && !plot.ready && !plot.weed
                           ? const Color(0xFFE4FFAA)
                           : const Color(0xFFFFD36A),
@@ -4003,11 +3983,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                       physics: const NeverScrollableScrollPhysics(),
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 8,
-                            crossAxisSpacing: 8,
-                            childAspectRatio: 1.35,
-                          ),
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 1.35,
+                      ),
                       itemCount: _gardenPlantOptions.length,
                       itemBuilder: (context, index) {
                         final GardenPlantOption option =
@@ -4152,9 +4132,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget _buildGardenTopHud() {
-    final int unlockedPlots = _playerGardenPlots
-        .where(_isGardenPlotUnlocked)
-        .length;
+    final int unlockedPlots =
+        _playerGardenPlots.where(_isGardenPlotUnlocked).length;
     return Positioned(
       left: 10,
       right: 10,
@@ -4311,18 +4290,18 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   Widget _buildGardenActionHint() {
     final (IconData icon, String text) = switch (_gardenTool) {
       GardenTool.plant => (
-        Icons.touch_app_rounded,
-        'Plant: tap a glowing empty plot',
-      ),
+          Icons.touch_app_rounded,
+          'Plant: tap a glowing empty plot',
+        ),
       GardenTool.water => (
-        Icons.water_drop_rounded,
-        'Water: tap a plant marked Water me',
-      ),
+          Icons.water_drop_rounded,
+          'Water: tap a plant marked Water me',
+        ),
       GardenTool.clear => (Icons.cut_rounded, 'Clear: tap a Weed! badge'),
       GardenTool.sun => (
-        Icons.wb_sunny_rounded,
-        'Sun: boost a watered growing plant',
-      ),
+          Icons.wb_sunny_rounded,
+          'Sun: boost a watered growing plant',
+        ),
     };
     return Container(
       key: const ValueKey('garden-action-hint'),
@@ -5168,9 +5147,8 @@ class _TutorialPrompt extends StatelessWidget {
               height: 44,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: warning
-                    ? const Color(0xFFFF7BA8)
-                    : const Color(0xFF63B92A),
+                color:
+                    warning ? const Color(0xFFFF7BA8) : const Color(0xFF63B92A),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -5321,9 +5299,8 @@ class _MusicTrackChip extends StatelessWidget {
             color: selected ? const Color(0xFF4D9E22) : const Color(0xFFFFF9D8),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: selected
-                  ? const Color(0xFFE9FFC6)
-                  : const Color(0xFF74A846),
+              color:
+                  selected ? const Color(0xFFE9FFC6) : const Color(0xFF74A846),
               width: 2,
             ),
             boxShadow: const [
@@ -5547,9 +5524,8 @@ class _GardenPatch extends StatelessWidget {
               width: 56,
               height: 24,
               decoration: BoxDecoration(
-                color: damaged
-                    ? const Color(0xDD5A3219)
-                    : const Color(0xDD2F6F24),
+                color:
+                    damaged ? const Color(0xDD5A3219) : const Color(0xDD2F6F24),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: damaged
@@ -5559,11 +5535,10 @@ class _GardenPatch extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color:
-                        (damaged
-                                ? const Color(0xFFAA3D25)
-                                : const Color(0xFF78D041))
-                            .withValues(alpha: active ? 0.75 : 0.28),
+                    color: (damaged
+                            ? const Color(0xFFAA3D25)
+                            : const Color(0xFF78D041))
+                        .withValues(alpha: active ? 0.75 : 0.28),
                     blurRadius: active ? 18 : 8,
                     spreadRadius: active ? 2 : 0,
                   ),
@@ -5764,12 +5739,10 @@ class _GardenNurseryPlantCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color titleColor = affordable
-        ? const Color(0xFF2F8322)
-        : const Color(0xFF6C785E);
-    final Color bodyColor = affordable
-        ? const Color(0xFF557C24)
-        : const Color(0xFF7D8472);
+    final Color titleColor =
+        affordable ? const Color(0xFF2F8322) : const Color(0xFF6C785E);
+    final Color bodyColor =
+        affordable ? const Color(0xFF557C24) : const Color(0xFF7D8472);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -5781,15 +5754,15 @@ class _GardenNurseryPlantCard extends StatelessWidget {
           color: selected
               ? const Color(0xFFFFF9D7)
               : affordable
-              ? Colors.white
-              : const Color(0xFFE9EBDD),
+                  ? Colors.white
+                  : const Color(0xFFE9EBDD),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: selected
                 ? const Color(0xFFFFD43A)
                 : affordable
-                ? const Color(0xFFB9E75A)
-                : const Color(0xFFB8C6A2),
+                    ? const Color(0xFFB9E75A)
+                    : const Color(0xFFB8C6A2),
             width: selected ? 3 : 1.5,
           ),
           boxShadow: selected
@@ -5955,15 +5928,15 @@ class _GardenPlantTargetGlow extends StatelessWidget {
         scale: 1 + (pulse * 0.08),
         child: SizedBox(
           width: 128,
-          height: 66,
+          height: 72,
           child: Stack(
             alignment: Alignment.center,
             children: [
               Container(
-                width: 124,
-                height: 58,
+                width: 122,
+                height: 66,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: BorderRadius.circular(18),
                   gradient: RadialGradient(
                     colors: [
                       const Color(0xFFFFF7A8).withValues(alpha: 0.34),
@@ -5983,10 +5956,10 @@ class _GardenPlantTargetGlow extends StatelessWidget {
                 ),
               ),
               Container(
-                width: 116,
-                height: 50,
+                width: 112,
+                height: 58,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: Color.lerp(
                       const Color(0xFFFFFFFF),
@@ -6044,8 +6017,8 @@ class _GardenPlotBed extends StatelessWidget {
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: SizedBox(
-        width: 118,
-        height: 58,
+        width: 116,
+        height: 70,
         child: CustomPaint(
           painter: _GardenPlotBedPainter(
             unlocked: unlocked,
@@ -6080,87 +6053,78 @@ class _GardenPlotBedPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final Offset center = Offset(size.width / 2, size.height * 0.55);
-    final Rect shadow = Rect.fromCenter(
-      center: Offset(center.dx, size.height - 8),
-      width: size.width * 0.82,
-      height: size.height * 0.24,
+    final Rect shadow = Rect.fromLTWH(
+      size.width * 0.13,
+      size.height * 0.72,
+      size.width * 0.74,
+      size.height * 0.18,
     );
-    canvas.drawOval(
-      shadow,
-      Paint()..color = Colors.black.withValues(alpha: unlocked ? 0.28 : 0.2),
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(shadow, const Radius.circular(16)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: unlocked ? 0.28 : 0.2)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+
+    final Rect baseRect = Rect.fromLTWH(
+      size.width * 0.07,
+      size.height * 0.12,
+      size.width * 0.86,
+      size.height * 0.66,
+    );
+    final RRect baseShape = RRect.fromRectAndRadius(
+      baseRect,
+      const Radius.circular(16),
     );
 
     if (plantTarget) {
-      final Rect glowRect = Rect.fromCenter(
-        center: center,
-        width: size.width * (0.96 + pulse * 0.08),
-        height: size.height * (0.72 + pulse * 0.1),
-      );
-      canvas.drawOval(
-        glowRect,
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          baseRect.inflate(5 + pulse * 3),
+          const Radius.circular(20),
+        ),
         Paint()
           ..color = const Color(0xFFFFF176).withValues(alpha: 0.24)
           ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 + pulse * 7),
       );
     }
 
-    final List<Color> stoneColors = unlocked
-        ? const [
-            Color(0xFFD6B16E),
-            Color(0xFFB7854D),
-            Color(0xFFE0C989),
-            Color(0xFF9D6E3F),
-          ]
-        : const [
-            Color(0xFF6F765F),
-            Color(0xFF555C4C),
-            Color(0xFF7F876C),
-            Color(0xFF484D40),
-          ];
-    final double rx = size.width * 0.42;
-    final double ry = size.height * 0.31;
-    for (int i = 0; i < 16; i += 1) {
-      final double angle = (i / 16) * pi * 2;
-      final Offset stoneCenter = Offset(
-        center.dx + cos(angle) * rx,
-        center.dy + sin(angle) * ry,
-      );
-      final double stoneWidth = 13 + (i % 3) * 1.8;
-      final double stoneHeight = 9 + (i % 4) * 1.1;
-      canvas.save();
-      canvas.translate(stoneCenter.dx, stoneCenter.dy);
-      canvas.rotate(angle + pi / 2);
-      final Rect stoneRect = Rect.fromCenter(
-        center: Offset.zero,
-        width: stoneWidth,
-        height: stoneHeight,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(stoneRect, const Radius.circular(99)),
-        Paint()..color = stoneColors[i % stoneColors.length],
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          stoneRect.deflate(2.2),
-          const Radius.circular(99),
-        ),
-        Paint()..color = Colors.white.withValues(alpha: unlocked ? 0.12 : 0.04),
-      );
-      canvas.restore();
-    }
-
-    final Rect innerSoil = Rect.fromCenter(
-      center: center,
-      width: size.width * 0.76,
-      height: size.height * 0.47,
-    );
-    canvas.drawOval(
-      innerSoil,
+    final List<Color> baseColors = unlocked
+        ? const [Color(0xFFD8B26E), Color(0xFF9C6839)]
+        : const [Color(0xFF70765F), Color(0xFF454B3D)];
+    canvas.drawRRect(
+      baseShape,
       Paint()
-        ..shader = RadialGradient(
-          center: const Alignment(-0.35, -0.45),
-          radius: 1.05,
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: baseColors,
+        ).createShader(baseRect),
+    );
+    canvas.drawRRect(
+      baseShape,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = unlocked ? const Color(0xFFE7CF8B) : const Color(0xFF868C72),
+    );
+
+    final Rect innerSoil = Rect.fromLTWH(
+      baseRect.left + 11,
+      baseRect.top + 9,
+      baseRect.width - 22,
+      baseRect.height - 19,
+    );
+    final RRect innerShape = RRect.fromRectAndRadius(
+      innerSoil,
+      const Radius.circular(11),
+    );
+    canvas.drawRRect(
+      innerShape,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: unlocked
               ? const [Color(0xFF8C5429), Color(0xFF5B3118), Color(0xFF2B170D)]
               : const [Color(0xFF474936), Color(0xFF343829), Color(0xFF22251B)],
@@ -6173,11 +6137,28 @@ class _GardenPlotBedPainter extends CustomPainter {
       ..color = plantTarget
           ? Color.lerp(const Color(0xFFE7FF9A), const Color(0xFFFFF176), pulse)!
           : ready
-          ? const Color(0xFFFFD84D)
-          : weed
-          ? const Color(0xFFBE7C36)
-          : const Color(0xFFD9A45D);
-    canvas.drawOval(innerSoil.inflate(2.5), rimPaint);
+              ? const Color(0xFFFFD84D)
+              : weed
+                  ? const Color(0xFFBE7C36)
+                  : const Color(0xFFD9A45D);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+          innerSoil.inflate(2.5), const Radius.circular(13)),
+      rimPaint,
+    );
+
+    final Paint furrowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color = Colors.black.withValues(alpha: unlocked ? 0.18 : 0.08);
+    for (int i = 0; i < 3; i += 1) {
+      final double y = innerSoil.top + 9 + i * 8;
+      canvas.drawLine(
+        Offset(innerSoil.left + 10, y),
+        Offset(innerSoil.right - 10, y + 2),
+        furrowPaint,
+      );
+    }
 
     if (planted || plantTarget) {
       final Rect highlight = Rect.fromLTWH(
@@ -6199,8 +6180,8 @@ class _GardenPlotBedPainter extends CustomPainter {
     }
 
     if (!unlocked) {
-      canvas.drawOval(
-        innerSoil,
+      canvas.drawRRect(
+        innerShape,
         Paint()..color = Colors.black.withValues(alpha: 0.2),
       );
     }
@@ -6569,7 +6550,7 @@ class _PowerButton extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         height: 92,
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.fromLTRB(8, 7, 8, 8),
         decoration: BoxDecoration(
           color: active ? const Color(0xFFEBCB48) : const Color(0xDD153916),
           borderRadius: BorderRadius.circular(8),
@@ -6581,8 +6562,19 @@ class _PowerButton extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Expanded(child: Image.asset(asset, fit: BoxFit.contain)),
-            const SizedBox(height: 2),
+            SizedBox(
+              width: 52,
+              height: 46,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  asset,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.medium,
+                ),
+              ),
+            ),
+            const SizedBox(height: 5),
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
