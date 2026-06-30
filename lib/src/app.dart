@@ -66,6 +66,24 @@ class GardenPlantOption {
   final String role;
 }
 
+class GardenPlantRenderSpec {
+  const GardenPlantRenderSpec({
+    required this.width,
+    required this.height,
+    required this.bottom,
+    this.offsetX = 0,
+    this.offsetY = 0,
+    this.scale = 1,
+  });
+
+  final double width;
+  final double height;
+  final double bottom;
+  final double offsetX;
+  final double offsetY;
+  final double scale;
+}
+
 class GardenTarget {
   GardenTarget({
     required this.id,
@@ -288,6 +306,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       growDuration: Duration(hours: 18),
       role: 'Blocks weeds',
     ),
+  ];
+  static const List<GardenPlantRenderSpec> _gardenPlantRenderSpecs = [
+    GardenPlantRenderSpec(width: 68, height: 76, bottom: 40),
+    GardenPlantRenderSpec(width: 58, height: 78, bottom: 39),
+    GardenPlantRenderSpec(width: 58, height: 72, bottom: 39),
+    GardenPlantRenderSpec(width: 62, height: 78, bottom: 38),
+    GardenPlantRenderSpec(width: 84, height: 74, bottom: 38, scale: 0.94),
+    GardenPlantRenderSpec(width: 68, height: 80, bottom: 39),
   ];
   static const List<String> _playerGardenWeedAssets = [
     'assets/images/sprites/weed_leaf.png',
@@ -1307,10 +1333,18 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   void _handleSlash(Offset localPosition, Size size) {
-    if (_phase != GamePhase.playing) {
+    if (_phase != GamePhase.playing || !mounted) {
       return;
     }
+    setState(() {
+      if (_phase != GamePhase.playing) {
+        return;
+      }
+      _handleSlashInState(localPosition, size);
+    });
+  }
 
+  void _handleSlashInState(Offset localPosition, Size size) {
     final Offset world = _toWorld(localPosition, size);
     if (!_isSlashInPlayArea(world)) {
       _lastSlashPoint = world;
@@ -1332,7 +1366,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   void _endSlash() {
-    _lastSlashPoint = null;
+    if (_lastSlashPoint == null || !mounted) {
+      return;
+    }
+    setState(() {
+      _lastSlashPoint = null;
+    });
   }
 
   Offset _toWorld(Offset local, Size size) {
@@ -1732,6 +1771,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     return _gardenPlantOptionAt(assetIndex < 0 ? 0 : assetIndex);
   }
 
+  GardenPlantRenderSpec _plantRenderSpecForPlot(PlayerGardenPlot plot) {
+    final int index = (plot.plantIndex ?? 0)
+        .clamp(0, _gardenPlantRenderSpecs.length - 1)
+        .toInt();
+    return _gardenPlantRenderSpecs[index];
+  }
+
   int _gardenSeedRewardFor(GardenPlantOption option) {
     return option.seedReward;
   }
@@ -1787,13 +1833,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return 'Weed!';
     }
     if (!plot.planted) {
-      return 'Plant';
+      return _gardenTool == GardenTool.plant ? 'Plant here' : 'Empty plot';
     }
     if (plot.ready) {
-      return 'Blooms';
+      return 'Collect';
     }
     if (!_isWateredToday(plot, now)) {
-      return 'Water';
+      return 'Water me';
     }
     return _durationLabel(_remainingGardenTime(plot, now));
   }
@@ -3489,6 +3535,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   child: _GardenToast(message: _gardenMessage),
                 ),
               ),
+            if (_gardenNurseryPlot == null)
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 92,
+                child: _buildGardenActionHint(),
+              ),
             Positioned(
               left: 12,
               right: 12,
@@ -3567,8 +3620,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       0 => 0.7,
       1 => 0.58,
       2 => 0.78,
-      _ => 0.98,
+      _ => 0.92,
     };
+    final GardenPlantRenderSpec? plantSpec = plot.planted
+        ? _plantRenderSpecForPlot(plot)
+        : null;
+    final bool plantTarget =
+        unlocked &&
+        !plot.weed &&
+        !plot.planted &&
+        _gardenTool == GardenTool.plant;
 
     return Positioned(
       left: plot.position.dx - 62,
@@ -3587,11 +3648,35 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               alignment: Alignment.center,
               clipBehavior: Clip.none,
               children: [
+                if (plantTarget)
+                  Positioned(
+                    bottom: 8,
+                    child: Container(
+                      width: 116,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: const Color(0xFFFFF176),
+                          width: 2.4,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFFFFF176,
+                            ).withValues(alpha: 0.45),
+                            blurRadius: 18,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 Positioned(
-                  bottom: 17,
+                  bottom: 15,
                   child: Container(
-                    width: 98,
-                    height: 36,
+                    width: 110,
+                    height: 42,
                     decoration: BoxDecoration(
                       color: unlocked
                           ? const Color(0xCC6A3A17)
@@ -3610,6 +3695,18 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                           offset: Offset(0, 4),
                         ),
                       ],
+                    ),
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Container(
+                        width: 78,
+                        height: 12,
+                        margin: const EdgeInsets.only(bottom: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0x99321A0A),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -3634,16 +3731,19 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   )
                 else
                   Positioned(
-                    bottom: 41,
-                    child: Transform.scale(
-                      alignment: Alignment.bottomCenter,
-                      scale: plantScale,
-                      child: Image.asset(
-                        plot.asset!,
-                        width: 78,
-                        height: 82,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.medium,
+                    bottom: plantSpec!.bottom,
+                    child: Transform.translate(
+                      offset: Offset(plantSpec.offsetX, plantSpec.offsetY),
+                      child: Transform.scale(
+                        alignment: Alignment.bottomCenter,
+                        scale: plantScale * plantSpec.scale,
+                        child: Image.asset(
+                          plot.asset!,
+                          width: plantSpec.width,
+                          height: plantSpec.height,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.medium,
+                        ),
                       ),
                     ),
                   ),
@@ -3769,7 +3869,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.centerLeft,
                               child: Text(
-                                'Choose a plant',
+                                'Choose plant for this plot',
                                 maxLines: 1,
                                 style: TextStyle(
                                   color: Color(0xFF397F1F),
@@ -3779,7 +3879,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                               ),
                             ),
                             Text(
-                              'Plants stay here. Collect blooms later.',
+                              'Tap a card, then press Plant.',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -3830,7 +3930,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     child: _PrimaryButton(
                       key: const ValueKey('garden-confirm-plant'),
                       label: affordable
-                          ? 'PLANT ${selected.name.toUpperCase()}'
+                          ? 'PLANT ${selected.name.toUpperCase()} HERE'
                           : 'NEED ${selected.seedCost} SEEDS',
                       icon: Icons.spa_rounded,
                       onPressed: _confirmGardenNurseryPlant,
@@ -3998,6 +4098,62 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildGardenActionHint() {
+    final (IconData icon, String text) = switch (_gardenTool) {
+      GardenTool.plant => (
+        Icons.touch_app_rounded,
+        'Plant: tap a glowing empty plot',
+      ),
+      GardenTool.water => (
+        Icons.water_drop_rounded,
+        'Water: tap a plant marked Water me',
+      ),
+      GardenTool.clear => (Icons.cut_rounded, 'Clear: tap a Weed! badge'),
+      GardenTool.sun => (
+        Icons.wb_sunny_rounded,
+        'Sun: boost a watered growing plant',
+      ),
+    };
+    return Container(
+      key: const ValueKey('garden-action-hint'),
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xE51B3D16),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE7FF9A), width: 1.6),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFFFFED86), size: 21),
+          const SizedBox(width: 8),
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                text,
+                maxLines: 1,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -5440,99 +5596,130 @@ class _GardenNurseryPlantCard extends StatelessWidget {
                 ]
               : null,
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            Image.asset(
-              option.asset,
-              width: 46,
-              height: 62,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.medium,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      option.name,
-                      maxLines: 1,
-                      style: TextStyle(
-                        color: titleColor,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Image.asset(
+                  option.asset,
+                  width: 46,
+                  height: 62,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.medium,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Image.asset(
-                        'assets/images/icons/seed_coin.png',
-                        width: 13,
-                        height: 13,
-                      ),
-                      const SizedBox(width: 3),
-                      Expanded(
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
                         child: Text(
-                          '${option.seedCost} seeds',
+                          option.name,
                           maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: titleColor,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Image.asset(
+                            'assets/images/icons/seed_coin.png',
+                            width: 13,
+                            height: 13,
+                          ),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                              '${option.seedCost} seeds',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: bodyColor,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        '+${option.points} pts',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: affordable
+                              ? const Color(0xFF18803B)
+                              : const Color(0xFF7D8472),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        'Ready ${_staticDurationLabel(option.growDuration)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: bodyColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          option.role,
+                          maxLines: 1,
                           style: TextStyle(
                             color: bodyColor,
                             fontSize: 10,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 1),
-                  Text(
-                    '+${option.points} pts',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: affordable
-                          ? const Color(0xFF18803B)
-                          : const Color(0xFF7D8472),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    'Ready ${_staticDurationLabel(option.growDuration)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: bodyColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      option.role,
-                      maxLines: 1,
-                      style: TextStyle(
-                        color: bodyColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
+            if (selected)
+              Positioned(
+                right: -2,
+                top: -2,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF68BD2F),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x55000000),
+                        blurRadius: 5,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 15,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

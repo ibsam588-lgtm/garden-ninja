@@ -157,6 +157,9 @@ void main() {
 
     expect(find.textContaining('MY GARDEN'), findsOneWidget);
     expect(find.text('Tap empty plot to open nursery'), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-action-hint')), findsOneWidget);
+    expect(find.text('Plant: tap a glowing empty plot'), findsOneWidget);
+    expect(find.text('Plant here'), findsAtLeastNWidgets(1));
     expect(find.byKey(const ValueKey('garden-nursery-sheet')), findsNothing);
     expect(find.byKey(const ValueKey('garden-tool-clear')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-tool-sun')), findsOneWidget);
@@ -174,9 +177,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 160));
 
     expect(find.byKey(const ValueKey('garden-nursery-sheet')), findsOneWidget);
+    expect(find.text('Choose plant for this plot'), findsOneWidget);
+    expect(find.text('Tap a card, then press Plant.'), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-plant-option-0')), findsOneWidget);
+    expect(find.text('PLANT DAISY HERE'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('garden-plant-option-2')));
     await tester.pump(const Duration(milliseconds: 80));
+    expect(find.text('PLANT PINK BLOOM HERE'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('garden-confirm-plant')));
     await tester.pump(const Duration(milliseconds: 160));
 
