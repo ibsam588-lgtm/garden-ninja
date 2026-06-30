@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_ninja/src/app.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -55,6 +57,68 @@ void main() {
     expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
     expect(find.text('-150 Plant'), findsAtLeastNWidgets(1));
     expect(find.text('Garden Saved'), findsNothing);
+  });
+
+  testWidgets('forced Play update blocks app after cancelled update', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    const channel = MethodChannel('de.ffuf.in_app_update/methods');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+
+    try {
+      var immediateUpdateCalls = 0;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        switch (call.method) {
+          case 'checkForUpdate':
+            return {
+              'updateAvailability': 2,
+              'immediateAllowed': true,
+              'immediateAllowedPreconditions': <int>[],
+              'flexibleAllowed': false,
+              'flexibleAllowedPreconditions': <int>[],
+              'availableVersionCode': 2,
+              'installStatus': 0,
+              'packageName': 'com.gardenninja.garden_ninja',
+              'clientVersionStalenessDays': 0,
+              'updatePriority': 5,
+            };
+          case 'performImmediateUpdate':
+            immediateUpdateCalls += 1;
+            throw PlatformException(code: 'USER_DENIED_UPDATE');
+        }
+        return null;
+      });
+
+      await tester.pumpWidget(const GardenNinjaApp());
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.text('Update Required'), findsOneWidget);
+      expect(
+        find.text(
+          'Update required. Install the latest version to keep playing.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('UPDATE NOW'), findsOneWidget);
+      expect(immediateUpdateCalls, 1);
+
+      await tester.tap(find.text('UPDATE NOW'));
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(immediateUpdateCalls, 2);
+      expect(find.text('Update Required'), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+      messenger.setMockMethodCallHandler(channel, null);
+    }
   });
 
   testWidgets('escaped weeds visibly damage the garden', (tester) async {
