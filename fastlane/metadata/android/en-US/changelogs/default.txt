@@ -1,1 +1,1 @@
-Garden Ninja's first playable release is ready for internal testing with swipe-to-slash gameplay, animated weeds, garden damage, power-ups, rewards, and multiple garden backgrounds.
+Garden Ninja 1.0.1 adds the polished garden plot view with cleaner planting guidance, tree rewards, zoom controls, and the latest gameplay fixes for internal testers.
