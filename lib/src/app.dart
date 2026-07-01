@@ -3923,48 +3923,46 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                       size: 34,
                     ),
                   )
-                else if (!plot.planted)
+                else if (plantTarget)
                   Positioned(
-                    top: plantTarget ? 15 : 23,
+                    top: 24,
                     child: Transform.scale(
-                      scale: plantTarget ? 1 + targetPulse * 0.1 : 1,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        clipBehavior: Clip.none,
-                        children: [
-                          if (plantTarget)
-                            Container(
-                              width: 72,
-                              height: 72,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: const Color(
-                                  0xFFFFF176,
-                                ).withValues(alpha: 0.18),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFFFFF176,
-                                    ).withValues(alpha: 0.45),
-                                    blurRadius: 18 + (targetPulse * 10),
-                                    spreadRadius: 2 + (targetPulse * 3),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          Image.asset(
-                            'assets/images/icons/nursery_sign.png',
-                            width: plantTarget ? 56 : 50,
-                            height: plantTarget ? 56 : 50,
-                            filterQuality: FilterQuality.medium,
+                      scale: 1 + targetPulse * 0.12,
+                      child: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(
+                            0xFF153F18,
+                          ).withValues(alpha: 0.62),
+                          border: Border.all(
+                            color: const Color(
+                              0xFFE7FF9A,
+                            ).withValues(alpha: 0.9),
+                            width: 1.6,
                           ),
-                        ],
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFFFFF176,
+                              ).withValues(alpha: 0.36 + targetPulse * 0.2),
+                              blurRadius: 16 + targetPulse * 8,
+                              spreadRadius: 1 + targetPulse * 2,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.eco_rounded,
+                          color: Color(0xFFDFFF6F),
+                          size: 25,
+                        ),
                       ),
                     ),
                   )
-                else
+                else if (plot.planted && plantSpec != null)
                   Positioned(
-                    bottom: plantSpec!.bottom,
+                    bottom: plantSpec.bottom,
                     child: Transform.translate(
                       offset: Offset(
                         plantSpec.offsetX,
@@ -6316,187 +6314,148 @@ class _GardenPlotBedPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final Rect shadow = Rect.fromLTWH(
-      size.width * 0.14,
-      size.height * 0.7,
-      size.width * 0.72,
-      size.height * 0.16,
+    final Offset center = Offset(size.width * 0.5, size.height * 0.58);
+    final Rect contactShadow = Rect.fromCenter(
+      center: Offset(center.dx, center.dy + size.height * 0.16),
+      width: size.width * (planted ? 0.52 : 0.78),
+      height: size.height * (planted ? 0.18 : 0.3),
     );
-    canvas.drawOval(
-      shadow,
-      Paint()
-        ..color = Colors.black.withValues(alpha: unlocked ? 0.2 : 0.13)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.5),
-    );
+    if (planted || weed || plantTarget) {
+      canvas.drawOval(
+        contactShadow,
+        Paint()
+          ..color = Colors.black.withValues(
+            alpha: planted ? (unlocked ? 0.2 : 0.12) : (unlocked ? 0.1 : 0.06),
+          )
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+    }
 
-    final Rect baseRect = Rect.fromLTWH(
-      size.width * 0.1,
-      size.height * 0.26,
-      size.width * 0.8,
-      size.height * 0.48,
+    final Rect groundRect = Rect.fromCenter(
+      center: center,
+      width: size.width * (planted ? 0.58 : 0.74),
+      height: size.height * (planted ? 0.32 : 0.46),
     );
 
     if (plantTarget) {
       canvas.drawOval(
-        baseRect.inflate(6 + pulse * 4),
+        groundRect.inflate(7 + pulse * 5),
         Paint()
-          ..color = const Color(0xFFDFFF6F).withValues(alpha: 0.3)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 12 + pulse * 8),
-      );
-    }
-
-    final Rect mossRect = baseRect.inflate(4);
-    canvas.drawOval(
-      mossRect,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: unlocked
-              ? const [Color(0xFF77A840), Color(0xFF355B24)]
-              : const [Color(0xFF5D664C), Color(0xFF37422E)],
-        ).createShader(mossRect),
-    );
-
-    final Offset center = baseRect.center;
-    final double radiusX = baseRect.width * 0.5;
-    final double radiusY = baseRect.height * 0.5;
-    const List<Color> stoneColors = [
-      Color(0xFFCDBB8B),
-      Color(0xFFA89568),
-      Color(0xFF8B7C58),
-      Color(0xFFD8CA9A),
-    ];
-    for (int i = 0; i < 16; i += 1) {
-      final double angle = (pi * 2 * i / 16) + (i.isEven ? 0.05 : -0.03);
-      final double x = center.dx + cos(angle) * radiusX * 0.94;
-      final double y = center.dy + sin(angle) * radiusY * 0.9;
-      final double pebbleWidth = 13 + (i % 4) * 2.4;
-      final double pebbleHeight = 8 + (i % 3) * 1.6;
-      final Rect pebbleRect = Rect.fromCenter(
-        center: Offset(x, y),
-        width: pebbleWidth,
-        height: pebbleHeight,
-      );
-      canvas.save();
-      canvas.translate(x, y);
-      canvas.rotate(angle * 0.28);
-      canvas.translate(-x, -y);
-      canvas.drawOval(
-        pebbleRect,
-        Paint()
-          ..color = unlocked
-              ? stoneColors[i % stoneColors.length]
-              : const Color(0xFF6E735E),
+          ..color = const Color(0xFFDFFF6F).withValues(alpha: 0.26)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 14 + pulse * 9),
       );
       canvas.drawOval(
-        pebbleRect,
+        groundRect.inflate(4 + pulse * 2),
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.9
-          ..color = Colors.black.withValues(alpha: unlocked ? 0.22 : 0.12),
+          ..strokeWidth = 2.2 + pulse
+          ..color = Color.lerp(
+            const Color(0xFFA8FF62),
+            const Color(0xFFFFF176),
+            pulse,
+          )!,
       );
-      canvas.restore();
     }
 
-    final Paint outerRingPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = plantTarget ? 3 : 1.8
-      ..color = plantTarget
-          ? Color.lerp(const Color(0xFFDFFF6F), const Color(0xFFFFF176), pulse)!
-          : ready
-          ? const Color(0xFFFFD84D)
-          : weed
-          ? const Color(0xFFBD7133)
-          : const Color(0xFF88C755).withValues(alpha: unlocked ? 0.55 : 0.28);
-    canvas.drawOval(baseRect.inflate(2.5), outerRingPaint);
+    if (!planted) {
+      if (plantTarget) {
+        final Paint guidingTrace = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.4
+          ..strokeCap = StrokeCap.round
+          ..color = const Color(0xFFE7FF9A).withValues(alpha: 0.72);
+        canvas.drawOval(groundRect, guidingTrace);
 
-    final Rect innerSoil = Rect.fromLTWH(
-      baseRect.left + 11,
-      baseRect.top + 7,
-      baseRect.width - 22,
-      baseRect.height - 13,
-    );
-    canvas.drawOval(
-      innerSoil,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: unlocked
-              ? const [Color(0xFF8A542C), Color(0xFF58311A), Color(0xFF2C180E)]
-              : const [Color(0xFF474936), Color(0xFF343829), Color(0xFF22251B)],
-        ).createShader(innerSoil),
-    );
-
-    final Paint rimPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = ready ? 2.5 : 1.4
-      ..color = plantTarget
-          ? Color.lerp(const Color(0xFFE7FF9A), const Color(0xFFFFF176), pulse)!
-          : ready
-          ? const Color(0xFFFFD84D)
-          : weed
-          ? const Color(0xFFBE7C36)
-          : const Color(0xFFD9A45D);
-    canvas.drawOval(innerSoil.inflate(2), rimPaint);
-
-    final Paint furrowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.1
-      ..strokeCap = StrokeCap.round
-      ..color = Colors.black.withValues(alpha: unlocked ? 0.22 : 0.1);
-    for (int i = 0; i < 3; i += 1) {
-      final double y = innerSoil.top + innerSoil.height * (0.38 + i * 0.16);
-      final Path furrow = Path()
-        ..moveTo(innerSoil.left + 11, y)
-        ..quadraticBezierTo(
-          innerSoil.center.dx,
-          y + (i.isEven ? 2 : -1),
-          innerSoil.right - 11,
-          y + 1.5,
-        );
-      canvas.drawPath(furrow, furrowPaint);
-    }
-
-    if (planted) {
-      final Rect rootShadow = Rect.fromLTWH(
-        innerSoil.left + innerSoil.width * 0.18,
-        innerSoil.top + innerSoil.height * 0.1,
-        innerSoil.width * 0.64,
-        innerSoil.height * 0.48,
+        final Paint grassBlade = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.15
+          ..strokeCap = StrokeCap.round
+          ..color = const Color(0xFFC5F17A).withValues(alpha: 0.54);
+        for (int i = 0; i < 10; i += 1) {
+          final double angle = pi * 2 * i / 10;
+          final Offset edge = Offset(
+            center.dx + cos(angle) * groundRect.width * 0.48,
+            center.dy + sin(angle) * groundRect.height * 0.46,
+          );
+          final Offset tip = Offset(
+            edge.dx + cos(angle) * (4 + (i % 3)),
+            edge.dy + sin(angle) * (3 + (i % 2)),
+          );
+          canvas.drawLine(edge, tip, grassBlade);
+        }
+      }
+    } else {
+      final Rect rootShadow = Rect.fromCenter(
+        center: Offset(center.dx, center.dy + size.height * 0.03),
+        width: groundRect.width * 0.94,
+        height: groundRect.height * 0.62,
       );
       canvas.drawOval(
         rootShadow,
         Paint()
-          ..color = Colors.black.withValues(alpha: unlocked ? 0.18 : 0.1)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+          ..color = Colors.black.withValues(alpha: unlocked ? 0.21 : 0.11)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
       );
-    }
-
-    if (planted || plantTarget) {
-      final Rect highlight = Rect.fromLTWH(
-        innerSoil.left + innerSoil.width * 0.18,
-        innerSoil.top + innerSoil.height * 0.12,
-        innerSoil.width * 0.64,
-        innerSoil.height * 0.32,
-      );
-      canvas.drawArc(
-        highlight,
-        pi * 1.08,
-        pi * 0.78,
-        false,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.2
-          ..color = Colors.white.withValues(alpha: plantTarget ? 0.34 : 0.18),
-      );
-    }
-
-    if (!unlocked) {
       canvas.drawOval(
-        innerSoil,
-        Paint()..color = Colors.black.withValues(alpha: 0.2),
+        rootShadow.deflate(3),
+        Paint()
+          ..color = const Color(0xFF3B2113).withValues(alpha: 0.42)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.2),
+      );
+
+      final Paint soilScratch = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0xFFD19A5F).withValues(alpha: 0.4);
+      for (int i = 0; i < 3; i += 1) {
+        final double y = rootShadow.center.dy + (i - 1) * 3.2;
+        final Path scratch = Path()
+          ..moveTo(rootShadow.left + 12 + i * 3, y)
+          ..quadraticBezierTo(
+            rootShadow.center.dx,
+            y - 2 + i,
+            rootShadow.right - 12 - i * 2,
+            y + 0.8,
+          );
+        canvas.drawPath(scratch, soilScratch);
+      }
+
+      if (ready) {
+        canvas.drawOval(
+          rootShadow.inflate(5 + pulse * 3),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.6 + pulse * 0.8
+            ..color = const Color(0xFFFFD84D).withValues(alpha: 0.56),
+        );
+      }
+    }
+
+    if (weed) {
+      final Paint warningPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.3
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0xFFFFB267).withValues(alpha: 0.58);
+      for (int i = 0; i < 5; i += 1) {
+        final double angle = -pi * 0.15 + i * pi * 0.08;
+        final Offset start = Offset(
+          center.dx - 20 + i * 10,
+          center.dy + 10 + sin(i.toDouble()) * 2,
+        );
+        canvas.drawLine(
+          start,
+          Offset(start.dx + cos(angle) * 9, start.dy + sin(angle) * 4),
+          warningPaint,
+        );
+      }
+    }
+
+    if (!unlocked && (planted || weed || plantTarget)) {
+      canvas.drawOval(
+        groundRect.inflate(2),
+        Paint()..color = Colors.black.withValues(alpha: 0.28),
       );
     }
   }
