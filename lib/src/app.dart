@@ -223,17 +223,19 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const double _worldWidth = 390;
   static const double _worldHeight = 844;
   static const double _playerGardenWidth = 760;
-  static const double _playerGardenHeight = 1260;
-  static const double _gardenMinScale = 0.48;
-  static const double _gardenMaxScale = 1.72;
-  static const double _gardenInitialScale = 1.0;
+  static const double _playerGardenHeight = 1350;
+  static const double _gardenMinScale = 0.58;
+  static const double _gardenMaxScale = 1.55;
+  static const double _gardenInitialScale = 0.66;
+  static const double _gardenInitialTranslateX = -56;
+  static const double _gardenInitialTranslateY = -110;
   static const double _gardenDamageLineY = _worldHeight - 106;
   static const double _minSlashSegment = 7;
   static const int _maxSlashTrails = 22;
   static const int _maxSliceShards = 20;
   static const Duration _minSfxGap = Duration(milliseconds: 42);
   static const Duration _sameSfxGap = Duration(milliseconds: 82);
-  static const String _gardenSaveKey = 'garden_ninja_garden_v2';
+  static const String _gardenSaveKey = 'garden_ninja_garden_v3';
   static const int _dailyWaterGrant = 3;
   static const int _dailySunGrant = 1;
   static const List<String> _weedAssets = [
@@ -357,10 +359,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     GardenPlantRenderSpec(width: 62, height: 78, bottom: 38),
     GardenPlantRenderSpec(width: 84, height: 74, bottom: 38, scale: 0.94),
     GardenPlantRenderSpec(width: 68, height: 80, bottom: 39),
-    GardenPlantRenderSpec(width: 128, height: 138, bottom: 30, scale: 0.9),
-    GardenPlantRenderSpec(width: 128, height: 138, bottom: 30, scale: 0.9),
-    GardenPlantRenderSpec(width: 128, height: 138, bottom: 30, scale: 0.9),
-    GardenPlantRenderSpec(width: 124, height: 136, bottom: 30, scale: 0.92),
+    GardenPlantRenderSpec(width: 166, height: 184, bottom: 20, scale: 0.92),
+    GardenPlantRenderSpec(width: 166, height: 184, bottom: 20, scale: 0.92),
+    GardenPlantRenderSpec(width: 166, height: 184, bottom: 20, scale: 0.92),
+    GardenPlantRenderSpec(width: 160, height: 178, bottom: 20, scale: 0.94),
   ];
   static const List<String> _playerGardenWeedAssets = [
     'assets/images/sprites/weed_leaf.png',
@@ -434,67 +436,32 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   final List<PlayerGardenPlot> _playerGardenPlots = [
     PlayerGardenPlot(
       id: 0,
-      position: const Offset(146, 230),
+      position: const Offset(520, 386),
       unlockLevel: 1,
-      asset: 'assets/images/sprites/flower_daisy.png',
-      plantIndex: 0,
+      asset: 'assets/images/sprites/tree_apple.png',
+      plantIndex: 6,
+      growth: 0.7,
+      watered: true,
+    ),
+    PlayerGardenPlot(
+      id: 1,
+      position: const Offset(190, 540),
+      unlockLevel: 1,
+      asset: 'assets/images/sprites/pink_blossom_bush.png',
+      plantIndex: 4,
       growth: 1,
       sparkle: 0.7,
     ),
     PlayerGardenPlot(
-      id: 1,
-      position: const Offset(330, 265),
+      id: 2,
+      position: const Offset(530, 980),
       unlockLevel: 1,
       asset: 'assets/images/sprites/blue_bell_bloom.png',
       plantIndex: 1,
       growth: 0.74,
-      watered: true,
     ),
-    PlayerGardenPlot(
-      id: 2,
-      position: const Offset(530, 250),
-      unlockLevel: 1,
-      weed: true,
-    ),
-    PlayerGardenPlot(
-      id: 3,
-      position: const Offset(210, 430),
-      unlockLevel: 1,
-      asset: 'assets/images/sprites/pink_blossom_plant.png',
-      plantIndex: 2,
-      growth: 0.42,
-    ),
-    PlayerGardenPlot(id: 4, position: const Offset(410, 455), unlockLevel: 1),
-    PlayerGardenPlot(
-      id: 5,
-      position: const Offset(600, 470),
-      unlockLevel: 1,
-      asset: 'assets/images/sprites/tree_apple.png',
-      plantIndex: 6,
-      growth: 0.66,
-      watered: true,
-    ),
-    PlayerGardenPlot(id: 6, position: const Offset(135, 640), unlockLevel: 1),
-    PlayerGardenPlot(
-      id: 7,
-      position: const Offset(350, 650),
-      unlockLevel: 1,
-      asset: 'assets/images/sprites/flower_shield.png',
-      plantIndex: 5,
-      growth: 0.2,
-    ),
-    PlayerGardenPlot(
-      id: 8,
-      position: const Offset(570, 675),
-      unlockLevel: 1,
-      weed: true,
-    ),
-    PlayerGardenPlot(id: 9, position: const Offset(198, 865), unlockLevel: 2),
-    PlayerGardenPlot(id: 10, position: const Offset(388, 890), unlockLevel: 2),
-    PlayerGardenPlot(id: 11, position: const Offset(590, 905), unlockLevel: 2),
-    PlayerGardenPlot(id: 12, position: const Offset(160, 1085), unlockLevel: 3),
-    PlayerGardenPlot(id: 13, position: const Offset(360, 1110), unlockLevel: 3),
-    PlayerGardenPlot(id: 14, position: const Offset(585, 1082), unlockLevel: 3),
+    PlayerGardenPlot(id: 3, position: const Offset(187, 850), unlockLevel: 1),
+    PlayerGardenPlot(id: 4, position: const Offset(535, 675), unlockLevel: 1),
   ];
 
   late final Ticker _ticker;
@@ -797,7 +764,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     WidgetsBinding.instance.addObserver(this);
     _musicPlayer = AudioPlayer(playerId: 'garden-ninja-music');
     _gardenMapController = TransformationController(
-      Matrix4.translationValues(-120.0, -200.0, 0.0),
+      _gardenMatrix(
+        scale: _gardenInitialScale,
+        translateX: _gardenInitialTranslateX,
+        translateY: _gardenInitialTranslateY,
+      ),
     );
     _ticker = createTicker(_tick)..start();
     _primeAudio();
@@ -1977,6 +1948,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final int totalMs = max(1, option.growDuration.inMilliseconds);
     final int remainingMs = plot.readyAt!.difference(now).inMilliseconds;
     final double progress = (1 - (remainingMs / totalMs)).clamp(0.08, 1.0);
+    if (remainingMs <= 0) {
+      plot.growth = 1;
+      return;
+    }
     final double waterGate = _gardenOptionIsTree(option) ? 0.84 : 0.92;
     plot.growth = plot.watered || progress < waterGate
         ? progress
@@ -2181,10 +2156,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final double ratio = nextScale / currentScale;
     final double tx = current.storage[12];
     final double ty = current.storage[13];
-    const Offset focalPoint = Offset(
-      _worldWidth / 2,
-      (_worldHeight - 122 - 94) / 2,
-    );
+    const Offset focalPoint = Offset(_worldWidth / 2, _worldHeight / 2);
     final double nextTx = focalPoint.dx - (focalPoint.dx - tx) * ratio;
     final double nextTy = focalPoint.dy - (focalPoint.dy - ty) * ratio;
 
@@ -2201,8 +2173,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     setState(() {
       _gardenMapController.value = _gardenMatrix(
         scale: _gardenInitialScale,
-        translateX: -120,
-        translateY: -200,
+        translateX: _gardenInitialTranslateX,
+        translateY: _gardenInitialTranslateY,
       );
     });
   }
@@ -3752,32 +3724,18 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 ),
               ),
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 122,
-              bottom: 94,
-              child: _buildScrollableGardenMap(),
-            ),
+            Positioned.fill(child: _buildScrollableGardenMap()),
             _buildGardenTopHud(),
-            Positioned(right: 12, top: 112, child: _buildGardenExpandBadge()),
-            Positioned(left: 12, top: 154, child: _buildGardenZoomControls()),
+            Positioned(right: 12, top: 132, child: _buildGardenZoomControls()),
             if (_gardenMessageLife > 0)
               Positioned(
                 left: 54,
                 right: 54,
-                top: 162,
+                top: 132,
                 child: Opacity(
                   opacity: _gardenMessageLife.clamp(0.0, 1.0),
                   child: _GardenToast(message: _gardenMessage),
                 ),
-              ),
-            if (_gardenNurseryPlot == null)
-              Positioned(
-                left: 12,
-                right: 12,
-                bottom: 92,
-                child: _buildGardenActionHint(),
               ),
             Positioned(
               left: 12,
@@ -3807,7 +3765,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             fit: StackFit.expand,
             children: [
               Image.asset(
-                'assets/images/backgrounds/player_garden_map.png',
+                'assets/images/backgrounds/player_garden_orchard_b.png',
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
                 filterQuality: FilterQuality.medium,
@@ -3827,16 +3785,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 ),
               ),
               for (final plot in _playerGardenPlots) _buildGardenPlot(plot),
-              Positioned(
-                left: 528,
-                top: 1012,
-                child: _GardenMapLabel(
-                  icon: Icons.open_in_full_rounded,
-                  label: _gardenLevel >= 3
-                      ? 'Full Garden'
-                      : 'Expand $_gardenExpandCost',
-                ),
-              ),
             ],
           ),
         ),
@@ -3877,6 +3825,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         !plot.weed &&
         !plot.planted &&
         _gardenTool == GardenTool.plant;
+    final bool statusBadgeBelow = plot.position.dy < 430;
 
     return Positioned(
       left: plot.position.dx - 62,
@@ -4010,7 +3959,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   ),
                 if (unlocked)
                   Positioned(
-                    top: -10,
+                    top: statusBadgeBelow ? null : -10,
+                    bottom: statusBadgeBelow ? -16 : null,
                     child: _GardenTinyBadge(
                       text: status,
                       color: plot.weed
@@ -4293,9 +4243,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget _buildGardenTopHud() {
-    final int unlockedPlots = _playerGardenPlots
-        .where(_isGardenPlotUnlocked)
-        .length;
     return Positioned(
       left: 10,
       right: 10,
@@ -4329,32 +4276,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                           alignment: Alignment.centerLeft,
                           fit: BoxFit.scaleDown,
                           child: Text(
-                            'MY GARDEN  ${_formatNumber(_gardenPoints)} pts',
+                            'MY GARDEN',
                             maxLines: 1,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 19,
                               fontWeight: FontWeight.w900,
                             ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xAA2C5F1E),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '$unlockedPlots/${_playerGardenPlots.length}',
-                          style: const TextStyle(
-                            color: Color(0xFFDDF9A6),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       ),
@@ -4390,8 +4318,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               const SizedBox(width: 6),
               Expanded(
                 child: _GardenStatChip(
-                  icon: Icons.local_fire_department_rounded,
-                  value: '${_gardenLoginStreak}d',
+                  icon: Icons.eco_rounded,
+                  value: _formatNumber(_gardenPoints),
                 ),
               ),
             ],
@@ -4401,115 +4329,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
   }
 
-  Widget _buildGardenExpandBadge() {
-    final bool complete = _gardenLevel >= 3;
-    return GestureDetector(
-      key: const ValueKey('garden-expand'),
-      onTap: () => setState(_tryExpandGarden),
-      child: Container(
-        width: 104,
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-        decoration: BoxDecoration(
-          color: complete ? const Color(0xDD395934) : const Color(0xE6634316),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFFFD36A), width: 1.8),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x66000000),
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              complete
-                  ? Icons.check_circle_rounded
-                  : Icons.open_in_full_rounded,
-              color: const Color(0xFFFFEAA5),
-              size: 18,
-            ),
-            const SizedBox(width: 5),
-            Expanded(
-              child: Text(
-                complete ? 'Full' : 'Expand',
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildGardenZoomControls() {
     return _GardenZoomControls(
       onZoomIn: () => _zoomGardenBy(1.18),
       onZoomOut: () => _zoomGardenBy(1 / 1.18),
       onReset: _resetGardenZoom,
-    );
-  }
-
-  Widget _buildGardenActionHint() {
-    final (IconData icon, String text) = switch (_gardenTool) {
-      GardenTool.plant => (
-        Icons.touch_app_rounded,
-        'Plant: tap a glowing empty plot',
-      ),
-      GardenTool.water => (
-        Icons.water_drop_rounded,
-        'Water: tap a plant marked Water me',
-      ),
-      GardenTool.clear => (Icons.cut_rounded, 'Clear: tap a Weed! badge'),
-      GardenTool.sun => (
-        Icons.wb_sunny_rounded,
-        'Sun: boost a watered growing plant',
-      ),
-    };
-    return Container(
-      key: const ValueKey('garden-action-hint'),
-      height: 38,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xE51B3D16),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE7FF9A), width: 1.6),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x66000000),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: const Color(0xFFFFED86), size: 21),
-          const SizedBox(width: 8),
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                text,
-                maxLines: 1,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -6567,44 +6391,6 @@ class _GardenToast extends StatelessWidget {
             fontWeight: FontWeight.w900,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _GardenMapLabel extends StatelessWidget {
-  const _GardenMapLabel({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 150,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xDD224817),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFFFD36A), width: 2),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: const Color(0xFFFFE477), size: 18),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
