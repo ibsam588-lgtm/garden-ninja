@@ -231,6 +231,15 @@ void main() {
     expect(find.byKey(const ValueKey('garden-nursery-sheet')), findsNothing);
     expect(find.byKey(const ValueKey('garden-tool-clear')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-tool-sun')), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-zoom-in')), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-zoom-out')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-zoom-in')));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byKey(const ValueKey('garden-zoom-out')));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byKey(const ValueKey('garden-zoom-reset')));
+    await tester.pump(const Duration(milliseconds: 80));
 
     await tester.tap(find.byKey(const ValueKey('garden-tool-clear')));
     await tester.pump(const Duration(milliseconds: 80));
@@ -248,7 +257,11 @@ void main() {
     expect(find.text('Choose plant for this plot'), findsOneWidget);
     expect(find.text('Tap a card, then press Plant.'), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-plant-option-0')), findsOneWidget);
+    expect(find.text('Apple Tree'), findsOneWidget);
     expect(find.text('PLANT DAISY HERE'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('garden-plant-option-6')));
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(find.text('PLANT APPLE TREE HERE'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('garden-plant-option-2')));
     await tester.pump(const Duration(milliseconds: 80));
     expect(find.text('PLANT PINK BLOOM HERE'), findsOneWidget);
