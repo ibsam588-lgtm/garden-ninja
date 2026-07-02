@@ -227,15 +227,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const double _gardenMinScale = 0.58;
   static const double _gardenMaxScale = 1.55;
   static const double _gardenInitialScale = 0.66;
-  static const double _gardenInitialTranslateX = -56;
-  static const double _gardenInitialTranslateY = -110;
+  static const double _gardenInitialTranslateX = 0;
+  static const double _gardenInitialTranslateY = 0;
   static const double _gardenDamageLineY = _worldHeight - 106;
   static const double _minSlashSegment = 7;
   static const int _maxSlashTrails = 22;
   static const int _maxSliceShards = 20;
   static const Duration _minSfxGap = Duration(milliseconds: 42);
   static const Duration _sameSfxGap = Duration(milliseconds: 82);
-  static const String _gardenSaveKey = 'garden_ninja_garden_v3';
+  static const String _gardenSaveKey = 'garden_ninja_garden_v4';
   static const int _dailyWaterGrant = 3;
   static const int _dailySunGrant = 1;
   static const List<String> _weedAssets = [
@@ -353,16 +353,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
   ];
   static const List<GardenPlantRenderSpec> _gardenPlantRenderSpecs = [
-    GardenPlantRenderSpec(width: 68, height: 76, bottom: 40),
-    GardenPlantRenderSpec(width: 58, height: 78, bottom: 39),
-    GardenPlantRenderSpec(width: 58, height: 72, bottom: 39),
-    GardenPlantRenderSpec(width: 62, height: 78, bottom: 38),
-    GardenPlantRenderSpec(width: 84, height: 74, bottom: 38, scale: 0.94),
-    GardenPlantRenderSpec(width: 68, height: 80, bottom: 39),
-    GardenPlantRenderSpec(width: 166, height: 184, bottom: 20, scale: 0.92),
-    GardenPlantRenderSpec(width: 166, height: 184, bottom: 20, scale: 0.92),
-    GardenPlantRenderSpec(width: 166, height: 184, bottom: 20, scale: 0.92),
-    GardenPlantRenderSpec(width: 160, height: 178, bottom: 20, scale: 0.94),
+    GardenPlantRenderSpec(width: 88, height: 96, bottom: 42),
+    GardenPlantRenderSpec(width: 78, height: 102, bottom: 42),
+    GardenPlantRenderSpec(width: 76, height: 94, bottom: 42),
+    GardenPlantRenderSpec(width: 82, height: 102, bottom: 42),
+    GardenPlantRenderSpec(width: 136, height: 118, bottom: 38, scale: 0.98),
+    GardenPlantRenderSpec(width: 88, height: 102, bottom: 42),
+    GardenPlantRenderSpec(width: 236, height: 264, bottom: 10, scale: 0.94),
+    GardenPlantRenderSpec(width: 236, height: 264, bottom: 10, scale: 0.94),
+    GardenPlantRenderSpec(width: 236, height: 264, bottom: 10, scale: 0.94),
+    GardenPlantRenderSpec(width: 226, height: 254, bottom: 10, scale: 0.94),
   ];
   static const List<String> _playerGardenWeedAssets = [
     'assets/images/sprites/weed_leaf.png',
@@ -436,7 +436,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   final List<PlayerGardenPlot> _playerGardenPlots = [
     PlayerGardenPlot(
       id: 0,
-      position: const Offset(520, 386),
+      position: const Offset(486, 386),
       unlockLevel: 1,
       asset: 'assets/images/sprites/tree_apple.png',
       plantIndex: 6,
@@ -445,7 +445,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     PlayerGardenPlot(
       id: 1,
-      position: const Offset(190, 540),
+      position: const Offset(198, 578),
       unlockLevel: 1,
       asset: 'assets/images/sprites/pink_blossom_bush.png',
       plantIndex: 4,
@@ -454,14 +454,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     PlayerGardenPlot(
       id: 2,
-      position: const Offset(530, 980),
+      position: const Offset(544, 1033),
       unlockLevel: 1,
       asset: 'assets/images/sprites/blue_bell_bloom.png',
       plantIndex: 1,
       growth: 0.74,
     ),
-    PlayerGardenPlot(id: 3, position: const Offset(187, 850), unlockLevel: 1),
-    PlayerGardenPlot(id: 4, position: const Offset(535, 675), unlockLevel: 1),
+    PlayerGardenPlot(id: 3, position: const Offset(543, 724), unlockLevel: 1),
   ];
 
   late final Ticker _ticker;
@@ -498,10 +497,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int _weedsSlashed = 0;
   int _flowersSaved = 0;
   int _seeds = 1250;
-  int _sunDrops = 4;
+  int _sunDrops = 3;
   int _waterCharges = 3;
   int _iceCharges = 2;
-  int _gardenPoints = 0;
+  int _gardenPoints = 2350;
   int _rewardSeeds = 0;
   int _selectedAvatar = 0;
   int _selectedMusicTrack = 0;
@@ -1829,14 +1828,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _ensureMusicStarted();
     setState(() {
       final DateTime now = _gardenNow;
-      _syncDailyGarden(now, announce: true);
+      _syncDailyGarden(now, announce: false);
       _refreshAllGardenPlots(now);
       _phase = GamePhase.garden;
       _gardenTool = GardenTool.plant;
-      if (_gardenMessageLife <= 0) {
-        _gardenMessage = 'Tap empty plot to open nursery';
-        _gardenMessageLife = 2.4;
-      }
+      _gardenMessageLife = 0;
       _gardenWeedTimer = max(_gardenWeedTimer, 12);
     });
     _queueGardenSave();
@@ -1974,9 +1970,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return _gardenTool == GardenTool.plant ? 'Plant here' : 'Empty plot';
     }
     if (plot.ready) {
-      return _gardenOptionIsTree(_plantOptionForPlot(plot))
-          ? 'Fruit'
-          : 'Collect';
+      return 'Ready';
     }
     if (!_isWateredToday(plot, now)) {
       return 'Water me';
@@ -2141,42 +2135,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _gardenMessageLife = 2.6;
     _playSfx(_sfxComboSpark, volume: 0.62);
     _queueGardenSave();
-  }
-
-  void _zoomGardenBy(double multiplier) {
-    final Matrix4 current = _gardenMapController.value;
-    final double currentScale = current.getMaxScaleOnAxis();
-    final double nextScale = (currentScale * multiplier)
-        .clamp(_gardenMinScale, _gardenMaxScale)
-        .toDouble();
-    if ((nextScale - currentScale).abs() < 0.01) {
-      return;
-    }
-
-    final double ratio = nextScale / currentScale;
-    final double tx = current.storage[12];
-    final double ty = current.storage[13];
-    const Offset focalPoint = Offset(_worldWidth / 2, _worldHeight / 2);
-    final double nextTx = focalPoint.dx - (focalPoint.dx - tx) * ratio;
-    final double nextTy = focalPoint.dy - (focalPoint.dy - ty) * ratio;
-
-    setState(() {
-      _gardenMapController.value = _gardenMatrix(
-        scale: nextScale,
-        translateX: nextTx,
-        translateY: nextTy,
-      );
-    });
-  }
-
-  void _resetGardenZoom() {
-    setState(() {
-      _gardenMapController.value = _gardenMatrix(
-        scale: _gardenInitialScale,
-        translateX: _gardenInitialTranslateX,
-        translateY: _gardenInitialTranslateY,
-      );
-    });
   }
 
   Matrix4 _gardenMatrix({
@@ -3726,21 +3684,20 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             ),
             Positioned.fill(child: _buildScrollableGardenMap()),
             _buildGardenTopHud(),
-            Positioned(right: 12, top: 132, child: _buildGardenZoomControls()),
             if (_gardenMessageLife > 0)
               Positioned(
                 left: 54,
                 right: 54,
-                top: 132,
+                top: 118,
                 child: Opacity(
                   opacity: _gardenMessageLife.clamp(0.0, 1.0),
                   child: _GardenToast(message: _gardenMessage),
                 ),
               ),
             Positioned(
-              left: 12,
-              right: 12,
-              bottom: 12,
+              left: 16,
+              right: 16,
+              bottom: 16,
               child: _buildGardenToolbar(),
             ),
             if (_gardenNurseryPlot != null) _buildGardenNurseryOverlay(),
@@ -3765,7 +3722,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             fit: StackFit.expand,
             children: [
               Image.asset(
-                'assets/images/backgrounds/player_garden_orchard_b.png',
+                'assets/images/backgrounds/player_garden_mockup_b.png',
                 fit: BoxFit.cover,
                 alignment: Alignment.topCenter,
                 filterQuality: FilterQuality.medium,
@@ -3802,12 +3759,20 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final double pulse = 1 + sin(_motionTime * 3.2 + plot.id).abs() * 0.035;
     final double targetPulse = (sin(_motionTime * 4.4 + plot.id * 0.7) + 1) / 2;
     final double sparkle = plot.sparkle.clamp(0.0, 1.0);
-    final double plantScale = switch (plot.growthStage) {
-      0 => 0.78,
-      1 => 0.66,
-      2 => 0.86,
-      _ => 1.0,
-    };
+    final bool tree =
+        plot.planted && _gardenOptionIsTree(_plantOptionForPlot(plot));
+    final double plantScale = tree
+        ? switch (plot.growthStage) {
+            0 => 0.76,
+            1 => 0.82,
+            _ => 1.0,
+          }
+        : switch (plot.growthStage) {
+            0 => 0.78,
+            1 => 0.66,
+            2 => 0.86,
+            _ => 1.0,
+          };
     final GardenPlantRenderSpec? plantSpec = plot.planted
         ? _plantRenderSpecForPlot(plot)
         : null;
@@ -3825,13 +3790,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         !plot.weed &&
         !plot.planted &&
         _gardenTool == GardenTool.plant;
-    final bool statusBadgeBelow = plot.position.dy < 430;
+    final bool showStatusBadge =
+        unlocked && !tree && !plantTarget && (plot.weed || plot.planted);
 
     return Positioned(
-      left: plot.position.dx - 62,
-      top: plot.position.dy - 70,
-      width: 124,
-      height: 142,
+      left: plot.position.dx - 88,
+      top: plot.position.dy - 126,
+      width: 176,
+      height: 220,
       child: GestureDetector(
         key: ValueKey('player-garden-plot-${plot.id}'),
         behavior: HitTestBehavior.opaque,
@@ -3846,26 +3812,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               children: [
                 if (plantTarget)
                   Positioned(
-                    bottom: -2,
+                    bottom: 10,
                     child: _GardenPlantTargetGlow(
                       key: ValueKey('garden-plant-target-glow-${plot.id}'),
                       pulse: targetPulse,
                     ),
                   ),
-                Positioned(
-                  bottom: 6,
-                  child: _GardenPlotBed(
-                    unlocked: unlocked,
-                    planted: plot.planted,
-                    ready: plot.ready,
-                    plantTarget: plantTarget,
-                    weed: plot.weed,
-                    pulse: targetPulse,
-                  ),
-                ),
                 if (!unlocked)
                   const Positioned(
-                    top: 26,
+                    bottom: 44,
                     child: Icon(
                       Icons.lock_rounded,
                       color: Color(0xFFFFE29B),
@@ -3874,39 +3829,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   )
                 else if (plantTarget)
                   Positioned(
-                    top: 24,
+                    right: 42,
+                    bottom: 35,
                     child: Transform.scale(
-                      scale: 1 + targetPulse * 0.12,
-                      child: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(
-                            0xFF153F18,
-                          ).withValues(alpha: 0.62),
-                          border: Border.all(
-                            color: const Color(
-                              0xFFE7FF9A,
-                            ).withValues(alpha: 0.9),
-                            width: 1.6,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFFFFF176,
-                              ).withValues(alpha: 0.36 + targetPulse * 0.2),
-                              blurRadius: 16 + targetPulse * 8,
-                              spreadRadius: 1 + targetPulse * 2,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.eco_rounded,
-                          color: Color(0xFFDFFF6F),
-                          size: 25,
-                        ),
-                      ),
+                      scale: 1 + targetPulse * 0.08,
+                      child: const _GardenPlantTargetMarker(),
                     ),
                   )
                 else if (plot.planted && plantSpec != null)
@@ -3936,31 +3863,30 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   ),
                 if (plot.weed && unlocked)
                   Positioned(
-                    top: -2 + sin(_motionTime * 5 + plot.id) * 2,
-                    right: 8,
+                    bottom: 44 + sin(_motionTime * 5 + plot.id) * 2,
+                    right: 42,
                     child: Image.asset(
                       weedAsset,
-                      width: 48,
-                      height: 52,
+                      width: 64,
+                      height: 70,
                       fit: BoxFit.contain,
                       filterQuality: FilterQuality.medium,
                     ),
                   ),
                 if (plot.ready && unlocked)
                   Positioned(
-                    top: -4,
-                    right: 9,
+                    top: 42,
+                    right: 34,
                     child: Image.asset(
                       'assets/images/icons/bloom_collect.png',
-                      width: 32,
-                      height: 32,
+                      width: 26,
+                      height: 26,
                       filterQuality: FilterQuality.medium,
                     ),
                   ),
-                if (unlocked)
+                if (showStatusBadge)
                   Positioned(
-                    top: statusBadgeBelow ? null : -10,
-                    bottom: statusBadgeBelow ? -16 : null,
+                    top: plot.ready ? 36 : 58,
                     child: _GardenTinyBadge(
                       text: status,
                       color: plot.weed
@@ -3976,13 +3902,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                           ? const Color(0xFFE4FFAA)
                           : const Color(0xFFFFD36A),
                     ),
-                  ),
-                if (plot.planted && unlocked)
-                  Positioned(
-                    left: 20,
-                    right: 20,
-                    bottom: 2,
-                    child: _GardenProgressBar(progress: plot.growth),
                   ),
                 if (sparkle > 0)
                   Positioned.fill(
@@ -4244,157 +4163,135 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   Widget _buildGardenTopHud() {
     return Positioned(
-      left: 10,
-      right: 10,
-      top: 10,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              _RoundIconButton(
-                icon: Icons.arrow_back_rounded,
-                onPressed: _goHome,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
+      left: 14,
+      right: 14,
+      top: 20,
+      child: SizedBox(
+        height: 98,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Align(
+              alignment: Alignment.topCenter,
+              child: _GardenTitleBoard(),
+            ),
+            Positioned(
+              right: 0,
+              top: 0,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _openUpgrades,
                 child: Container(
-                  height: 48,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  width: 46,
+                  height: 46,
                   decoration: BoxDecoration(
-                    color: const Color(0xDD143A18),
-                    borderRadius: BorderRadius.circular(8),
+                    shape: BoxShape.circle,
+                    color: const Color(0xDD263B31),
                     border: Border.all(
-                      color: const Color(0xFF9FE866),
-                      width: 1.8,
+                      color: const Color(0xCCBEEB86),
+                      width: 2,
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: FittedBox(
-                          alignment: Alignment.centerLeft,
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            'MY GARDEN',
-                            maxLines: 1,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 19,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x66000000),
+                        blurRadius: 9,
+                        offset: Offset(0, 4),
                       ),
                     ],
                   ),
+                  child: const Icon(
+                    Icons.settings_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: _GardenStatChip(
-                  asset: 'assets/images/icons/seed_coin.png',
-                  value: _formatNumber(_seeds),
-                ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _GardenStatChip(
+                      asset: 'assets/images/icons/seed_coin.png',
+                      value: _formatNumber(_seeds),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _GardenStatChip(
+                      asset: 'assets/images/icons/water_drop.png',
+                      value: '$_waterCharges',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _GardenStatChip(
+                      asset: 'assets/images/icons/sun_boost.png',
+                      value: '$_sunDrops',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _GardenStatChip(
+                      icon: Icons.eco_rounded,
+                      value: _formatNumber(_gardenPoints),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _GardenStatChip(
-                  asset: 'assets/images/icons/water_drop.png',
-                  value: '$_waterCharges',
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _GardenStatChip(
-                  asset: 'assets/images/icons/sun_boost.png',
-                  value: '$_sunDrops',
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _GardenStatChip(
-                  icon: Icons.eco_rounded,
-                  value: _formatNumber(_gardenPoints),
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
-    );
-  }
-
-  Widget _buildGardenZoomControls() {
-    return _GardenZoomControls(
-      onZoomIn: () => _zoomGardenBy(1.18),
-      onZoomOut: () => _zoomGardenBy(1 / 1.18),
-      onReset: _resetGardenZoom,
     );
   }
 
   Widget _buildGardenToolbar() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xE5143A18),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFBDF17A), width: 2),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x66000000),
-            blurRadius: 16,
-            offset: Offset(0, 6),
+    return Row(
+      children: [
+        Expanded(
+          child: _GardenToolButton(
+            key: const ValueKey('garden-tool-plant'),
+            icon: Icons.spa_rounded,
+            label: 'Plant',
+            selected: _gardenTool == GardenTool.plant,
+            onTap: () => _selectGardenTool(GardenTool.plant),
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _GardenToolButton(
-              key: const ValueKey('garden-tool-plant'),
-              icon: Icons.spa_rounded,
-              label: 'Plant',
-              selected: _gardenTool == GardenTool.plant,
-              onTap: () => _selectGardenTool(GardenTool.plant),
-            ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _GardenToolButton(
+            key: const ValueKey('garden-tool-water'),
+            icon: Icons.water_drop_rounded,
+            label: 'Water',
+            selected: _gardenTool == GardenTool.water,
+            onTap: () => _selectGardenTool(GardenTool.water),
           ),
-          const SizedBox(width: 7),
-          Expanded(
-            child: _GardenToolButton(
-              key: const ValueKey('garden-tool-water'),
-              icon: Icons.water_drop_rounded,
-              label: 'Water',
-              selected: _gardenTool == GardenTool.water,
-              onTap: () => _selectGardenTool(GardenTool.water),
-            ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _GardenToolButton(
+            key: const ValueKey('garden-tool-clear'),
+            icon: Icons.content_cut_rounded,
+            label: 'Clear',
+            selected: _gardenTool == GardenTool.clear,
+            onTap: () => _selectGardenTool(GardenTool.clear),
           ),
-          const SizedBox(width: 7),
-          Expanded(
-            child: _GardenToolButton(
-              key: const ValueKey('garden-tool-clear'),
-              icon: Icons.cut_rounded,
-              label: 'Clear',
-              selected: _gardenTool == GardenTool.clear,
-              onTap: () => _selectGardenTool(GardenTool.clear),
-            ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _GardenToolButton(
+            key: const ValueKey('garden-tool-sun'),
+            icon: Icons.wb_sunny_rounded,
+            label: 'Sun',
+            selected: _gardenTool == GardenTool.sun,
+            onTap: () => _selectGardenTool(GardenTool.sun),
           ),
-          const SizedBox(width: 7),
-          Expanded(
-            child: _GardenToolButton(
-              key: const ValueKey('garden-tool-sun'),
-              icon: Icons.wb_sunny_rounded,
-              label: 'Sun',
-              selected: _gardenTool == GardenTool.sun,
-              onTap: () => _selectGardenTool(GardenTool.sun),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -5621,6 +5518,92 @@ class GardenCrackPainter extends CustomPainter {
   bool shouldRepaint(covariant GardenCrackPainter oldDelegate) => false;
 }
 
+class _GardenTitleBoard extends StatelessWidget {
+  const _GardenTitleBoard();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 214,
+      height: 52,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            left: -18,
+            child: Transform.rotate(
+              angle: -0.42,
+              child: const Icon(
+                Icons.eco_rounded,
+                color: Color(0xFF6EBB35),
+                size: 38,
+              ),
+            ),
+          ),
+          Positioned(
+            right: -18,
+            child: Transform.rotate(
+              angle: 0.42,
+              child: const Icon(
+                Icons.eco_rounded,
+                color: Color(0xFF6EBB35),
+                size: 38,
+              ),
+            ),
+          ),
+          Container(
+            height: 46,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF6DAA35), Color(0xFF315F1D)],
+              ),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFB9E972), width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x99000000),
+                  blurRadius: 10,
+                  offset: Offset(0, 5),
+                ),
+                BoxShadow(
+                  color: Color(0x559EF15E),
+                  blurRadius: 8,
+                  offset: Offset(0, -1),
+                ),
+              ],
+            ),
+            child: const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                'MY GARDEN',
+                maxLines: 1,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 25,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                  shadows: [
+                    Shadow(
+                      color: Color(0xAA143010),
+                      blurRadius: 2,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _GardenStatChip extends StatelessWidget {
   const _GardenStatChip({required this.value, this.asset, this.icon});
 
@@ -5631,20 +5614,31 @@ class _GardenStatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 6),
+      height: 39,
+      padding: const EdgeInsets.symmetric(horizontal: 7),
       decoration: BoxDecoration(
-        color: const Color(0xDD193D16),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF95D957), width: 1.5),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xEE304A43), Color(0xEE1A2F2B)],
+        ),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: const Color(0xAA9FC485), width: 1.3),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 7,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (asset != null)
-            Image.asset(asset!, width: 20, height: 20)
+            Image.asset(asset!, width: 25, height: 25)
           else
-            Icon(icon, color: const Color(0xFFFFD36A), size: 19),
+            Icon(icon, color: const Color(0xFFC8F783), size: 24),
           const SizedBox(width: 4),
           Flexible(
             child: FittedBox(
@@ -5654,7 +5648,7 @@ class _GardenStatChip extends StatelessWidget {
                 maxLines: 1,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 15,
+                  fontSize: 18,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -5682,123 +5676,92 @@ class _GardenToolButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final (Color top, Color bottom, Color border, Color glow) = switch (label) {
+      'Water' => (
+        const Color(0xFF60A8CB),
+        const Color(0xFF1F5E83),
+        const Color(0xFF94D7FF),
+        const Color(0x6639A7E8),
+      ),
+      'Clear' => (
+        const Color(0xFFC4914F),
+        const Color(0xFF71411D),
+        const Color(0xFFFFD58B),
+        const Color(0x66D18B35),
+      ),
+      'Sun' => (
+        const Color(0xFFC8A126),
+        const Color(0xFF6F5A12),
+        const Color(0xFFFFDD63),
+        const Color(0x66FFD84D),
+      ),
+      _ => (
+        const Color(0xFF8AC448),
+        const Color(0xFF356D1F),
+        const Color(0xFFCFF78A),
+        const Color(0x668CEB4E),
+      ),
+    };
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: AnimatedContainer(
+      child: AnimatedScale(
         duration: const Duration(milliseconds: 160),
-        height: 62,
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFF62BD2F) : const Color(0xCC214C1A),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? const Color(0xFFFFE477) : const Color(0xFF80B95A),
-            width: selected ? 2.4 : 1.4,
+        scale: selected ? 1.03 : 1,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          height: 100,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [top, bottom],
+            ),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(
+              color: selected ? const Color(0xFFFFF08A) : border,
+              width: selected ? 3 : 2,
+            ),
+            boxShadow: [
+              const BoxShadow(
+                color: Color(0x99000000),
+                blurRadius: 10,
+                offset: Offset(0, 5),
+              ),
+              BoxShadow(
+                color: selected ? glow : Colors.transparent,
+                blurRadius: 12,
+                spreadRadius: 1,
+              ),
+            ],
           ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.white, size: 24),
-            const SizedBox(height: 3),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                label,
-                maxLines: 1,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white, size: 40),
+              const SizedBox(height: 7),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    shadows: [
+                      Shadow(
+                        color: Color(0xAA000000),
+                        blurRadius: 2,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GardenZoomControls extends StatelessWidget {
-  const _GardenZoomControls({
-    required this.onZoomIn,
-    required this.onZoomOut,
-    required this.onReset,
-  });
-
-  final VoidCallback onZoomIn;
-  final VoidCallback onZoomOut;
-  final VoidCallback onReset;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xD9153916),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFBDEB70), width: 1.4),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x66000000),
-            blurRadius: 10,
-            offset: Offset(0, 4),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _GardenZoomButton(
-            key: const ValueKey('garden-zoom-in'),
-            icon: Icons.add_rounded,
-            tooltip: 'Zoom in',
-            onTap: onZoomIn,
-          ),
-          Container(width: 32, height: 1, color: const Color(0x6680C65A)),
-          _GardenZoomButton(
-            key: const ValueKey('garden-zoom-reset'),
-            icon: Icons.center_focus_strong_rounded,
-            tooltip: 'Reset zoom',
-            onTap: onReset,
-          ),
-          Container(width: 32, height: 1, color: const Color(0x6680C65A)),
-          _GardenZoomButton(
-            key: const ValueKey('garden-zoom-out'),
-            icon: Icons.remove_rounded,
-            tooltip: 'Zoom out',
-            onTap: onZoomOut,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GardenZoomButton extends StatelessWidget {
-  const _GardenZoomButton({
-    super.key,
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: SizedBox(
-        width: 38,
-        height: 38,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: Icon(icon, color: Colors.white, size: 24),
         ),
       ),
     );
@@ -6010,22 +5973,22 @@ class _GardenPlantTargetGlow extends StatelessWidget {
   Widget build(BuildContext context) {
     return IgnorePointer(
       child: Transform.scale(
-        scale: 1 + (pulse * 0.08),
+        scale: 1 + (pulse * 0.045),
         child: SizedBox(
-          width: 128,
-          height: 72,
+          width: 166,
+          height: 112,
           child: Stack(
             alignment: Alignment.center,
             children: [
               Container(
-                width: 122,
-                height: 66,
+                width: 158,
+                height: 100,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(999),
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFFFFF7A8).withValues(alpha: 0.34),
-                      const Color(0xFF8BFF47).withValues(alpha: 0.18),
+                      const Color(0xFFFFF6A0).withValues(alpha: 0.42),
+                      const Color(0xFFFFD84D).withValues(alpha: 0.2),
                       Colors.transparent,
                     ],
                   ),
@@ -6033,30 +5996,30 @@ class _GardenPlantTargetGlow extends StatelessWidget {
                     BoxShadow(
                       color: const Color(
                         0xFFFFF176,
-                      ).withValues(alpha: 0.52 + pulse * 0.18),
-                      blurRadius: 18 + pulse * 12,
-                      spreadRadius: 2 + pulse * 3,
+                      ).withValues(alpha: 0.58 + pulse * 0.16),
+                      blurRadius: 24 + pulse * 16,
+                      spreadRadius: 3 + pulse * 3,
                     ),
                   ],
                 ),
               ),
               Container(
-                width: 112,
-                height: 58,
+                width: 148,
+                height: 92,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
                     color: Color.lerp(
                       const Color(0xFFFFFFFF),
-                      const Color(0xFFFFED69),
+                      const Color(0xFFFFDF44),
                       pulse,
                     )!,
-                    width: 2.2 + pulse,
+                    width: 3.2 + pulse,
                   ),
                 ),
               ),
               Positioned(
-                left: 18,
+                left: 24,
                 top: 8 + pulse * 4,
                 child: Icon(
                   Icons.auto_awesome_rounded,
@@ -6065,8 +6028,8 @@ class _GardenPlantTargetGlow extends StatelessWidget {
                 ),
               ),
               Positioned(
-                right: 22,
-                bottom: 7 - pulse * 3,
+                right: 25,
+                bottom: 10 - pulse * 3,
                 child: Icon(
                   Icons.auto_awesome_rounded,
                   color: const Color(0xFFE7FF9A).withValues(alpha: 0.78),
@@ -6081,246 +6044,53 @@ class _GardenPlantTargetGlow extends StatelessWidget {
   }
 }
 
-class _GardenPlotBed extends StatelessWidget {
-  const _GardenPlotBed({
-    required this.unlocked,
-    required this.planted,
-    required this.ready,
-    required this.plantTarget,
-    required this.weed,
-    required this.pulse,
-  });
-
-  final bool unlocked;
-  final bool planted;
-  final bool ready;
-  final bool plantTarget;
-  final bool weed;
-  final double pulse;
+class _GardenPlantTargetMarker extends StatelessWidget {
+  const _GardenPlantTargetMarker();
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: SizedBox(
-        width: 116,
-        height: 70,
-        child: CustomPaint(
-          painter: _GardenPlotBedPainter(
-            unlocked: unlocked,
-            planted: planted,
-            ready: ready,
-            plantTarget: plantTarget,
-            weed: weed,
-            pulse: pulse,
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        Positioned(
+          bottom: -18,
+          child: Container(
+            width: 7,
+            height: 24,
+            decoration: BoxDecoration(
+              color: const Color(0xFF6D4420),
+              borderRadius: BorderRadius.circular(99),
+              border: Border.all(color: const Color(0xFF3F240F), width: 1),
+            ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _GardenPlotBedPainter extends CustomPainter {
-  const _GardenPlotBedPainter({
-    required this.unlocked,
-    required this.planted,
-    required this.ready,
-    required this.plantTarget,
-    required this.weed,
-    required this.pulse,
-  });
-
-  final bool unlocked;
-  final bool planted;
-  final bool ready;
-  final bool plantTarget;
-  final bool weed;
-  final double pulse;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Offset center = Offset(size.width * 0.5, size.height * 0.58);
-    final Rect contactShadow = Rect.fromCenter(
-      center: Offset(center.dx, center.dy + size.height * 0.16),
-      width: size.width * (planted ? 0.52 : 0.78),
-      height: size.height * (planted ? 0.18 : 0.3),
-    );
-    if (planted || weed || plantTarget) {
-      canvas.drawOval(
-        contactShadow,
-        Paint()
-          ..color = Colors.black.withValues(
-            alpha: planted ? (unlocked ? 0.2 : 0.12) : (unlocked ? 0.1 : 0.06),
-          )
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-      );
-    }
-
-    final Rect groundRect = Rect.fromCenter(
-      center: center,
-      width: size.width * (planted ? 0.58 : 0.74),
-      height: size.height * (planted ? 0.32 : 0.46),
-    );
-
-    if (plantTarget) {
-      canvas.drawOval(
-        groundRect.inflate(7 + pulse * 5),
-        Paint()
-          ..color = const Color(0xFFDFFF6F).withValues(alpha: 0.26)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 14 + pulse * 9),
-      );
-      canvas.drawOval(
-        groundRect.inflate(4 + pulse * 2),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.2 + pulse
-          ..color = Color.lerp(
-            const Color(0xFFA8FF62),
-            const Color(0xFFFFF176),
-            pulse,
-          )!,
-      );
-    }
-
-    if (!planted) {
-      if (plantTarget) {
-        final Paint guidingTrace = Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.4
-          ..strokeCap = StrokeCap.round
-          ..color = const Color(0xFFE7FF9A).withValues(alpha: 0.72);
-        canvas.drawOval(groundRect, guidingTrace);
-
-        final Paint grassBlade = Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.15
-          ..strokeCap = StrokeCap.round
-          ..color = const Color(0xFFC5F17A).withValues(alpha: 0.54);
-        for (int i = 0; i < 10; i += 1) {
-          final double angle = pi * 2 * i / 10;
-          final Offset edge = Offset(
-            center.dx + cos(angle) * groundRect.width * 0.48,
-            center.dy + sin(angle) * groundRect.height * 0.46,
-          );
-          final Offset tip = Offset(
-            edge.dx + cos(angle) * (4 + (i % 3)),
-            edge.dy + sin(angle) * (3 + (i % 2)),
-          );
-          canvas.drawLine(edge, tip, grassBlade);
-        }
-      }
-    } else {
-      final Rect rootShadow = Rect.fromCenter(
-        center: Offset(center.dx, center.dy + size.height * 0.03),
-        width: groundRect.width * 0.94,
-        height: groundRect.height * 0.62,
-      );
-      canvas.drawOval(
-        rootShadow,
-        Paint()
-          ..color = Colors.black.withValues(alpha: unlocked ? 0.21 : 0.11)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-      );
-      canvas.drawOval(
-        rootShadow.deflate(3),
-        Paint()
-          ..color = const Color(0xFF3B2113).withValues(alpha: 0.42)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.2),
-      );
-
-      final Paint soilScratch = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.1
-        ..strokeCap = StrokeCap.round
-        ..color = const Color(0xFFD19A5F).withValues(alpha: 0.4);
-      for (int i = 0; i < 3; i += 1) {
-        final double y = rootShadow.center.dy + (i - 1) * 3.2;
-        final Path scratch = Path()
-          ..moveTo(rootShadow.left + 12 + i * 3, y)
-          ..quadraticBezierTo(
-            rootShadow.center.dx,
-            y - 2 + i,
-            rootShadow.right - 12 - i * 2,
-            y + 0.8,
-          );
-        canvas.drawPath(scratch, soilScratch);
-      }
-
-      if (ready) {
-        canvas.drawOval(
-          rootShadow.inflate(5 + pulse * 3),
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.6 + pulse * 0.8
-            ..color = const Color(0xFFFFD84D).withValues(alpha: 0.56),
-        );
-      }
-    }
-
-    if (weed) {
-      final Paint warningPaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.3
-        ..strokeCap = StrokeCap.round
-        ..color = const Color(0xFFFFB267).withValues(alpha: 0.58);
-      for (int i = 0; i < 5; i += 1) {
-        final double angle = -pi * 0.15 + i * pi * 0.08;
-        final Offset start = Offset(
-          center.dx - 20 + i * 10,
-          center.dy + 10 + sin(i.toDouble()) * 2,
-        );
-        canvas.drawLine(
-          start,
-          Offset(start.dx + cos(angle) * 9, start.dy + sin(angle) * 4),
-          warningPaint,
-        );
-      }
-    }
-
-    if (!unlocked && (planted || weed || plantTarget)) {
-      canvas.drawOval(
-        groundRect.inflate(2),
-        Paint()..color = Colors.black.withValues(alpha: 0.28),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _GardenPlotBedPainter oldDelegate) {
-    return oldDelegate.unlocked != unlocked ||
-        oldDelegate.planted != planted ||
-        oldDelegate.ready != ready ||
-        oldDelegate.plantTarget != plantTarget ||
-        oldDelegate.weed != weed ||
-        oldDelegate.pulse != pulse;
-  }
-}
-
-class _GardenProgressBar extends StatelessWidget {
-  const _GardenProgressBar({required this.progress});
-
-  final double progress;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 8,
-      decoration: BoxDecoration(
-        color: const Color(0xAA17310F),
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: const Color(0xFFE4FFAA), width: 1),
-      ),
-      child: FractionallySizedBox(
-        alignment: Alignment.centerLeft,
-        widthFactor: progress.clamp(0.0, 1.0),
-        child: DecoratedBox(
+        Container(
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
-            color: progress >= 1
-                ? const Color(0xFFFFD84D)
-                : const Color(0xFF73E347),
-            borderRadius: BorderRadius.circular(99),
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF7B5B2A), Color(0xFF3F2B14)],
+            ),
+            border: Border.all(color: const Color(0xFFE9CC7A), width: 2.4),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x66000000),
+                blurRadius: 9,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.local_florist_rounded,
+            color: Color(0xFFBDF57A),
+            size: 27,
           ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -6328,8 +6098,8 @@ class _GardenProgressBar extends StatelessWidget {
 class _GardenTinyBadge extends StatelessWidget {
   const _GardenTinyBadge({
     required this.text,
-    this.color = const Color(0xEE67221D),
-    this.borderColor = const Color(0xFFFFD36A),
+    this.color = const Color(0xEE2E6D24),
+    this.borderColor = const Color(0xFFFFFFFF),
   });
 
   final String text;
@@ -6338,22 +6108,74 @@ class _GardenTinyBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor, width: 1.3),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: borderColor, width: 1.5),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x66000000),
+                blurRadius: 7,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
         ),
-      ),
+        CustomPaint(
+          size: const Size(14, 7),
+          painter: _GardenBadgeTailPainter(
+            color: color,
+            borderColor: borderColor,
+          ),
+        ),
+      ],
     );
+  }
+}
+
+class _GardenBadgeTailPainter extends CustomPainter {
+  const _GardenBadgeTailPainter({
+    required this.color,
+    required this.borderColor,
+  });
+
+  final Color color;
+  final Color borderColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Path path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = borderColor,
+    );
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _GardenBadgeTailPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.borderColor != borderColor;
   }
 }
 

@@ -220,28 +220,21 @@ void main() {
     await tester.pump(const Duration(milliseconds: 160));
 
     expect(find.textContaining('MY GARDEN'), findsOneWidget);
-    expect(find.text('Tap empty plot to open nursery'), findsOneWidget);
-    expect(find.text('Plant here'), findsAtLeastNWidgets(1));
     expect(
-      find.byKey(const ValueKey('garden-plant-target-glow-4')),
+      find.byKey(const ValueKey('garden-plant-target-glow-3')),
       findsOneWidget,
     );
+    expect(find.text('Ready'), findsOneWidget);
+    expect(find.text('Water me'), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-nursery-sheet')), findsNothing);
     expect(find.byKey(const ValueKey('garden-tool-clear')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-tool-sun')), findsOneWidget);
-    expect(find.byKey(const ValueKey('garden-zoom-in')), findsOneWidget);
-    expect(find.byKey(const ValueKey('garden-zoom-out')), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('garden-zoom-in')));
-    await tester.pump(const Duration(milliseconds: 80));
-    await tester.tap(find.byKey(const ValueKey('garden-zoom-out')));
-    await tester.pump(const Duration(milliseconds: 80));
-    await tester.tap(find.byKey(const ValueKey('garden-zoom-reset')));
-    await tester.pump(const Duration(milliseconds: 80));
+    expect(find.byKey(const ValueKey('garden-zoom-in')), findsNothing);
+    expect(find.byKey(const ValueKey('garden-zoom-out')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('garden-tool-plant')));
     await tester.pump(const Duration(milliseconds: 80));
-    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-3')));
     await tester.pump(const Duration(milliseconds: 160));
 
     expect(find.byKey(const ValueKey('garden-nursery-sheet')), findsOneWidget);
@@ -261,14 +254,14 @@ void main() {
 
     expect(find.text('Pink Bloom planted: ready in 12h'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-3')));
     await tester.pump(const Duration(milliseconds: 160));
 
     expect(find.textContaining('Watered Pink Bloom. Ready in'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('garden-tool-sun')));
     await tester.pump(const Duration(milliseconds: 80));
-    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-3')));
     await tester.pump(const Duration(milliseconds: 160));
 
     expect(find.textContaining('Sun boost: ready in'), findsOneWidget);
