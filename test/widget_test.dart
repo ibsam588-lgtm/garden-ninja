@@ -231,8 +231,19 @@ void main() {
     expect(find.byKey(const ValueKey('garden-nursery-sheet')), findsNothing);
     expect(find.byKey(const ValueKey('garden-tool-clear')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-tool-sun')), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-world-selector')), findsOneWidget);
+    expect(find.text('Orchard Grove'), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-zoom-in')), findsNothing);
     expect(find.byKey(const ValueKey('garden-zoom-out')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('garden-world-next')));
+    await tester.pump(const Duration(milliseconds: 240));
+    expect(find.text('Bamboo Zen'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-world-next')));
+    await tester.pump(const Duration(milliseconds: 240));
+    expect(find.text('Bamboo Zen'), findsOneWidget);
+    expect(find.text('Moon Lotus unlocks at 3,200 pts'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('garden-tool-plant')));
     await tester.pump(const Duration(milliseconds: 80));
