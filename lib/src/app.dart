@@ -36,6 +36,8 @@ enum TutorialStep { slashWeed, avoidFlowers, toughWeed, useIce, frozenSlash }
 
 enum GardenTool { plant, water, clear, sun }
 
+enum GardenAmbient { petals, bambooLeaves, fireflies, snow }
+
 enum ForceUpdateState { idle, checking, updating, blocked }
 
 @visibleForTesting
@@ -89,6 +91,26 @@ class GardenPlantRenderSpec {
   final double offsetX;
   final double offsetY;
   final double scale;
+}
+
+class GardenWorld {
+  const GardenWorld({
+    required this.name,
+    required this.asset,
+    required this.unlockPoints,
+    required this.ambient,
+    required this.accent,
+    required this.darkAccent,
+    required this.bonus,
+  });
+
+  final String name;
+  final String asset;
+  final int unlockPoints;
+  final GardenAmbient ambient;
+  final Color accent;
+  final Color darkAccent;
+  final String bonus;
 }
 
 class GardenTarget {
@@ -391,6 +413,44 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     'assets/images/backgrounds/crystal_cave_garden.png',
     'assets/images/backgrounds/tropical_orchid_jungle.png',
   ];
+  static const List<GardenWorld> _gardenWorlds = [
+    GardenWorld(
+      name: 'Orchard Grove',
+      asset: 'assets/images/backgrounds/player_garden_mockup_b.png',
+      unlockPoints: 0,
+      ambient: GardenAmbient.petals,
+      accent: Color(0xFF91C957),
+      darkAccent: Color(0xFF315F1D),
+      bonus: 'Starter garden',
+    ),
+    GardenWorld(
+      name: 'Bamboo Zen',
+      asset: 'assets/images/backgrounds/player_garden_bamboo_zen.png',
+      unlockPoints: 1200,
+      ambient: GardenAmbient.bambooLeaves,
+      accent: Color(0xFF75D06A),
+      darkAccent: Color(0xFF1E5D32),
+      bonus: '+calm growth',
+    ),
+    GardenWorld(
+      name: 'Moon Lotus',
+      asset: 'assets/images/backgrounds/player_garden_moon_lotus.png',
+      unlockPoints: 3200,
+      ambient: GardenAmbient.fireflies,
+      accent: Color(0xFF84D7FF),
+      darkAccent: Color(0xFF183B6A),
+      bonus: '+night blooms',
+    ),
+    GardenWorld(
+      name: 'Winter Conservatory',
+      asset: 'assets/images/backgrounds/player_garden_winter_conservatory.png',
+      unlockPoints: 6200,
+      ambient: GardenAmbient.snow,
+      accent: Color(0xFFBDEBFF),
+      darkAccent: Color(0xFF294E73),
+      bonus: '+frost calm',
+    ),
+  ];
   static const List<MusicTrack> _musicTracks = [
     MusicTrack(
       title: 'Weed Invasion',
@@ -508,6 +568,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int _selectedAvatar = 0;
   int _selectedMusicTrack = 0;
   int _selectedGardenPlant = 0;
+  int _selectedGardenWorld = 0;
   int? _gardenNurseryPlotId;
   int _gardenLoginStreak = 1;
   bool _lastRunWon = false;
@@ -625,6 +686,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         (data['gardenHarvests'] as num?)?.toInt() ?? _gardenHarvests;
     _selectedGardenPlant =
         (data['selectedGardenPlant'] as num?)?.toInt() ?? _selectedGardenPlant;
+    _selectedGardenWorld =
+        (data['selectedGardenWorld'] as num?)?.toInt() ?? _selectedGardenWorld;
+    _selectedGardenWorld = _selectedGardenWorld
+        .clamp(0, _gardenWorlds.length - 1)
+        .toInt();
     _gardenLoginStreak =
         (data['gardenLoginStreak'] as num?)?.toInt() ?? _gardenLoginStreak;
     _gardenLastLoginDay = data['gardenLastLoginDay'] as String?;
@@ -683,6 +749,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       'gardenLevel': _gardenLevel,
       'gardenHarvests': _gardenHarvests,
       'selectedGardenPlant': _selectedGardenPlant,
+      'selectedGardenWorld': _selectedGardenWorld,
       'gardenLoginStreak': _gardenLoginStreak,
       'gardenLastLoginDay': _gardenLastLoginDay,
       'plots': [
@@ -1879,6 +1946,54 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       .length;
 
   int get _maxGardenWeeds => min(3, 1 + _gardenLevel);
+
+  GardenWorld get _currentGardenWorld => _gardenWorldAt(_selectedGardenWorld);
+
+  GardenWorld _gardenWorldAt(int index) {
+    final int safeIndex = index.clamp(0, _gardenWorlds.length - 1).toInt();
+    return _gardenWorlds[safeIndex];
+  }
+
+  bool _isGardenWorldUnlocked(int index) {
+    if (index <= 0) {
+      return true;
+    }
+    return _gardenPoints >= _gardenWorldAt(index).unlockPoints;
+  }
+
+  int get _unlockedGardenWorldCount {
+    int count = 0;
+    for (int i = 0; i < _gardenWorlds.length; i += 1) {
+      if (_isGardenWorldUnlocked(i)) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  void _selectGardenWorld(int direction) {
+    final int nextIndex =
+        (_selectedGardenWorld + direction) % _gardenWorlds.length;
+    final int wrappedIndex = nextIndex < 0
+        ? nextIndex + _gardenWorlds.length
+        : nextIndex;
+    final GardenWorld world = _gardenWorldAt(wrappedIndex);
+
+    setState(() {
+      if (_isGardenWorldUnlocked(wrappedIndex)) {
+        _selectedGardenWorld = wrappedIndex;
+        _gardenMessage = '${world.name}: ${world.bonus}';
+        _gardenMessageLife = 2.2;
+        _playSfx(_sfxComboSpark, volume: 0.42);
+      } else {
+        _gardenMessage =
+            '${world.name} unlocks at ${_formatNumber(world.unlockPoints)} pts';
+        _gardenMessageLife = 2.4;
+        _playSfx(_sfxCrispLeaf, volume: 0.28);
+      }
+    });
+    _queueGardenSave();
+  }
 
   GardenPlantOption get _selectedGardenPlantOption =>
       _gardenPlantOptionAt(_selectedGardenPlant);
@@ -3709,7 +3824,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               Positioned(
                 left: 54,
                 right: 54,
-                top: 118,
+                top: 154,
                 child: Opacity(
                   opacity: _gardenMessageLife.clamp(0.0, 1.0),
                   child: _GardenToast(message: _gardenMessage),
@@ -3729,6 +3844,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget _buildScrollableGardenMap() {
+    final GardenWorld world = _currentGardenWorld;
     return ClipRect(
       child: InteractiveViewer(
         transformationController: _gardenMapController,
@@ -3742,11 +3858,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.asset(
-                'assets/images/backgrounds/player_garden_mockup_b.png',
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-                filterQuality: FilterQuality.medium,
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 520),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: Image.asset(
+                  world.asset,
+                  key: ValueKey(world.asset),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                  filterQuality: FilterQuality.medium,
+                ),
               ),
               Positioned.fill(
                 child: DecoratedBox(
@@ -3759,6 +3881,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                         Colors.black.withValues(alpha: 0.08),
                       ],
                     ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _GardenAmbientPainter(
+                      world: world,
+                      time: _motionTime,
+                    ),
+                    willChange: true,
                   ),
                 ),
               ),
@@ -4188,7 +4321,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       right: 14,
       top: 20,
       child: SizedBox(
-        height: 98,
+        height: 136,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -4231,7 +4364,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             Positioned(
               left: 0,
               right: 0,
-              bottom: 0,
+              top: 58,
               child: Row(
                 children: [
                   Expanded(
@@ -4262,6 +4395,19 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     ),
                   ),
                 ],
+              ),
+            ),
+            Positioned(
+              left: 40,
+              right: 40,
+              bottom: 0,
+              child: _GardenWorldSelector(
+                world: _currentGardenWorld,
+                index: _selectedGardenWorld,
+                total: _gardenWorlds.length,
+                unlockedCount: _unlockedGardenWorldCount,
+                onPrevious: () => _selectGardenWorld(-1),
+                onNext: () => _selectGardenWorld(1),
               ),
             ),
           ],
@@ -5622,6 +5768,226 @@ class _GardenTitleBoard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _GardenWorldSelector extends StatelessWidget {
+  const _GardenWorldSelector({
+    required this.world,
+    required this.index,
+    required this.total,
+    required this.unlockedCount,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final GardenWorld world;
+  final int index;
+  final int total;
+  final int unlockedCount;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('garden-world-selector'),
+      height: 34,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            world.darkAccent.withValues(alpha: 0.92),
+            const Color(0xEE142515),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: world.accent, width: 1.7),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _GardenWorldArrow(
+            key: const ValueKey('garden-world-prev'),
+            icon: Icons.chevron_left_rounded,
+            onTap: onPrevious,
+          ),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    world.name,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
+                  ),
+                ),
+                Text(
+                  'Garden ${index + 1}/$total  •  $unlockedCount open',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: world.accent,
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w900,
+                    height: 1.1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _GardenWorldArrow(
+            key: const ValueKey('garden-world-next'),
+            icon: Icons.chevron_right_rounded,
+            onTap: onNext,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GardenWorldArrow extends StatelessWidget {
+  const _GardenWorldArrow({super.key, required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: SizedBox(
+        width: 34,
+        height: 34,
+        child: Icon(icon, color: Colors.white, size: 25),
+      ),
+    );
+  }
+}
+
+class _GardenAmbientPainter extends CustomPainter {
+  const _GardenAmbientPainter({required this.world, required this.time});
+
+  final GardenWorld world;
+  final double time;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    switch (world.ambient) {
+      case GardenAmbient.petals:
+        _paintPetals(canvas, size, const Color(0xFFF8A7D1), 34);
+      case GardenAmbient.bambooLeaves:
+        _paintLeaves(canvas, size, const Color(0xFFA8E96C), 30);
+      case GardenAmbient.fireflies:
+        _paintFireflies(canvas, size);
+      case GardenAmbient.snow:
+        _paintSnow(canvas, size);
+    }
+  }
+
+  void _paintPetals(Canvas canvas, Size size, Color color, int count) {
+    final Paint paint = Paint()..color = color.withValues(alpha: 0.48);
+    for (int i = 0; i < count; i += 1) {
+      final double x =
+          ((i * 83) % 1000) / 1000 * size.width + sin(time * 0.7 + i) * 26;
+      final double y =
+          ((((i * 137) % 1000) / 1000 * size.height) + time * 18 + i * 5) %
+              (size.height + 80) -
+          40;
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(sin(time + i) * 0.8);
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset.zero,
+          width: 5 + (i % 3).toDouble(),
+          height: 10 + (i % 4).toDouble(),
+        ),
+        paint,
+      );
+      canvas.restore();
+    }
+  }
+
+  void _paintLeaves(Canvas canvas, Size size, Color color, int count) {
+    final Paint paint = Paint()..color = color.withValues(alpha: 0.42);
+    for (int i = 0; i < count; i += 1) {
+      final double x =
+          ((((i * 97) % 1000) / 1000 * size.width) - time * 22 + i * 3) %
+              (size.width + 90) -
+          45;
+      final double y =
+          ((((i * 151) % 1000) / 1000 * size.height) + time * 15 + i * 4) %
+              (size.height + 80) -
+          40;
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(-0.7 + sin(time * 0.9 + i) * 0.45);
+      final Path leaf = Path()
+        ..moveTo(0, -8)
+        ..quadraticBezierTo(8, 0, 0, 9)
+        ..quadraticBezierTo(-8, 0, 0, -8)
+        ..close();
+      canvas.drawPath(leaf, paint);
+      canvas.restore();
+    }
+  }
+
+  void _paintFireflies(Canvas canvas, Size size) {
+    for (int i = 0; i < 24; i += 1) {
+      final double pulse = (sin(time * 2.1 + i * 1.7) + 1) / 2;
+      final double x =
+          ((i * 113) % 1000) / 1000 * size.width + sin(time * 0.55 + i) * 18;
+      final double y =
+          ((i * 179) % 1000) / 1000 * size.height +
+          cos(time * 0.45 + i * 0.6) * 15;
+      final Paint glow = Paint()
+        ..color = const Color(0xFFFFEE8A).withValues(alpha: 0.12 + pulse * 0.18)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9);
+      canvas.drawCircle(Offset(x, y), 5 + pulse * 5, glow);
+      canvas.drawCircle(
+        Offset(x, y),
+        1.3 + pulse,
+        Paint()
+          ..color = const Color(
+            0xFFFFF6A0,
+          ).withValues(alpha: 0.42 + pulse * 0.44),
+      );
+    }
+  }
+
+  void _paintSnow(Canvas canvas, Size size) {
+    final Paint paint = Paint()..color = Colors.white.withValues(alpha: 0.62);
+    for (int i = 0; i < 52; i += 1) {
+      final double x =
+          ((i * 71) % 1000) / 1000 * size.width + sin(time * 0.4 + i) * 14;
+      final double y =
+          ((((i * 127) % 1000) / 1000 * size.height) + time * 24 + i * 6) %
+              (size.height + 60) -
+          30;
+      canvas.drawCircle(Offset(x, y), 1.2 + (i % 4) * 0.45, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GardenAmbientPainter oldDelegate) {
+    return oldDelegate.world != world || oldDelegate.time != time;
   }
 }
 
