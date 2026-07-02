@@ -38,6 +38,9 @@ enum GardenTool { plant, water, clear, sun }
 
 enum ForceUpdateState { idle, checking, updating, blocked }
 
+@visibleForTesting
+bool debugForcePlayUpdateChecks = false;
+
 class MusicTrack {
   const MusicTrack({
     required this.title,
@@ -543,7 +546,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   MusicTrack get _currentMusicTrack => _musicTracks[_selectedMusicTrack];
 
   bool get _supportsPlayInAppUpdates =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+      !kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.android &&
+      (kReleaseMode || debugForcePlayUpdateChecks);
 
   bool get _forceUpdateVisible => _forceUpdateState != ForceUpdateState.idle;
 
@@ -887,13 +892,29 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       });
     } on MissingPluginException {
       _clearForcedUpdateForNonPlayBuild();
-    } on PlatformException {
-      _clearForcedUpdateForNonPlayBuild();
-    } catch (_) {
-      _clearForcedUpdateForNonPlayBuild();
+    } on PlatformException catch (error) {
+      _handleForcedUpdateCheckFailure(error.message);
+    } catch (error) {
+      _handleForcedUpdateCheckFailure(error.toString());
     } finally {
       _forceUpdateCheckInFlight = false;
     }
+  }
+
+  void _handleForcedUpdateCheckFailure(String? reason) {
+    if (!mounted) {
+      return;
+    }
+    if (!_supportsPlayInAppUpdates) {
+      _clearForcedUpdateForNonPlayBuild();
+      return;
+    }
+    setState(() {
+      _forceUpdateState = ForceUpdateState.blocked;
+      _forceUpdateMessage = reason == null || reason.trim().isEmpty
+          ? 'Could not verify the latest Play Store version. Update from Google Play to continue.'
+          : 'Could not verify the latest Play Store version. Open Google Play, update Garden Ninja, then try again.';
+    });
   }
 
   void _clearForcedUpdateForNonPlayBuild() {

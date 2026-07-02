@@ -66,6 +66,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    debugForcePlayUpdateChecks = true;
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
 
@@ -116,6 +117,7 @@ void main() {
       expect(immediateUpdateCalls, 2);
       expect(find.text('Update Required'), findsOneWidget);
     } finally {
+      debugForcePlayUpdateChecks = false;
       debugDefaultTargetPlatformOverride = null;
       messenger.setMockMethodCallHandler(channel, null);
     }
