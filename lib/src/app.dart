@@ -273,10 +273,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const double _worldHeight = 844;
   static const double _playerGardenWidth = 920;
   static const double _playerGardenHeight = 1680;
-  static const double _gardenMinScale = 0.52;
+  static const double _gardenMinScale = 0.54;
   static const double _gardenMaxScale = 1.55;
-  static const double _gardenInitialScale = 0.58;
-  static const double _gardenInitialTranslateX = 0;
+  static const double _gardenInitialScale = 0.55;
+  static const double _gardenInitialTranslateX = -58;
   static const double _gardenInitialTranslateY = 0;
   static const double _gardenDamageLineY = _worldHeight - 106;
   static const double _minSlashSegment = 7;
@@ -509,13 +509,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       bonus: 'More land and Lv 3 plants',
     ),
     GardenHouseTier(
-      name: 'Garden Estate',
+      name: 'Garden Villa',
       maxGardenLevel: 7,
       unlockPoints: 5200,
       seedCost: 1200,
       roofColor: Color(0xFF4F6F86),
       wallColor: Color(0xFFE8F3FF),
-      bonus: 'Big yard and Lv 4 plants',
+      bonus: 'Elegant yard and Lv 4 plants',
     ),
   ];
   static const List<MusicTrack> _musicTracks = [
@@ -566,7 +566,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   final List<PlayerGardenPlot> _playerGardenPlots = [
     PlayerGardenPlot(
       id: 0,
-      position: const Offset(612, 382),
+      position: const Offset(624, 526),
       unlockLevel: 1,
       asset: 'assets/images/sprites/tree_apple.png',
       plantIndex: 6,
@@ -575,7 +575,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     PlayerGardenPlot(
       id: 1,
-      position: const Offset(250, 584),
+      position: const Offset(248, 688),
       unlockLevel: 1,
       asset: 'assets/images/sprites/pink_blossom_bush.png',
       plantIndex: 4,
@@ -584,19 +584,19 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     PlayerGardenPlot(
       id: 2,
-      position: const Offset(622, 822),
+      position: const Offset(640, 910),
       unlockLevel: 1,
       asset: 'assets/images/sprites/blue_bell_bloom.png',
       plantIndex: 1,
       growth: 0.74,
     ),
-    PlayerGardenPlot(id: 3, position: const Offset(430, 682), unlockLevel: 1),
-    PlayerGardenPlot(id: 4, position: const Offset(256, 988), unlockLevel: 2),
-    PlayerGardenPlot(id: 5, position: const Offset(642, 1128), unlockLevel: 3),
-    PlayerGardenPlot(id: 6, position: const Offset(306, 1358), unlockLevel: 4),
-    PlayerGardenPlot(id: 7, position: const Offset(680, 1502), unlockLevel: 5),
-    PlayerGardenPlot(id: 8, position: const Offset(180, 1510), unlockLevel: 6),
-    PlayerGardenPlot(id: 9, position: const Offset(752, 1328), unlockLevel: 7),
+    PlayerGardenPlot(id: 3, position: const Offset(434, 788), unlockLevel: 1),
+    PlayerGardenPlot(id: 4, position: const Offset(252, 1086), unlockLevel: 2),
+    PlayerGardenPlot(id: 5, position: const Offset(646, 1220), unlockLevel: 3),
+    PlayerGardenPlot(id: 6, position: const Offset(312, 1400), unlockLevel: 4),
+    PlayerGardenPlot(id: 7, position: const Offset(704, 1510), unlockLevel: 5),
+    PlayerGardenPlot(id: 8, position: const Offset(152, 1498), unlockLevel: 6),
+    PlayerGardenPlot(id: 9, position: const Offset(764, 1350), unlockLevel: 7),
   ];
 
   late final Ticker _ticker;
@@ -2343,6 +2343,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         plot.unlockLevel <= _currentGardenHouse.maxGardenLevel;
   }
 
+  bool _isGardenPlotVisible(PlayerGardenPlot plot) {
+    return plot.unlockLevel <= _currentGardenHouse.maxGardenLevel + 1;
+  }
+
   int get _gardenExpandCost => 260 + ((_gardenLevel - 1) * 180);
 
   GardenHouseTier get _currentGardenHouse =>
@@ -2777,7 +2781,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final GardenHouseTier current = _currentGardenHouse;
     final GardenHouseTier? next = _nextGardenHouse;
     if (next == null) {
-      _gardenMessage = 'Garden Estate is the biggest house';
+      _gardenMessage = 'Garden Villa is the biggest house';
       _gardenMessageLife = 2.2;
       _playSfx(_sfxCrispLeaf, volume: 0.34);
       return;
@@ -4648,7 +4652,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   ),
                 ),
               ),
-              for (final plot in _playerGardenPlots) _buildGardenPlot(plot),
+              for (final plot in _playerGardenPlots.where(_isGardenPlotVisible))
+                _buildGardenPlot(plot),
               if (_gardenGiftPlot != null) _buildGardenGift(_gardenGiftPlot!),
             ],
           ),
@@ -4707,15 +4712,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         plot.planted && _gardenOptionIsTree(_plantOptionForPlot(plot));
     final double plantScale = tree
         ? switch (plot.growthStage) {
-            0 => 0.76,
-            1 => 0.82,
-            _ => 1.0,
+            0 => 0.86,
+            1 => 0.98,
+            _ => 1.16,
           }
         : switch (plot.growthStage) {
-            0 => 0.78,
-            1 => 0.66,
-            2 => 0.86,
-            _ => 1.0,
+            0 => 0.9,
+            1 => 0.78,
+            2 => 1.0,
+            _ => 1.14,
           };
     final GardenPlantRenderSpec? plantSpec = plot.planted
         ? _plantRenderSpecForPlot(plot)
@@ -4741,7 +4746,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         plot.unlockLevel <= _currentGardenHouse.maxGardenLevel;
     final String lockedLabel =
         plot.unlockLevel > _currentGardenHouse.maxGardenLevel
-        ? 'Bigger house'
+        ? 'Upgrade house'
         : nextLand
         ? plot.grassCut
               ? '${_formatNumber(_gardenExpandCost)} seeds'
@@ -4749,10 +4754,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         : 'Locked';
 
     return Positioned(
-      left: plot.position.dx - 88,
-      top: plot.position.dy - 126,
-      width: 176,
-      height: 220,
+      left: plot.position.dx - 78,
+      top: plot.position.dy - 130,
+      width: 156,
+      height: 210,
       child: GestureDetector(
         key: ValueKey('player-garden-plot-${plot.id}'),
         behavior: HitTestBehavior.opaque,
@@ -5142,9 +5147,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     return Positioned(
       left: 14,
       right: 14,
-      top: 20,
+      top: 12,
       child: SizedBox(
-        height: 136,
+        height: 118,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -5205,7 +5210,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             Positioned(
               left: 0,
               right: 0,
-              top: 58,
+              top: 48,
               child: Row(
                 children: [
                   Expanded(
@@ -5239,8 +5244,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               ),
             ),
             Positioned(
-              left: 40,
-              right: 40,
+              left: 52,
+              right: 52,
               bottom: 0,
               child: _GardenWorldSelector(
                 world: _currentGardenWorld,
@@ -6535,8 +6540,8 @@ class _GardenTitleBoard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 238,
-      height: 58,
+      width: 220,
+      height: 48,
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.center,
@@ -6548,7 +6553,7 @@ class _GardenTitleBoard extends StatelessWidget {
               child: const Icon(
                 Icons.eco_rounded,
                 color: Color(0xFF6EBB35),
-                size: 38,
+                size: 32,
               ),
             ),
           ),
@@ -6559,12 +6564,12 @@ class _GardenTitleBoard extends StatelessWidget {
               child: const Icon(
                 Icons.eco_rounded,
                 color: Color(0xFF6EBB35),
-                size: 38,
+                size: 32,
               ),
             ),
           ),
           Container(
-            height: 52,
+            height: 44,
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 18),
             decoration: BoxDecoration(
@@ -6598,7 +6603,7 @@ class _GardenTitleBoard extends StatelessWidget {
                     maxLines: 1,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 22,
+                      fontSize: 19,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0,
                       height: 1,
@@ -6618,7 +6623,7 @@ class _GardenTitleBoard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Color(0xFFDFFFA9),
-                    fontSize: 8.5,
+                    fontSize: 8,
                     fontWeight: FontWeight.w900,
                     height: 1.15,
                   ),
@@ -6818,7 +6823,7 @@ class _BackyardGardenPainter extends CustomPainter {
   }
 
   void _drawHouseEdge(Canvas canvas, Size size) {
-    final Rect skyRect = Rect.fromLTWH(0, 0, size.width, 250);
+    final Rect skyRect = Rect.fromLTWH(0, 0, size.width, 430);
     canvas.drawRect(
       skyRect,
       Paint()
@@ -6836,11 +6841,11 @@ class _BackyardGardenPainter extends CustomPainter {
     final Paint cloud = Paint()
       ..color = Colors.white.withValues(alpha: _night ? 0.12 : 0.42)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
-    canvas.drawOval(Rect.fromLTWH(80, 44, 180, 54), cloud);
-    canvas.drawOval(Rect.fromLTWH(530, 62, 250, 64), cloud);
+    canvas.drawOval(Rect.fromLTWH(80, 54, 180, 54), cloud);
+    canvas.drawOval(Rect.fromLTWH(530, 76, 250, 64), cloud);
 
     final double houseWidth = 374 + (house.maxGardenLevel - 3) * 34;
-    final Rect houseRect = Rect.fromLTWH(82, -28, houseWidth, 174);
+    final Rect houseRect = Rect.fromLTWH(92, 238, houseWidth, 166);
     canvas.drawRRect(
       RRect.fromRectAndRadius(houseRect, const Radius.circular(14)),
       Paint()..color = _winter ? const Color(0xFFF4F9F4) : house.wallColor,
@@ -6850,12 +6855,12 @@ class _BackyardGardenPainter extends CustomPainter {
       Paint()..color = const Color(0x22FFFFFF),
     );
     final Path roof = Path()
-      ..moveTo(42, 22)
-      ..lineTo(272, -54)
-      ..lineTo(505, 24)
-      ..lineTo(474, 62)
-      ..lineTo(268, 4)
-      ..lineTo(72, 62)
+      ..moveTo(houseRect.left - 48, houseRect.top + 44)
+      ..lineTo(houseRect.center.dx, houseRect.top - 70)
+      ..lineTo(houseRect.right + 48, houseRect.top + 44)
+      ..lineTo(houseRect.right + 20, houseRect.top + 76)
+      ..lineTo(houseRect.center.dx, houseRect.top + 8)
+      ..lineTo(houseRect.left - 20, houseRect.top + 76)
       ..close();
     canvas.drawPath(
       roof,
@@ -6875,7 +6880,12 @@ class _BackyardGardenPainter extends CustomPainter {
         ? 5
         : 4;
     for (int i = 0; i < windows; i += 1) {
-      final Rect window = Rect.fromLTWH(132 + i * 72, 42, 42, 48);
+      final Rect window = Rect.fromLTWH(
+        houseRect.left + 50 + i * 66,
+        houseRect.top + 54,
+        38,
+        44,
+      );
       canvas.drawRRect(
         RRect.fromRectAndRadius(window, const Radius.circular(7)),
         Paint()
@@ -6891,7 +6901,23 @@ class _BackyardGardenPainter extends CustomPainter {
       );
     }
 
-    final Rect deck = Rect.fromLTWH(0, 142, size.width, 64);
+    final Rect door = Rect.fromLTWH(
+      houseRect.left + 22,
+      houseRect.top + 66,
+      46,
+      86,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(door, const Radius.circular(18)),
+      Paint()..color = const Color(0xFF8A5529),
+    );
+    canvas.drawCircle(
+      Offset(door.right - 13, door.center.dy),
+      3.5,
+      Paint()..color = const Color(0xFFFFD36A),
+    );
+
+    final Rect deck = Rect.fromLTWH(0, houseRect.bottom - 6, size.width, 58);
     canvas.drawRect(deck, Paint()..color = const Color(0xFFB88A4C));
     for (double x = 0; x < size.width; x += 48) {
       canvas.drawLine(
@@ -6906,10 +6932,10 @@ class _BackyardGardenPainter extends CustomPainter {
 
   void _drawPath(Canvas canvas, Size size) {
     final Path route = Path()
-      ..moveTo(size.width * 0.48, 168)
-      ..cubicTo(size.width * 0.58, 300, 310, 430, 426, 608)
-      ..cubicTo(570, 834, 284, 980, 418, 1216)
-      ..cubicTo(512, 1382, 438, 1510, 548, size.height + 80);
+      ..moveTo(size.width * 0.48, 450)
+      ..cubicTo(size.width * 0.58, 568, 318, 638, 432, 792)
+      ..cubicTo(572, 988, 288, 1098, 418, 1306)
+      ..cubicTo(512, 1462, 438, 1550, 548, size.height + 80);
 
     canvas.drawPath(
       route,
@@ -6929,7 +6955,7 @@ class _BackyardGardenPainter extends CustomPainter {
     );
 
     for (int i = 0; i < 20; i += 1) {
-      final double y = 206 + i * 76;
+      final double y = 482 + i * 60;
       final double x = 430 + sin(i * 0.88) * 68 + cos(i * 0.33) * 22;
       final Rect stone = Rect.fromCenter(
         center: Offset(x, y),
@@ -7023,7 +7049,7 @@ class _BackyardGardenPainter extends CustomPainter {
     for (double x = -20; x < size.width + 40; x += 72) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(x, 172, 18, 96),
+          Rect.fromLTWH(x, 392, 18, 92),
           const Radius.circular(6),
         ),
         post,
@@ -7032,7 +7058,7 @@ class _BackyardGardenPainter extends CustomPainter {
     for (int row = 0; row < 2; row += 1) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(-20, 198 + row * 42, size.width + 40, 16),
+          Rect.fromLTWH(-20, 414 + row * 38, size.width + 40, 16),
           const Radius.circular(8),
         ),
         rail,
@@ -7041,7 +7067,7 @@ class _BackyardGardenPainter extends CustomPainter {
 
     final Paint hedge = Paint()
       ..color = (_night ? const Color(0xFF274F38) : const Color(0xFF3F8B3D));
-    for (double y = 240; y < size.height; y += 74) {
+    for (double y = 438; y < size.height; y += 74) {
       canvas.drawCircle(Offset(18 + sin(y) * 8, y), 42, hedge);
       canvas.drawCircle(
         Offset(size.width - 22 + cos(y) * 7, y + 28),
@@ -7052,16 +7078,21 @@ class _BackyardGardenPainter extends CustomPainter {
   }
 
   void _drawBackyardDetails(Canvas canvas, Size size) {
+    final int tier = house.maxGardenLevel <= 3
+        ? 0
+        : house.maxGardenLevel <= 5
+        ? 1
+        : 2;
     final Paint flowerPink = Paint()..color = const Color(0xFFE97AAD);
     final Paint flowerBlue = Paint()..color = const Color(0xFF73BFF0);
     final Paint flowerCore = Paint()..color = const Color(0xFFFFE06A);
 
-    for (int i = 0; i < 80; i += 1) {
+    for (int i = 0; i < 58 + tier * 14; i += 1) {
       final bool leftSide = i.isEven;
       final double x = leftSide
           ? 44 + ((i * 29) % 132)
           : 740 + ((i * 31) % 126);
-      final double y = 280 + ((i * 67) % 1220);
+      final double y = 474 + ((i * 67) % 1030);
       final Paint petal = i % 3 == 0 ? flowerBlue : flowerPink;
       for (int p = 0; p < 5; p += 1) {
         final double a = p * pi * 2 / 5;
@@ -7070,11 +7101,26 @@ class _BackyardGardenPainter extends CustomPainter {
       canvas.drawCircle(Offset(x, y), 2.2, flowerCore);
     }
 
-    _drawSmallTree(canvas, Offset(120, 356), 0.88, fruit: false);
-    _drawSmallTree(canvas, Offset(808, 480), 0.72, fruit: true);
-    _drawSmallTree(canvas, Offset(780, 1312), 0.78, fruit: _night);
+    _drawSmallTree(canvas, Offset(126, 522), 0.82, fruit: false);
+    _drawSmallTree(canvas, Offset(808, 578), 0.72, fruit: true);
+    if (tier >= 1) {
+      _drawSmallTree(canvas, Offset(786, 1328), 0.78, fruit: true);
+      _drawExpansionFence(
+        canvas,
+        Rect.fromLTWH(610, 1048, 238, 240),
+        'SIDE YARD',
+      );
+    }
+    if (tier >= 2) {
+      _drawGreenhousePad(canvas, Rect.fromLTWH(84, 1288, 258, 156));
+      _drawExpansionFence(
+        canvas,
+        Rect.fromLTWH(584, 1330, 258, 196),
+        'VILLA WING',
+      );
+    }
 
-    final Rect bench = Rect.fromLTWH(96, 742, 170, 34);
+    final Rect bench = Rect.fromLTWH(82, 838, 150, 30);
     canvas.drawRRect(
       RRect.fromRectAndRadius(bench, const Radius.circular(14)),
       Paint()..color = const Color(0xFF9A6932),
@@ -7086,7 +7132,7 @@ class _BackyardGardenPainter extends CustomPainter {
       );
     }
 
-    final Rect shed = Rect.fromLTWH(690, 990, 116, 92);
+    final Rect shed = Rect.fromLTWH(704, tier >= 1 ? 928 : 1080, 104, 84);
     canvas.drawRRect(
       RRect.fromRectAndRadius(shed, const Radius.circular(10)),
       Paint()..color = const Color(0xFFB9743E),
@@ -7099,15 +7145,96 @@ class _BackyardGardenPainter extends CustomPainter {
     canvas.drawPath(shedRoof, Paint()..color = const Color(0xFF6F5B31));
   }
 
+  void _drawExpansionFence(Canvas canvas, Rect rect, String label) {
+    final Paint fill = Paint()..color = const Color(0x223A6B2E);
+    final Paint rail = Paint()
+      ..color = const Color(0xCC9C7139)
+      ..strokeWidth = 7
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(26)),
+      fill,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect.deflate(8), const Radius.circular(22)),
+      rail,
+    );
+    _drawMapLabel(canvas, rect.topCenter + const Offset(0, 18), label);
+  }
+
+  void _drawGreenhousePad(Canvas canvas, Rect rect) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(24)),
+      Paint()..color = const Color(0x55294A38),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect.deflate(10), const Radius.circular(20)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..color = const Color(0xCCBFE0B7),
+    );
+    for (double x = rect.left + 28; x < rect.right - 20; x += 42) {
+      canvas.drawLine(
+        Offset(x, rect.top + 22),
+        Offset(x + 22, rect.bottom - 20),
+        Paint()
+          ..strokeWidth = 3
+          ..color = const Color(0x99E9FFF1),
+      );
+    }
+    _drawMapLabel(canvas, rect.center, 'GREENHOUSE');
+  }
+
+  void _drawMapLabel(Canvas canvas, Offset center, String text) {
+    final TextPainter painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w900,
+          shadows: [
+            Shadow(
+              color: Color(0xAA173410),
+              blurRadius: 2,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final Rect bubble = Rect.fromCenter(
+      center: center,
+      width: painter.width + 24,
+      height: painter.height + 10,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bubble, const Radius.circular(10)),
+      Paint()..color = const Color(0xBB315E24),
+    );
+    painter.paint(
+      canvas,
+      Offset(center.dx - painter.width / 2, center.dy - painter.height / 2),
+    );
+  }
+
   void _drawPlotBeds(Canvas canvas) {
     for (final plot in plots) {
+      if (plot.unlockLevel > house.maxGardenLevel + 1) {
+        continue;
+      }
       final bool unlocked = plot.unlockLevel <= gardenLevel;
-      final bool nextUnlock = plot.unlockLevel == gardenLevel + 1;
+      final bool nextUnlock =
+          plot.unlockLevel == gardenLevel + 1 &&
+          plot.unlockLevel <= house.maxGardenLevel;
       final bool large = plot.id == 0;
       final Rect bed = Rect.fromCenter(
         center: plot.position,
-        width: large ? 270 : 226,
-        height: large ? 178 : 146,
+        width: large ? 220 : 184,
+        height: large ? 142 : 116,
       );
       _drawRaisedBed(
         canvas,

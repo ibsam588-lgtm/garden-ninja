@@ -308,12 +308,12 @@ void main() {
     expect(find.byKey(const ValueKey('player-garden-plot-4')), findsOneWidget);
     expect(find.byKey(const ValueKey('player-garden-plot-5')), findsOneWidget);
     expect(find.byKey(const ValueKey('player-garden-plot-6')), findsOneWidget);
-    expect(find.byKey(const ValueKey('player-garden-plot-7')), findsOneWidget);
-    expect(find.byKey(const ValueKey('player-garden-plot-8')), findsOneWidget);
-    expect(find.byKey(const ValueKey('player-garden-plot-9')), findsOneWidget);
-    expect(find.byIcon(Icons.home_work_rounded), findsWidgets);
+    expect(find.byKey(const ValueKey('player-garden-plot-7')), findsNothing);
+    expect(find.byKey(const ValueKey('player-garden-plot-8')), findsNothing);
+    expect(find.byKey(const ValueKey('player-garden-plot-9')), findsNothing);
+    expect(find.byIcon(Icons.home_work_rounded), findsOneWidget);
     expect(find.text('Cut grass'), findsOneWidget);
-    expect(find.text('Bigger house'), findsWidgets);
+    expect(find.text('Upgrade house'), findsWidgets);
   });
 
   testWidgets('expanding the garden opens a real meadow plot', (tester) async {
@@ -381,6 +381,35 @@ void main() {
 
     expect(find.text('FAMILY BACKYARD'), findsOneWidget);
     expect(find.textContaining('Family Backyard unlocked'), findsOneWidget);
+    expect(find.byKey(const ValueKey('player-garden-plot-7')), findsOneWidget);
+    expect(find.byKey(const ValueKey('player-garden-plot-8')), findsOneWidget);
+  });
+
+  testWidgets('garden villa is the final house upgrade tier', (tester) async {
+    await pumpGardenNinja(
+      tester,
+      prefs: {
+        'garden_ninja_garden_v4': jsonEncode({
+          'version': 2,
+          'seeds': 2600,
+          'gardenPoints': 6200,
+          'gardenLevel': 5,
+          'gardenHouseTier': 1,
+        }),
+      },
+    );
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.text('FAMILY BACKYARD'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-house-upgrade')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.text('GARDEN VILLA'), findsOneWidget);
+    expect(find.textContaining('Garden Villa unlocked'), findsOneWidget);
+    expect(find.byKey(const ValueKey('player-garden-plot-9')), findsOneWidget);
   });
 
   testWidgets('welcome back card recaps the garden after time away', (
