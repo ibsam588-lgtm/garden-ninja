@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -5,14 +7,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_ninja/src/app.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-Future<void> pumpGardenNinja(WidgetTester tester) async {
-  SharedPreferences.setMockInitialValues({});
+Future<void> pumpGardenNinja(
+  WidgetTester tester, {
+  Map<String, Object> prefs = const {},
+}) async {
+  SharedPreferences.setMockInitialValues(prefs);
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(390, 844);
   addTearDown(tester.view.resetDevicePixelRatio);
   addTearDown(tester.view.resetPhysicalSize);
   await tester.pumpWidget(const GardenNinjaApp());
   await tester.pump(const Duration(milliseconds: 20));
+}
+
+String gardenDayKey(DateTime date) {
+  String two(int value) => value.toString().padLeft(2, '0');
+  return '${date.year}-${two(date.month)}-${two(date.day)}';
 }
 
 void main() {
@@ -278,6 +288,121 @@ void main() {
     await tester.pump(const Duration(milliseconds: 160));
 
     expect(find.textContaining('Sun boost: ready in'), findsOneWidget);
+  });
+
+  testWidgets('garden shows streak, forecast, and locked meadow plots', (
+    tester,
+  ) async {
+    await pumpGardenNinja(tester);
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.byKey(const ValueKey('garden-streak-chip')), findsOneWidget);
+    expect(find.text('Day 1'), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-forecast')), findsOneWidget);
+    expect(find.text('Blossom Bush is ready to gather'), findsOneWidget);
+    expect(find.byKey(const ValueKey('player-garden-plot-4')), findsOneWidget);
+    expect(find.byKey(const ValueKey('player-garden-plot-5')), findsOneWidget);
+    expect(find.byIcon(Icons.lock_rounded), findsNWidgets(2));
+    expect(find.text('260 seeds'), findsOneWidget);
+    expect(find.text('Locked'), findsOneWidget);
+  });
+
+  testWidgets('expanding the garden opens a real meadow plot', (tester) async {
+    await pumpGardenNinja(tester);
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.textContaining('New meadow unlocked'), findsOneWidget);
+    expect(find.byIcon(Icons.lock_rounded), findsOneWidget);
+    expect(find.text('990'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.byKey(const ValueKey('garden-nursery-sheet')), findsOneWidget);
+  });
+
+  testWidgets('welcome back card recaps the garden after time away', (
+    tester,
+  ) async {
+    final DateTime now = DateTime.now();
+    await pumpGardenNinja(
+      tester,
+      prefs: {
+        'garden_ninja_garden_v4': jsonEncode({
+          'version': 2,
+          'gardenLastLoginDay': gardenDayKey(now),
+          'gardenLastVisitMs': now
+              .subtract(const Duration(hours: 8))
+              .millisecondsSinceEpoch,
+        }),
+      },
+    );
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.byKey(const ValueKey('garden-welcome-card')), findsOneWidget);
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.textContaining('ready to gather'), findsWidgets);
+    expect(find.textContaining('% grown'), findsWidgets);
+
+    await tester.tap(find.text('Welcome back'));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.byKey(const ValueKey('garden-welcome-card')), findsNothing);
+  });
+
+  testWidgets('overnight gift waits after a tended day', (tester) async {
+    final DateTime yesterday = DateTime.now().subtract(
+      const Duration(days: 1),
+    );
+    await pumpGardenNinja(
+      tester,
+      prefs: {
+        'garden_ninja_garden_v4': jsonEncode({
+          'version': 2,
+          'gardenLastLoginDay': gardenDayKey(yesterday),
+          'gardenLastTendedDay': gardenDayKey(yesterday),
+        }),
+      },
+    );
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.text('Day 2'), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-gift')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-gift')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.textContaining('Gift:'), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-gift')), findsNothing);
+  });
+
+  testWidgets('tending every plant stamps the garden day', (tester) async {
+    await pumpGardenNinja(tester);
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.byKey(const ValueKey('garden-tended-star')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-0')));
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-2')));
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pump(const Duration(milliseconds: 120));
+
+    expect(find.textContaining('Garden tended'), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-tended-star')), findsOneWidget);
   });
 
   testWidgets('garden plants collect blooms in the orchard layout', (
