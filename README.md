@@ -23,6 +23,9 @@ Garden Ninja is a swipe-action Flutter game prototype. Slash hostile weeds, prot
 - The garden follows your clock (dawn, day, dusk, night tints) and switches
   to the calm music track while you tend.
 - Returning after 6+ hours shows a gentle recap of what grew while away.
+- Optional local notifications (asked after your first planting/watering)
+  ping you when a plant is ready, when the morning gift arrives, and once
+  if the garden has been quiet for three days.
 
 ## Project
 

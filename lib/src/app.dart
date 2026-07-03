@@ -5,10 +5,12 @@ import 'dart:math';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
+import 'package:flutter/scheduler.dart' hide Priority;
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 class GardenNinjaApp extends StatelessWidget {
   const GardenNinjaApp({super.key});
@@ -266,6 +268,21 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const int _gardenCalmMusicTrack = 4;
   static const int _gardenTendedReward = 25;
   static const Duration _gardenWelcomeAfter = Duration(hours: 6);
+  static const int _notifIdNextBloom = 1;
+  static const int _notifIdMorningGift = 2;
+  static const int _notifIdComeback = 3;
+  static const NotificationDetails _gardenNotificationDetails =
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          'garden_reminders',
+          'Garden reminders',
+          channelDescription:
+              'Gentle reminders when plants bloom and gifts arrive',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+        ),
+        iOS: DarwinNotificationDetails(),
+      );
   static const List<String> _weedAssets = [
     'assets/images/sprites/weed_spike.png',
     'assets/images/sprites/weed_vine.png',
@@ -534,6 +551,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   late final Ticker _ticker;
   late final AudioPlayer _musicPlayer;
   late final TransformationController _gardenMapController;
+  final FlutterLocalNotificationsPlugin _notifications =
+      FlutterLocalNotificationsPlugin();
+  bool _notificationsReady = false;
+  bool _notificationPermissionAsked = false;
   SharedPreferences? _prefs;
   final Map<String, AudioPool> _sfxPools = {};
   final AudioContext _musicAudioContext = AudioContextConfig(
@@ -736,6 +757,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _gardenGiftDay = data['gardenGiftDay'] as String?;
     _gardenGiftPlotId = (data['gardenGiftPlotId'] as num?)?.toInt();
     _gardenLastVisitMs = (data['gardenLastVisitMs'] as num?)?.toInt();
+    _notificationPermissionAsked =
+        data['notifAsked'] == true || _notificationPermissionAsked;
 
     final Object? plots = data['plots'];
     if (plots is List) {
@@ -800,6 +823,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       'gardenGiftDay': _gardenGiftDay,
       'gardenGiftPlotId': _gardenGiftPlotId,
       'gardenLastVisitMs': _gardenLastVisitMs,
+      'notifAsked': _notificationPermissionAsked,
       'plots': [
         for (final plot in _playerGardenPlots)
           {
@@ -956,6 +980,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
     _ticker = createTicker(_tick)..start();
     _primeAudio();
+    unawaited(_initNotifications());
     unawaited(_loadGardenSave());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_checkForcedPlayUpdate());
@@ -991,9 +1016,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           _gardenLastVisitMs = _gardenNow.millisecondsSinceEpoch;
           _queueGardenSave();
         }
+        if (state == AppLifecycleState.paused) {
+          unawaited(_syncGardenNotifications());
+        }
         unawaited(_musicPlayer.pause());
         break;
       case AppLifecycleState.detached:
+        unawaited(_syncGardenNotifications());
         unawaited(_musicPlayer.stop());
         break;
     }
@@ -1107,6 +1136,124 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     setState(() {
       _forceUpdateState = ForceUpdateState.idle;
     });
+  }
+
+  Future<void> _initNotifications() async {
+    if (kIsWeb) {
+      return;
+    }
+    try {
+      await _notifications.initialize(
+        settings: const InitializationSettings(
+          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+          iOS: DarwinInitializationSettings(
+            requestAlertPermission: false,
+            requestBadgePermission: false,
+            requestSoundPermission: false,
+          ),
+        ),
+      );
+      _notificationsReady = true;
+    } catch (_) {
+      // Notifications are a bonus; the garden works fine without them.
+      _notificationsReady = false;
+    }
+  }
+
+  Future<void> _ensureNotificationPermission() async {
+    if (!_notificationsReady || _notificationPermissionAsked) {
+      return;
+    }
+    _notificationPermissionAsked = true;
+    _queueGardenSave();
+    try {
+      await _notifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.requestNotificationsPermission();
+      await _notifications
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >()
+          ?.requestPermissions(alert: true, badge: false, sound: true);
+    } catch (_) {}
+  }
+
+  Future<void> _syncGardenNotifications() async {
+    if (!_notificationsReady || !_notificationPermissionAsked) {
+      return;
+    }
+    try {
+      await _notifications.cancelAll();
+      final DateTime now = _gardenNow;
+
+      PlayerGardenPlot? soonestPlot;
+      DateTime? soonestAt;
+      for (final plot in _playerGardenPlots) {
+        if (!_isGardenPlotUnlocked(plot) || !plot.planted || plot.ready) {
+          continue;
+        }
+        final DateTime? readyAt = plot.readyAt;
+        if (readyAt == null ||
+            readyAt.isBefore(now.add(const Duration(minutes: 5)))) {
+          continue;
+        }
+        if (soonestAt == null || readyAt.isBefore(soonestAt)) {
+          soonestAt = readyAt;
+          soonestPlot = plot;
+        }
+      }
+      if (soonestPlot != null && soonestAt != null) {
+        await _notifications.zonedSchedule(
+          id: _notifIdNextBloom,
+          title: 'Garden Ninja',
+          body:
+              '${_plantOptionForPlot(soonestPlot).name} is ready to gather '
+              'in your garden',
+          scheduledDate: tz.TZDateTime.from(soonestAt, tz.UTC),
+          notificationDetails: _gardenNotificationDetails,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        );
+      }
+
+      if (_gardenLastTendedDay == _dayKey(now)) {
+        final DateTime giftMorning = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          9,
+          30,
+        ).add(const Duration(days: 1));
+        await _notifications.zonedSchedule(
+          id: _notifIdMorningGift,
+          title: 'Garden Ninja',
+          body: 'The ninja left a gift in your garden',
+          scheduledDate: tz.TZDateTime.from(giftMorning, tz.UTC),
+          notificationDetails: _gardenNotificationDetails,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        );
+      }
+
+      final DateTime awhileAway = now.add(const Duration(days: 3));
+      final DateTime comebackEvening = DateTime(
+        awhileAway.year,
+        awhileAway.month,
+        awhileAway.day,
+        18,
+        30,
+      );
+      await _notifications.zonedSchedule(
+        id: _notifIdComeback,
+        title: 'Garden Ninja',
+        body: 'Your garden misses you - the flowers could use some water',
+        scheduledDate: tz.TZDateTime.from(comebackEvening, tz.UTC),
+        notificationDetails: _gardenNotificationDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+    } catch (_) {
+      // Scheduling problems must never disturb gameplay.
+    }
   }
 
   Future<void> _primeAudio() async {
@@ -2034,6 +2181,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (leavingGarden) {
       _restoreMusicAfterGarden();
       _queueGardenSave();
+      unawaited(_syncGardenNotifications());
     }
     unawaited(_musicPlayer.setVolume(0.32));
   }
@@ -2111,6 +2259,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (leavingGarden) {
       _restoreMusicAfterGarden();
       _queueGardenSave();
+      unawaited(_syncGardenNotifications());
     }
     unawaited(_musicPlayer.setVolume(0.34));
   }
@@ -2547,6 +2696,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         '${option.name} planted: ready in ${_durationLabel(option.growDuration)}';
     _gardenMessageLife = 2.0;
     _playSfx(_sfxCrispLeaf, volume: 0.48);
+    unawaited(_ensureNotificationPermission());
     return true;
   }
 
@@ -2602,6 +2752,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         : 'Watered ${option.name}. Ready in ${_durationLabel(_remainingGardenTime(plot, now))}';
     _gardenMessageLife = 2.1;
     _playSfx(_sfxComboSpark, volume: 0.5);
+    unawaited(_ensureNotificationPermission());
   }
 
   void _sunGardenPlot(PlayerGardenPlot plot) {
