@@ -181,6 +181,7 @@ class PlayerGardenPlot {
     this.watered = false,
     this.grassCut = false,
     this.upgradeLevel = 1,
+    this.mature = false,
     this.sparkle = 0,
   });
 
@@ -197,6 +198,7 @@ class PlayerGardenPlot {
   bool watered;
   bool grassCut;
   int upgradeLevel;
+  bool mature;
   double sparkle;
 
   bool get planted => asset != null;
@@ -205,6 +207,9 @@ class PlayerGardenPlot {
   int get growthStage {
     if (!planted) {
       return 0;
+    }
+    if (mature) {
+      return 3;
     }
     if (growth >= 1) {
       return 3;
@@ -491,22 +496,22 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   ];
   static const List<GardenHouseTier> _gardenHouseTiers = [
     GardenHouseTier(
-      name: 'Cottage Yard',
+      name: 'Cottage Townhouse',
       maxGardenLevel: 3,
       unlockPoints: 0,
       seedCost: 0,
       roofColor: Color(0xFF6E8B35),
       wallColor: Color(0xFFFFE5B1),
-      bonus: 'Small yard, calm starter beds',
+      bonus: 'starter yard and Lv 2 plants',
     ),
     GardenHouseTier(
-      name: 'Family Backyard',
+      name: 'Family Townhouse',
       maxGardenLevel: 5,
       unlockPoints: 1800,
       seedCost: 350,
       roofColor: Color(0xFF8E5A31),
       wallColor: Color(0xFFFFD6A1),
-      bonus: 'More land and Lv 3 plants',
+      bonus: 'larger yard and Lv 3 plants',
     ),
     GardenHouseTier(
       name: 'Garden Villa',
@@ -515,7 +520,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       seedCost: 1200,
       roofColor: Color(0xFF4F6F86),
       wallColor: Color(0xFFE8F3FF),
-      bonus: 'Elegant yard and Lv 4 plants',
+      bonus: 'villa land and Lv 4 plants',
     ),
   ];
   static const List<MusicTrack> _musicTracks = [
@@ -572,6 +577,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       plantIndex: 6,
       growth: 0.7,
       watered: true,
+      grassCut: true,
     ),
     PlayerGardenPlot(
       id: 1,
@@ -580,6 +586,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       asset: 'assets/images/sprites/pink_blossom_bush.png',
       plantIndex: 4,
       growth: 1,
+      mature: true,
+      grassCut: true,
       sparkle: 0.7,
     ),
     PlayerGardenPlot(
@@ -589,8 +597,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       asset: 'assets/images/sprites/blue_bell_bloom.png',
       plantIndex: 1,
       growth: 0.74,
+      grassCut: true,
     ),
-    PlayerGardenPlot(id: 3, position: const Offset(434, 788), unlockLevel: 1),
+    PlayerGardenPlot(
+      id: 3,
+      position: const Offset(434, 788),
+      unlockLevel: 1,
+      grassCut: true,
+    ),
     PlayerGardenPlot(id: 4, position: const Offset(252, 1086), unlockLevel: 2),
     PlayerGardenPlot(id: 5, position: const Offset(646, 1220), unlockLevel: 3),
     PlayerGardenPlot(id: 6, position: const Offset(312, 1400), unlockLevel: 4),
@@ -845,6 +859,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           plot.growth = 0;
           plot.watered = false;
           plot.upgradeLevel = 1;
+          plot.mature = false;
         } else {
           final GardenPlantOption option = _gardenPlantOptionAt(plantIndex);
           plot.asset = option.asset;
@@ -859,6 +874,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               ((rawPlot['upgradeLevel'] as num?)?.toInt() ?? plot.upgradeLevel)
                   .clamp(1, _maxPlantUpgradeLevel)
                   .toInt();
+          plot.mature = rawPlot['mature'] == true || plot.growth >= 1;
         }
         plot.weed = rawPlot['weed'] == true;
         plot.grassCut =
@@ -908,6 +924,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             'watered': plot.watered,
             'grassCut': plot.grassCut,
             'upgradeLevel': plot.upgradeLevel,
+            'mature': plot.mature,
             'weed': plot.weed,
           },
       ],
@@ -2364,6 +2381,57 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   int get _maxPlantUpgradeLevel => min(4, _gardenHouseTier + 2);
 
+  int get _currentHousePlantCap => min(4, _gardenHouseTier + 2);
+
+  Iterable<PlayerGardenPlot> get _currentHouseGardenPlots => _playerGardenPlots
+      .where((plot) => plot.unlockLevel <= _currentGardenHouse.maxGardenLevel);
+
+  String? _gardenHouseUpgradeBlocker(
+    GardenHouseTier current,
+    GardenHouseTier next, {
+    bool checkCost = true,
+  }) {
+    if (_gardenLevel < current.maxGardenLevel) {
+      return 'Expand every ${current.name} bed first';
+    }
+
+    final PlayerGardenPlot? grassyPlot = _currentHouseGardenPlots
+        .where((plot) => !plot.grassCut)
+        .firstOrNull;
+    if (grassyPlot != null) {
+      return 'Cut all grass before upgrading the townhouse';
+    }
+
+    final PlayerGardenPlot? weedPlot = _currentHouseGardenPlots
+        .where((plot) => plot.weed)
+        .firstOrNull;
+    if (weedPlot != null) {
+      return 'Clear every weed before upgrading the townhouse';
+    }
+
+    final PlayerGardenPlot? emptyPlot = _currentHouseGardenPlots
+        .where((plot) => !plot.planted)
+        .firstOrNull;
+    if (emptyPlot != null) {
+      return 'Plant every ${current.name} bed first';
+    }
+
+    final int targetLevel = _currentHousePlantCap;
+    final PlayerGardenPlot? lowPlant = _currentHouseGardenPlots
+        .where((plot) => plot.upgradeLevel < targetLevel)
+        .firstOrNull;
+    if (lowPlant != null) {
+      return 'Upgrade all ${current.name} plants to Lv $targetLevel';
+    }
+
+    if (checkCost &&
+        (_gardenPoints < next.unlockPoints || _seeds < next.seedCost)) {
+      return '${next.name}: need ${_formatNumber(next.unlockPoints)} pts and ${_formatNumber(next.seedCost)} seeds';
+    }
+
+    return null;
+  }
+
   int _plantUpgradeCost(PlayerGardenPlot plot) {
     final GardenPlantOption option = _plantOptionForPlot(plot);
     return 90 + option.seedCost ~/ 2 + plot.upgradeLevel * 85;
@@ -2492,6 +2560,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       plot.plantedAt = null;
       plot.readyAt = null;
       plot.lastWateredDay = null;
+      plot.mature = false;
       return;
     }
 
@@ -2509,13 +2578,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final int remainingMs = plot.readyAt!.difference(now).inMilliseconds;
     final double progress = (1 - (remainingMs / totalMs)).clamp(0.08, 1.0);
     if (remainingMs <= 0) {
+      plot.mature = true;
       plot.growth = 1;
       return;
     }
     final double waterGate = _gardenOptionIsTree(option) ? 0.84 : 0.92;
-    plot.growth = plot.watered || progress < waterGate
+    final double timedGrowth = plot.watered || progress < waterGate
         ? progress
         : min(progress, waterGate);
+    final double matureFloor = _gardenOptionIsTree(option) ? 0.78 : 0.72;
+    plot.growth = plot.mature ? max(timedGrowth, matureFloor) : timedGrowth;
   }
 
   Duration _remainingGardenTime(PlayerGardenPlot plot, DateTime now) {
@@ -2535,7 +2607,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
     if (_gardenTool == GardenTool.clear &&
         plot.upgradeLevel < _maxPlantUpgradeLevel) {
-      return 'Prune Lv ${plot.upgradeLevel + 1}';
+      return 'Upgrade Lv ${plot.upgradeLevel + 1}';
     }
     if (plot.ready) {
       return 'Ready';
@@ -2635,7 +2707,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _gardenMessage = switch (tool) {
         GardenTool.plant => 'Tap an empty plot to open nursery',
         GardenTool.water => 'Tap growing plants to water',
-        GardenTool.clear => 'Cut grass, clear weeds, or prune plants',
+        GardenTool.clear => 'Cut grass, clear weeds, or upgrade plants',
         GardenTool.sun => 'Tap growing plants for sun boost',
       };
       _gardenMessageLife = 2.1;
@@ -2781,20 +2853,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final GardenHouseTier current = _currentGardenHouse;
     final GardenHouseTier? next = _nextGardenHouse;
     if (next == null) {
-      _gardenMessage = 'Garden Villa is the biggest house';
+      _gardenMessage = 'Garden Villa is the final townhouse';
       _gardenMessageLife = 2.2;
       _playSfx(_sfxCrispLeaf, volume: 0.34);
       return;
     }
-    if (_gardenLevel < current.maxGardenLevel) {
-      _gardenMessage = 'Expand all ${current.name} beds first';
-      _gardenMessageLife = 2.3;
-      _playSfx(_sfxCrispLeaf, volume: 0.34);
-      return;
-    }
-    if (_gardenPoints < next.unlockPoints || _seeds < next.seedCost) {
-      _gardenMessage =
-          '${next.name}: need ${_formatNumber(next.unlockPoints)} pts and ${_formatNumber(next.seedCost)} seeds';
+    final String? blocker = _gardenHouseUpgradeBlocker(current, next);
+    if (blocker != null) {
+      _gardenMessage = blocker;
       _gardenMessageLife = 2.7;
       _playSfx(_sfxCrispLeaf, volume: 0.34);
       return;
@@ -2807,7 +2873,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         plot.sparkle = 1;
       }
     }
-    _gardenMessage = '${next.name} unlocked: ${next.bonus}';
+    _gardenMessage = '${next.name} upgraded: ${next.bonus}';
     _gardenMessageLife = 2.8;
     _playSfx(_sfxComboSpark, volume: 0.64);
     _queueGardenSave();
@@ -2859,6 +2925,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     plot.watered = false;
     plot.grassCut = true;
     plot.upgradeLevel = 1;
+    plot.mature = false;
     plot.sparkle = 1;
     _gardenMessage =
         '${option.name} planted: ready in ${_durationLabel(option.growDuration)}';
@@ -3004,7 +3071,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
     final int cost = _plantUpgradeCost(plot);
     if (_seeds < cost) {
-      _gardenMessage = 'Need ${_formatNumber(cost)} seeds to prune upgrade';
+      _gardenMessage = 'Need ${_formatNumber(cost)} seeds to upgrade plant';
       _gardenMessageLife = 2.2;
       return;
     }
@@ -3074,7 +3141,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     plot.plantedAt = now;
     plot.readyAt = now.add(option.growDuration);
     plot.lastWateredDay = null;
-    plot.growth = 0.22;
+    plot.mature = true;
+    plot.growth = _gardenOptionIsTree(option) ? 0.82 : 0.76;
     plot.watered = false;
     plot.sparkle = 1;
     final String harvestLabel = _gardenHarvestLabel(option);
@@ -3148,10 +3216,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
     final GardenHouseTier? nextHouse = _nextGardenHouse;
     if (nextHouse != null &&
-        _gardenLevel >= _currentGardenHouse.maxGardenLevel &&
-        _gardenPoints >= nextHouse.unlockPoints &&
-        _seeds >= nextHouse.seedCost) {
-      return 'Upgrade the house to open a bigger backyard';
+        _gardenLevel >= _currentGardenHouse.maxGardenLevel) {
+      final String? blocker = _gardenHouseUpgradeBlocker(
+        _currentGardenHouse,
+        nextHouse,
+      );
+      if (blocker != null) {
+        return blocker;
+      }
+      return 'Upgrade the townhouse to open the next yard';
     }
 
     PlayerGardenPlot? readyPlot;
@@ -4705,7 +4778,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final String weedAsset =
         _playerGardenWeedAssets[plot.id % _playerGardenWeedAssets.length];
     final String status = _gardenPlotStatus(plot, now);
-    final double pulse = 1 + sin(_motionTime * 3.2 + plot.id).abs() * 0.035;
     final double targetPulse = (sin(_motionTime * 4.4 + plot.id * 0.7) + 1) / 2;
     final double sparkle = plot.sparkle.clamp(0.0, 1.0);
     final bool tree =
@@ -4764,142 +4836,139 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         onTap: () => _handleGardenPlotTap(plot),
         child: Opacity(
           opacity: unlocked ? 1 : 0.58,
-          child: Transform.scale(
-            scale: plot.ready ? pulse : 1,
-            child: Stack(
-              alignment: Alignment.center,
-              clipBehavior: Clip.none,
-              children: [
-                if (plantTarget)
-                  Positioned(
-                    bottom: 10,
-                    child: _GardenPlantTargetGlow(
-                      key: ValueKey('garden-plant-target-glow-${plot.id}'),
-                      pulse: targetPulse,
-                    ),
+          child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              if (plantTarget)
+                Positioned(
+                  bottom: 10,
+                  child: _GardenPlantTargetGlow(
+                    key: ValueKey('garden-plant-target-glow-${plot.id}'),
+                    pulse: targetPulse,
                   ),
-                if (!unlocked) ...[
-                  Positioned(
-                    bottom: 44,
-                    child: Icon(
-                      plot.unlockLevel > _currentGardenHouse.maxGardenLevel
-                          ? Icons.home_work_rounded
-                          : plot.grassCut
-                          ? Icons.lock_rounded
-                          : Icons.grass_rounded,
-                      color: Color(0xFFFFE29B),
-                      size: 34,
-                    ),
+                ),
+              if (!unlocked) ...[
+                Positioned(
+                  bottom: 44,
+                  child: Icon(
+                    plot.unlockLevel > _currentGardenHouse.maxGardenLevel
+                        ? Icons.home_work_rounded
+                        : plot.grassCut
+                        ? Icons.lock_rounded
+                        : Icons.grass_rounded,
+                    color: Color(0xFFFFE29B),
+                    size: 34,
                   ),
-                  Positioned(
-                    bottom: 16,
-                    child: _GardenTinyBadge(
-                      text: lockedLabel,
-                      color: const Color(0xEE2C4B22),
-                      borderColor: const Color(0xFFFFD36A),
-                    ),
+                ),
+                Positioned(
+                  bottom: 16,
+                  child: _GardenTinyBadge(
+                    text: lockedLabel,
+                    color: const Color(0xEE2C4B22),
+                    borderColor: const Color(0xFFFFD36A),
                   ),
-                ] else if (plantTarget)
-                  Positioned(
-                    right: 42,
-                    bottom: 35,
-                    child: Transform.scale(
-                      scale: 1 + targetPulse * 0.08,
-                      child: const _GardenPlantTargetMarker(),
+                ),
+              ] else if (plantTarget)
+                Positioned(
+                  right: 42,
+                  bottom: 35,
+                  child: Transform.scale(
+                    scale: 1 + targetPulse * 0.08,
+                    child: const _GardenPlantTargetMarker(),
+                  ),
+                )
+              else if (plot.planted && plantSpec != null)
+                Positioned(
+                  bottom: plantSpec.bottom,
+                  child: Transform.translate(
+                    offset: Offset(
+                      plantSpec.offsetX,
+                      plantSpec.offsetY + plantBob,
                     ),
-                  )
-                else if (plot.planted && plantSpec != null)
-                  Positioned(
-                    bottom: plantSpec.bottom,
-                    child: Transform.translate(
-                      offset: Offset(
-                        plantSpec.offsetX,
-                        plantSpec.offsetY + plantBob,
-                      ),
-                      child: Transform.rotate(
+                    child: Transform.rotate(
+                      alignment: Alignment.bottomCenter,
+                      angle: plantSway,
+                      child: Transform.scale(
                         alignment: Alignment.bottomCenter,
-                        angle: plantSway,
-                        child: Transform.scale(
-                          alignment: Alignment.bottomCenter,
-                          scale: plantScale * plantSpec.scale * plantBreath,
-                          child: Image.asset(
-                            plot.asset!,
-                            width: plantSpec.width,
-                            height: plantSpec.height,
-                            fit: BoxFit.contain,
-                            filterQuality: FilterQuality.medium,
-                          ),
+                        scale: plantScale * plantSpec.scale * plantBreath,
+                        child: Image.asset(
+                          plot.asset!,
+                          width: plantSpec.width,
+                          height: plantSpec.height,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.medium,
                         ),
                       ),
                     ),
                   ),
-                if (plot.weed && unlocked)
-                  Positioned(
-                    bottom: 44 + sin(_motionTime * 5 + plot.id) * 2,
-                    right: 42,
-                    child: Image.asset(
-                      weedAsset,
-                      width: 64,
-                      height: 70,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.medium,
-                    ),
+                ),
+              if (plot.weed && unlocked)
+                Positioned(
+                  bottom: 44 + sin(_motionTime * 5 + plot.id) * 2,
+                  right: 42,
+                  child: Image.asset(
+                    weedAsset,
+                    width: 64,
+                    height: 70,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
                   ),
-                if (plot.ready && unlocked)
-                  Positioned(
-                    top: 42,
-                    right: 34,
-                    child: Image.asset(
-                      'assets/images/icons/bloom_collect.png',
-                      width: 26,
-                      height: 26,
-                      filterQuality: FilterQuality.medium,
-                    ),
+                ),
+              if (plot.ready && unlocked)
+                Positioned(
+                  top: 42,
+                  right: 34,
+                  child: Image.asset(
+                    'assets/images/icons/bloom_collect.png',
+                    width: 26,
+                    height: 26,
+                    filterQuality: FilterQuality.medium,
                   ),
-                if (showStatusBadge)
-                  Positioned(
-                    top: plot.ready ? 36 : 58,
-                    child: _GardenTinyBadge(
-                      text: status,
-                      color: plot.weed
-                          ? const Color(0xEE4A5D2A)
-                          : plot.ready
-                          ? const Color(0xEEF0A51A)
-                          : !plot.planted
-                          ? const Color(0xEE2C701F)
-                          : !plot.watered
-                          ? const Color(0xEE1D6C85)
-                          : const Color(0xEE2E6D24),
-                      borderColor: plot.watered && !plot.ready && !plot.weed
-                          ? const Color(0xFFE4FFAA)
-                          : const Color(0xFFFFD36A),
-                    ),
+                ),
+              if (showStatusBadge)
+                Positioned(
+                  top: plot.ready ? 36 : 58,
+                  child: _GardenTinyBadge(
+                    text: status,
+                    color: plot.weed
+                        ? const Color(0xEE4A5D2A)
+                        : plot.ready
+                        ? const Color(0xEEF0A51A)
+                        : !plot.planted
+                        ? const Color(0xEE2C701F)
+                        : !plot.watered
+                        ? const Color(0xEE1D6C85)
+                        : const Color(0xEE2E6D24),
+                    borderColor: plot.watered && !plot.ready && !plot.weed
+                        ? const Color(0xFFE4FFAA)
+                        : const Color(0xFFFFD36A),
                   ),
-                if (unlocked && plot.planted && plot.upgradeLevel > 1)
-                  Positioned(
-                    left: 28,
-                    top: 52,
-                    child: _GardenTinyBadge(
-                      text: 'Lv ${plot.upgradeLevel}',
-                      color: const Color(0xEE244B1F),
-                      borderColor: const Color(0xFFD8FF84),
-                    ),
+                ),
+              if (unlocked && plot.planted && plot.upgradeLevel > 1)
+                Positioned(
+                  left: 28,
+                  top: 52,
+                  child: _GardenTinyBadge(
+                    text: 'Lv ${plot.upgradeLevel}',
+                    color: const Color(0xEE244B1F),
+                    borderColor: const Color(0xFFD8FF84),
                   ),
-                if (sparkle > 0)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Opacity(
-                        opacity: sparkle,
-                        child: const Icon(
-                          Icons.auto_awesome_rounded,
-                          color: Color(0xFFFFF17A),
-                          size: 54,
-                        ),
+                ),
+              if (sparkle > 0)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: sparkle,
+                      child: const Icon(
+                        Icons.auto_awesome_rounded,
+                        color: Color(0xFFFFF17A),
+                        size: 54,
                       ),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),
@@ -5162,7 +5231,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 child: _GardenTitleBoard(
                   title: _currentGardenHouse.name,
                   subtitle:
-                      'House ${_gardenHouseTier + 1}/${_gardenHouseTiers.length}',
+                      'Townhouse ${_gardenHouseTier + 1}/${_gardenHouseTiers.length}',
                 ),
               ),
             ),
@@ -6780,7 +6849,7 @@ class _BackyardGardenPainter extends CustomPainter {
 
   void _drawGround(Canvas canvas, Size size) {
     final Rect rect = Offset.zero & size;
-    final List<Color> colors = _winter
+    final List<Color> baseColors = _winter
         ? const [Color(0xFFEAF7E6), Color(0xFFBDD9B8), Color(0xFFA7C59F)]
         : _night
         ? const [Color(0xFF314B38), Color(0xFF426B43), Color(0xFF284A38)]
@@ -6793,10 +6862,70 @@ class _BackyardGardenPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: colors,
+          colors: baseColors,
         ).createShader(rect),
     );
 
+    _drawMowedGrassBands(canvas, size);
+    _drawTurfPatches(canvas, size);
+    _drawGrassBlades(canvas, size);
+
+    if (_bamboo) {
+      _drawBambooStand(canvas, Offset(36, 190), 1.08);
+      _drawBambooStand(canvas, Offset(size.width - 82, 280), 0.9);
+    }
+  }
+
+  void _drawMowedGrassBands(Canvas canvas, Size size) {
+    final Paint lightBand = Paint()
+      ..style = PaintingStyle.fill
+      ..color = (_winter ? Colors.white : const Color(0xFFD8F69B)).withValues(
+        alpha: _winter ? 0.1 : 0.11,
+      );
+    final Paint darkBand = Paint()
+      ..style = PaintingStyle.fill
+      ..color = (_night ? const Color(0xFF183826) : const Color(0xFF2E7432))
+          .withValues(alpha: _night ? 0.1 : 0.09);
+
+    for (double y = 300; y < size.height + 220; y += 132) {
+      final Path light = Path()
+        ..moveTo(-160, y)
+        ..lineTo(size.width + 90, y - 230)
+        ..lineTo(size.width + 150, y - 168)
+        ..lineTo(-110, y + 68)
+        ..close();
+      canvas.drawPath(light, lightBand);
+
+      final Path dark = Path()
+        ..moveTo(-120, y + 74)
+        ..lineTo(size.width + 120, y - 142)
+        ..lineTo(size.width + 170, y - 96)
+        ..lineTo(-80, y + 126)
+        ..close();
+      canvas.drawPath(dark, darkBand);
+    }
+  }
+
+  void _drawTurfPatches(Canvas canvas, Size size) {
+    final Paint softPatch = Paint()
+      ..color = (_night ? const Color(0xFF203F2D) : const Color(0xFF6CB348))
+          .withValues(alpha: _winter ? 0.16 : 0.24)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+    for (int i = 0; i < 20; i += 1) {
+      final double x = 42 + ((i * 181) % 1000) / 1000 * (size.width - 84);
+      final double y = 420 + ((i * 263) % 1000) / 1000 * (size.height - 470);
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(x, y),
+          width: 128 + (i % 4) * 34,
+          height: 52 + (i % 3) * 20,
+        ),
+        softPatch,
+      );
+    }
+  }
+
+  void _drawGrassBlades(Canvas canvas, Size size) {
     final Paint blade = Paint()
       ..strokeWidth = 1.4
       ..strokeCap = StrokeCap.round
@@ -6805,20 +6934,24 @@ class _BackyardGardenPainter extends CustomPainter {
     final Paint bloom = Paint()
       ..color = (_night ? const Color(0xFFB8EFFF) : const Color(0xFFFFE49A))
           .withValues(alpha: _winter ? 0.15 : 0.55);
+    final Paint clover = Paint()
+      ..color = (_night ? const Color(0xFF66B675) : const Color(0xFF2E8A39))
+          .withValues(alpha: _winter ? 0.18 : 0.42);
 
-    for (int i = 0; i < 210; i += 1) {
+    for (int i = 0; i < 260; i += 1) {
       final double x = ((i * 73) % 1000) / 1000 * size.width;
-      final double y = 190 + ((i * 137) % 1000) / 1000 * (size.height - 210);
+      final double y = 360 + ((i * 137) % 1000) / 1000 * (size.height - 380);
       final double lean = sin(i * 1.7) * 4;
       canvas.drawLine(Offset(x, y), Offset(x + lean, y - 8), blade);
       if (i % 9 == 0) {
         canvas.drawCircle(Offset(x + 3, y - 10), 2.1, bloom);
       }
-    }
-
-    if (_bamboo) {
-      _drawBambooStand(canvas, Offset(36, 190), 1.08);
-      _drawBambooStand(canvas, Offset(size.width - 82, 280), 0.9);
+      if (i % 17 == 0) {
+        final Offset c = Offset(x - 4, y - 6);
+        canvas.drawCircle(c + const Offset(-4, 0), 3, clover);
+        canvas.drawCircle(c + const Offset(4, 0), 3, clover);
+        canvas.drawCircle(c + const Offset(0, -4), 3, clover);
+      }
     }
   }
 
