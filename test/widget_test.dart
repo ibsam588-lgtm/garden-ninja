@@ -25,6 +25,28 @@ String gardenDayKey(DateTime date) {
   return '${date.year}-${two(date.month)}-${two(date.day)}';
 }
 
+const List<int> _testGardenPlotUnlockLevels = [1, 1, 1, 1, 2, 3, 4, 5, 6, 7];
+
+List<Map<String, Object?>> maxedGardenPlots({
+  required int maxUnlockLevel,
+  required int plantLevel,
+}) {
+  return [
+    for (int id = 0; id < _testGardenPlotUnlockLevels.length; id += 1)
+      if (_testGardenPlotUnlockLevels[id] <= maxUnlockLevel)
+        {
+          'id': id,
+          'plantIndex': id % 7,
+          'growth': 1,
+          'grassCut': true,
+          'upgradeLevel': plantLevel,
+          'mature': true,
+          'watered': true,
+          'weed': false,
+        },
+  ];
+}
+
 void main() {
   testWidgets('Garden Ninja shows home and can start play', (tester) async {
     await pumpGardenNinja(tester);
@@ -231,7 +253,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
     await tester.pump(const Duration(milliseconds: 160));
 
-    expect(find.text('COTTAGE YARD'), findsOneWidget);
+    expect(find.text('COTTAGE TOWNHOUSE'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('garden-plant-target-glow-3')),
       findsOneWidget,
@@ -379,8 +401,40 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('garden-house-upgrade')));
     await tester.pump(const Duration(milliseconds: 160));
 
-    expect(find.text('FAMILY BACKYARD'), findsOneWidget);
-    expect(find.textContaining('Family Backyard unlocked'), findsOneWidget);
+    expect(find.text('COTTAGE TOWNHOUSE'), findsOneWidget);
+    expect(
+      find.textContaining('Plant every Cottage Townhouse bed first'),
+      findsWidgets,
+    );
+  });
+
+  testWidgets('maxed cottage townhouse upgrades to family townhouse', (
+    tester,
+  ) async {
+    await pumpGardenNinja(
+      tester,
+      prefs: {
+        'garden_ninja_garden_v4': jsonEncode({
+          'version': 2,
+          'seeds': 1600,
+          'gardenPoints': 2400,
+          'gardenLevel': 3,
+          'gardenHouseTier': 0,
+          'plots': maxedGardenPlots(maxUnlockLevel: 3, plantLevel: 2),
+        }),
+      },
+    );
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.text('COTTAGE TOWNHOUSE'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-house-upgrade')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.text('FAMILY TOWNHOUSE'), findsOneWidget);
+    expect(find.textContaining('Family Townhouse upgraded'), findsOneWidget);
     expect(find.byKey(const ValueKey('player-garden-plot-7')), findsOneWidget);
     expect(find.byKey(const ValueKey('player-garden-plot-8')), findsOneWidget);
   });
@@ -395,6 +449,7 @@ void main() {
           'gardenPoints': 6200,
           'gardenLevel': 5,
           'gardenHouseTier': 1,
+          'plots': maxedGardenPlots(maxUnlockLevel: 5, plantLevel: 3),
         }),
       },
     );
@@ -402,13 +457,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
     await tester.pump(const Duration(milliseconds: 160));
 
-    expect(find.text('FAMILY BACKYARD'), findsOneWidget);
+    expect(find.text('FAMILY TOWNHOUSE'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('garden-house-upgrade')));
     await tester.pump(const Duration(milliseconds: 160));
 
     expect(find.text('GARDEN VILLA'), findsOneWidget);
-    expect(find.textContaining('Garden Villa unlocked'), findsOneWidget);
+    expect(find.textContaining('Garden Villa upgraded'), findsOneWidget);
     expect(find.byKey(const ValueKey('player-garden-plot-9')), findsOneWidget);
   });
 
