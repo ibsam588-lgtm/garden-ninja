@@ -264,6 +264,20 @@ void main() {
     expect(find.byKey(const ValueKey('garden-tool-clear')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-tool-sun')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-world-selector')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('garden-ecosystem-panel')),
+      findsOneWidget,
+    );
+    expect(find.text('Daily care 0/4'), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-station-water')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('garden-station-compost')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('garden-station-journal')),
+      findsOneWidget,
+    );
     expect(find.text('Orchard Grove'), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-zoom-in')), findsNothing);
     expect(find.byKey(const ValueKey('garden-zoom-out')), findsNothing);
@@ -323,10 +337,7 @@ void main() {
     expect(find.byKey(const ValueKey('garden-streak-chip')), findsOneWidget);
     expect(find.text('Day 1'), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-forecast')), findsOneWidget);
-    expect(
-      find.text('Cut grass to prepare the next backyard bed'),
-      findsOneWidget,
-    );
+    expect(find.text('Daily goal: plant one open bed'), findsOneWidget);
     expect(find.byKey(const ValueKey('player-garden-plot-4')), findsOneWidget);
     expect(find.byKey(const ValueKey('player-garden-plot-5')), findsOneWidget);
     expect(find.byKey(const ValueKey('player-garden-plot-6')), findsOneWidget);
@@ -336,6 +347,45 @@ void main() {
     expect(find.byIcon(Icons.home_work_rounded), findsOneWidget);
     expect(find.text('Cut grass'), findsOneWidget);
     expect(find.text('Upgrade house'), findsWidgets);
+  });
+
+  testWidgets('daily ecosystem rewards a complete care routine', (
+    tester,
+  ) async {
+    await pumpGardenNinja(tester);
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-1')));
+    await tester.pump(const Duration(milliseconds: 160));
+    expect(find.textContaining('Collected blooms'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-station-water')));
+    await tester.pump(const Duration(milliseconds: 160));
+    expect(find.textContaining('Rain barrel: +1 water'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-tool-clear')));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-4')));
+    await tester.pump(const Duration(milliseconds: 160));
+    expect(find.textContaining('+1 compost'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-tool-plant')));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-3')));
+    await tester.pump(const Duration(milliseconds: 160));
+    await tester.tap(find.byKey(const ValueKey('garden-confirm-plant')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.text('Daily care 4/4'), findsOneWidget);
+    expect(find.text('CLAIM'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-daily-claim')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.textContaining('Daily basket:'), findsOneWidget);
+    expect(find.text('Done'), findsOneWidget);
   });
 
   testWidgets('expanding the garden opens a real meadow plot', (tester) async {
