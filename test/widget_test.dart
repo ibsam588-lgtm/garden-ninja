@@ -281,6 +281,7 @@ void main() {
     expect(find.byKey(const ValueKey('garden-lawn-mower')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-pond-reservoir')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-produce-market')), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-heart-scene')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-house-scene')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-caretaker')), findsOneWidget);
     expect(find.text('Orchard Grove'), findsOneWidget);
@@ -701,4 +702,58 @@ void main() {
 
     expect(find.textContaining('Pond irrigation:'), findsOneWidget);
   });
+
+  testWidgets(
+    'garden heart opens a daily care gift and remembers plant bonds',
+    (tester) async {
+      await pumpGardenNinja(
+        tester,
+        prefs: {
+          'garden_ninja_garden_v4': jsonEncode({
+            'version': 5,
+            'gardenHeartPoints': 72,
+            'gardenDailyTaskDay': gardenDayKey(DateTime.now()),
+            'gardenDailyPlantDone': true,
+            'gardenDailyWaterDone': true,
+            'gardenDailyCollectDone': true,
+            'gardenDailyTidyDone': true,
+            'gardenDailyRewardClaimed': false,
+            'plots': [
+              {
+                'id': 0,
+                'plantIndex': 6,
+                'growth': 0.8,
+                'grassCut': true,
+                'upgradeLevel': 1,
+                'carePoints': 10,
+                'mature': true,
+                'watered': true,
+                'weed': false,
+              },
+            ],
+          }),
+        },
+      );
+
+      await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+      await tester.pump(const Duration(milliseconds: 160));
+
+      expect(find.byKey(const ValueKey('garden-heart-scene')), findsOneWidget);
+      expect(find.byKey(const ValueKey('garden-plant-care-0')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('garden-heart-scene')));
+      await tester.pump(const Duration(milliseconds: 160));
+
+      expect(find.byKey(const ValueKey('garden-heart-panel')), findsOneWidget);
+      expect(find.text('Garden Heart'), findsOneWidget);
+      expect(find.text('OPEN HEART GIFT'), findsOneWidget);
+      expect(find.text('1'), findsWidgets);
+
+      await tester.tap(find.byKey(const ValueKey('garden-heart-action')));
+      await tester.pump(const Duration(milliseconds: 160));
+
+      expect(find.textContaining('Daily basket:'), findsOneWidget);
+      expect(find.text('COME BACK TOMORROW'), findsOneWidget);
+    },
+  );
 }

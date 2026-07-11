@@ -192,6 +192,7 @@ class PlayerGardenPlot {
     this.watered = false,
     this.grassCut = false,
     this.upgradeLevel = 1,
+    this.carePoints = 0,
     this.mature = false,
     this.sparkle = 0,
   });
@@ -209,6 +210,7 @@ class PlayerGardenPlot {
   bool watered;
   bool grassCut;
   int upgradeLevel;
+  int carePoints;
   bool mature;
   double sparkle;
 
@@ -582,7 +584,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   final List<PlayerGardenPlot> _playerGardenPlots = [
     PlayerGardenPlot(
       id: 0,
-      position: const Offset(674, 556),
+      position: const Offset(704, 632),
       unlockLevel: 1,
       asset: 'assets/images/sprites/tree_apple.png',
       plantIndex: 6,
@@ -592,7 +594,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     PlayerGardenPlot(
       id: 1,
-      position: const Offset(218, 654),
+      position: const Offset(214, 650),
       unlockLevel: 1,
       asset: 'assets/images/sprites/pink_blossom_bush.png',
       plantIndex: 4,
@@ -603,7 +605,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     PlayerGardenPlot(
       id: 2,
-      position: const Offset(692, 836),
+      position: const Offset(706, 862),
       unlockLevel: 1,
       asset: 'assets/images/sprites/blue_bell_bloom.png',
       plantIndex: 1,
@@ -612,16 +614,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     PlayerGardenPlot(
       id: 3,
-      position: const Offset(214, 904),
+      position: const Offset(206, 902),
       unlockLevel: 1,
       grassCut: true,
     ),
-    PlayerGardenPlot(id: 4, position: const Offset(682, 1072), unlockLevel: 2),
-    PlayerGardenPlot(id: 5, position: const Offset(330, 1196), unlockLevel: 3),
-    PlayerGardenPlot(id: 6, position: const Offset(688, 1324), unlockLevel: 4),
-    PlayerGardenPlot(id: 7, position: const Offset(326, 1450), unlockLevel: 5),
-    PlayerGardenPlot(id: 8, position: const Offset(706, 1518), unlockLevel: 6),
-    PlayerGardenPlot(id: 9, position: const Offset(174, 1580), unlockLevel: 7),
+    PlayerGardenPlot(id: 4, position: const Offset(700, 1088), unlockLevel: 2),
+    PlayerGardenPlot(id: 5, position: const Offset(354, 1198), unlockLevel: 3),
+    PlayerGardenPlot(id: 6, position: const Offset(704, 1328), unlockLevel: 4),
+    PlayerGardenPlot(id: 7, position: const Offset(340, 1446), unlockLevel: 5),
+    PlayerGardenPlot(id: 8, position: const Offset(696, 1540), unlockLevel: 6),
+    PlayerGardenPlot(id: 9, position: const Offset(300, 1590), unlockLevel: 7),
   ];
 
   late final Ticker _ticker;
@@ -682,6 +684,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int _gardenOranges = 0;
   int _gardenPondWater = 4;
   int _gardenMarketSales = 0;
+  int _gardenHeartPoints = 12;
   int? _gardenLawnLastMowedMs;
   int? _gardenPondRefillMs;
   int? _gardenGiftPlotId;
@@ -700,6 +703,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   bool _showGardenWelcome = false;
   bool _showGardenHousePanel = false;
   bool _showGardenMarketPanel = false;
+  bool _showGardenHeartPanel = false;
   bool _correctingGardenTransform = false;
   List<String> _gardenWelcomeLines = const [];
   List<String> _dailySummaryLines = [];
@@ -713,6 +717,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   double _gardenDamageCooldown = 0;
   double _gardenWeedTimer = 90;
   double _gardenMessageLife = 0;
+  double _gardenHeartPulse = 0;
   double _motionTime = 0;
   Offset? _lastSlashPoint;
   Offset _gardenCaretakerPosition = const Offset(460, 560);
@@ -877,6 +882,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       0,
       (data['gardenMarketSales'] as num?)?.toInt() ?? _gardenMarketSales,
     );
+    _gardenHeartPoints = max(
+      0,
+      (data['gardenHeartPoints'] as num?)?.toInt() ??
+          min(60, _gardenHarvests * 3 + _gardenLevel * 5),
+    );
     _gardenLawnLastMowedMs = (data['gardenLawnLastMowedMs'] as num?)?.toInt();
     _gardenPondRefillMs = (data['gardenPondRefillMs'] as num?)?.toInt();
     _selectedGardenPlant =
@@ -930,6 +940,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           plot.growth = 0;
           plot.watered = false;
           plot.upgradeLevel = 1;
+          plot.carePoints = 0;
           plot.mature = false;
         } else {
           final GardenPlantOption option = _gardenPlantOptionAt(plantIndex);
@@ -945,6 +956,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               ((rawPlot['upgradeLevel'] as num?)?.toInt() ?? plot.upgradeLevel)
                   .clamp(1, _maxPlantUpgradeLevel)
                   .toInt();
+          plot.carePoints = max(
+            0,
+            (rawPlot['carePoints'] as num?)?.toInt() ??
+                (rawPlot['mature'] == true ? 3 : 1),
+          );
           plot.mature = rawPlot['mature'] == true || plot.growth >= 1;
         }
         plot.weed = rawPlot['weed'] == true;
@@ -964,7 +980,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   Map<String, dynamic> _gardenSavePayload() {
     return {
-      'version': 4,
+      'version': 5,
       'seeds': _seeds,
       'waterCharges': _waterCharges,
       'sunDrops': _sunDrops,
@@ -979,6 +995,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       'gardenOranges': _gardenOranges,
       'gardenPondWater': _gardenPondWater,
       'gardenMarketSales': _gardenMarketSales,
+      'gardenHeartPoints': _gardenHeartPoints,
       'gardenLawnLastMowedMs': _gardenLawnLastMowedMs,
       'gardenPondRefillMs': _gardenPondRefillMs,
       'selectedGardenPlant': _selectedGardenPlant,
@@ -1012,6 +1029,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             'watered': plot.watered,
             'grassCut': plot.grassCut,
             'upgradeLevel': plot.upgradeLevel,
+            'carePoints': plot.carePoints,
             'mature': plot.mature,
             'weed': plot.weed,
           },
@@ -1034,6 +1052,111 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return;
     }
     _gardenMood = (_gardenMood + amount).clamp(0, 100).toInt();
+  }
+
+  int get _gardenHeartLevel {
+    if (_gardenHeartPoints >= 280) {
+      return 5;
+    }
+    if (_gardenHeartPoints >= 150) {
+      return 4;
+    }
+    if (_gardenHeartPoints >= 70) {
+      return 3;
+    }
+    if (_gardenHeartPoints >= 25) {
+      return 2;
+    }
+    return 1;
+  }
+
+  int get _gardenHeartLevelFloor => switch (_gardenHeartLevel) {
+    1 => 0,
+    2 => 25,
+    3 => 70,
+    4 => 150,
+    _ => 280,
+  };
+
+  int get _gardenHeartNextLevelAt => switch (_gardenHeartLevel) {
+    1 => 25,
+    2 => 70,
+    3 => 150,
+    4 => 280,
+    _ => 280,
+  };
+
+  double get _gardenHeartProgress {
+    if (_gardenHeartLevel >= 5) {
+      return 1;
+    }
+    final int floor = _gardenHeartLevelFloor;
+    return ((_gardenHeartPoints - floor) / (_gardenHeartNextLevelAt - floor))
+        .clamp(0.0, 1.0);
+  }
+
+  String get _gardenHeartTitle => switch (_gardenHeartLevel) {
+    1 => 'Tender Seed',
+    2 => 'Cozy Sprout',
+    3 => 'Blooming Heart',
+    4 => 'Giving Garden',
+    _ => 'Radiant Heart',
+  };
+
+  String get _gardenHeartThought {
+    final int day =
+        _gardenNow.toUtc().millisecondsSinceEpoch ~/ (24 * 60 * 60 * 1000);
+    return const [
+      'Small care, repeated gently, becomes a beautiful place.',
+      'Your plants notice every visit, even the quiet ones.',
+      'Nothing here needs rushing. Growing together is enough.',
+      'A welcoming garden is made one kind action at a time.',
+      'Today the garden feels a little more like home.',
+    ][day % 5];
+  }
+
+  int _gardenPlantCareLevel(PlayerGardenPlot plot) {
+    if (plot.carePoints >= 36) {
+      return 5;
+    }
+    if (plot.carePoints >= 20) {
+      return 4;
+    }
+    if (plot.carePoints >= 10) {
+      return 3;
+    }
+    if (plot.carePoints >= 4) {
+      return 2;
+    }
+    return 1;
+  }
+
+  int get _gardenBondedPlantCount => _playerGardenPlots
+      .where(
+        (plot) =>
+            _isGardenPlotUnlocked(plot) &&
+            plot.planted &&
+            _gardenPlantCareLevel(plot) >= 2,
+      )
+      .length;
+
+  int get _gardenHeartMarketBonus => (_gardenHeartLevel - 1) * 4;
+
+  void _nurtureGardenHeart(
+    int points, {
+    PlayerGardenPlot? plot,
+    int plantCare = 0,
+  }) {
+    final int previousLevel = _gardenHeartLevel;
+    _gardenHeartPoints = max(0, _gardenHeartPoints + points);
+    if (plot != null && plantCare > 0) {
+      plot.carePoints = max(0, plot.carePoints + plantCare);
+      plot.sparkle = 1;
+    }
+    _gardenHeartPulse = 1;
+    if (_gardenHeartLevel > previousLevel) {
+      _dailySummaryLines.add('Garden Heart grew into $_gardenHeartTitle');
+    }
   }
 
   bool get _dailyGardenTasksComplete =>
@@ -1137,8 +1260,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return false;
     }
     _bumpGardenMood(moodBoost);
+    _nurtureGardenHeart(3);
     if (_dailyGardenTasksComplete && !_gardenDailyRewardClaimed) {
-      _gardenMessage = 'Daily ecosystem complete - claim the basket';
+      _gardenMessage = 'Daily care complete - a Heart Gift is ready';
       _gardenMessageLife = 2.4;
     }
     return true;
@@ -1184,6 +1308,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _score += pointReward;
       _waterCharges = min(12, _waterCharges + 1);
       _bumpGardenMood(6);
+      _nurtureGardenHeart(6);
       _gardenMessage =
           'Daily basket: +$seedReward seeds, +$pointReward pts, +1 water';
       _gardenMessageLife = 3.0;
@@ -1250,6 +1375,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _sunDrops = min(12, _sunDrops + 1);
       }
       _bumpGardenMood(3);
+      _nurtureGardenHeart(2);
       _gardenMessage = _gardenMood >= 82
           ? 'Journal bonus: +$pointReward pts, +1 sun'
           : 'Journal bonus: +$pointReward pts';
@@ -1312,9 +1438,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       'Orange' => 38,
       _ => 0,
     };
-    return fruit == _featuredGardenFruit
+    final int featuredPrice = fruit == _featuredGardenFruit
         ? (basePrice * 1.5).round()
         : basePrice;
+    return (featuredPrice * (100 + _gardenHeartMarketBonus) / 100).round();
   }
 
   void _refreshGardenPond(DateTime now) {
@@ -1398,6 +1525,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void _openGardenMarket() {
     setState(() {
       _showGardenHousePanel = false;
+      _showGardenHeartPanel = false;
       _showGardenMarketPanel = true;
       _gardenNurseryPlotId = null;
       _guideGardenCaretaker(const Offset(706, 1218));
@@ -1437,6 +1565,42 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _playSfx(_sfxComboSpark, volume: 0.46);
     });
     _queueGardenSave();
+  }
+
+  void _openGardenHeart() {
+    setState(() {
+      _gardenNurseryPlotId = null;
+      _showGardenHousePanel = false;
+      _showGardenMarketPanel = false;
+      _showGardenHeartPanel = true;
+      _guideGardenCaretaker(const Offset(460, 850));
+      _gardenMessageLife = 0;
+      _gardenHeartPulse = 1;
+    });
+    _playSfx(_sfxComboSpark, volume: 0.42);
+  }
+
+  void _closeGardenHeart() {
+    setState(() {
+      _showGardenHeartPanel = false;
+      _gardenMessage = _gardenHeartThought;
+      _gardenMessageLife = 2.6;
+    });
+  }
+
+  void _continueGardenCare() {
+    setState(() {
+      _showGardenHeartPanel = false;
+      _gardenMessage = _gardenNextDailyAction() ?? _gardenHeartThought;
+      _gardenMessageLife = 2.8;
+      if (!_gardenDailyPlantDone) {
+        _gardenTool = GardenTool.plant;
+      } else if (!_gardenDailyWaterDone) {
+        _gardenTool = GardenTool.water;
+      } else if (!_gardenDailyCollectDone || !_gardenDailyTidyDone) {
+        _gardenTool = GardenTool.clear;
+      }
+    });
   }
 
   void _sellAllGardenFruit() {
@@ -2805,6 +2969,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _showGardenWelcome = false;
         _showGardenHousePanel = false;
         _showGardenMarketPanel = false;
+        _showGardenHeartPanel = false;
       }
       _phase = GamePhase.upgrades;
     });
@@ -2830,6 +2995,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _gardenSessionWeedSpawns = 0;
       _showGardenHousePanel = false;
       _showGardenMarketPanel = false;
+      _showGardenHeartPanel = false;
       _gardenWeedTimer = max(_gardenWeedTimer, 60);
 
       final bool longAway =
@@ -2873,6 +3039,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     setState(() {
       _gardenNurseryPlotId = null;
       _showGardenMarketPanel = false;
+      _showGardenHeartPanel = false;
       _showGardenHousePanel = true;
       _guideGardenCaretaker(const Offset(460, 452));
       _gardenMessageLife = 0;
@@ -2906,6 +3073,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _showGardenWelcome = false;
         _showGardenHousePanel = false;
         _showGardenMarketPanel = false;
+        _showGardenHeartPanel = false;
       }
       _phase = GamePhase.home;
       _tutorialMode = false;
@@ -3221,6 +3389,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _refreshAllGardenPlots(now);
     _stepGardenCaretaker(dt);
     _gardenMessageLife = max(0, _gardenMessageLife - dt);
+    _gardenHeartPulse = max(0, _gardenHeartPulse - dt * 0.72);
     _gardenWeedTimer -= dt;
 
     for (final plot in _playerGardenPlots) {
@@ -3335,6 +3504,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void _openGardenNursery(PlayerGardenPlot plot) {
     _showGardenHousePanel = false;
     _showGardenMarketPanel = false;
+    _showGardenHeartPanel = false;
     _gardenNurseryPlotId = plot.id;
     _gardenTool = GardenTool.plant;
     final GardenPlantOption option = _selectedGardenPlantOption;
@@ -3570,8 +3740,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     plot.watered = false;
     plot.grassCut = true;
     plot.upgradeLevel = 1;
+    plot.carePoints = 0;
     plot.mature = false;
     plot.sparkle = 1;
+    _nurtureGardenHeart(2, plot: plot, plantCare: 1);
     _gardenMessage =
         '${option.name} planted: ready in ${_durationLabel(option.growDuration)}';
     _gardenMessageLife = 2.0;
@@ -3628,6 +3800,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
     _refreshGardenPlot(plot, now);
     plot.sparkle = 1;
+    _nurtureGardenHeart(1, plot: plot, plantCare: 1);
     _gardenMessage = plot.ready
         ? '${option.name} blooms ready'
         : 'Watered ${option.name}. Ready in ${_durationLabel(_remainingGardenTime(plot, now))}';
@@ -3677,6 +3850,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
     _refreshGardenPlot(plot, now);
     plot.sparkle = 1;
+    _nurtureGardenHeart(1, plot: plot, plantCare: 1);
     _gardenMessage = plot.ready
         ? '${option.name} blooms ready'
         : 'Sun boost: ready in ${_durationLabel(_remainingGardenTime(plot, now))}';
@@ -3696,6 +3870,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     plot.sparkle = 1;
     _seeds += 18;
     _gardenCompost = min(24, _gardenCompost + 1);
+    _nurtureGardenHeart(
+      1,
+      plot: plot.planted ? plot : null,
+      plantCare: plot.planted ? 1 : 0,
+    );
     _completeDailyEcosystemTask(GardenEcosystemTask.tidy, moodBoost: 6);
     _gardenMessage = plot.planted
         ? '+18 seeds, +1 compost - all tidy'
@@ -3729,6 +3908,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _seeds -= cost;
     plot.upgradeLevel += 1;
     plot.sparkle = 1;
+    _nurtureGardenHeart(2, plot: plot, plantCare: 3);
     final DateTime now = _gardenNow;
     if (!plot.ready) {
       plot.readyAt = plot.readyAt?.subtract(
@@ -3773,7 +3953,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     };
     final int fruitCount = fruit == null
         ? 0
-        : 2 + plot.upgradeLevel + (_gardenMood >= 82 ? 1 : 0);
+        : 2 +
+              plot.upgradeLevel +
+              (_gardenMood >= 82 ? 1 : 0) +
+              ((_gardenPlantCareLevel(plot) - 1) ~/ 2);
     final int coinReward = fruit == null
         ? seedReward
         : max(12, seedReward ~/ 4);
@@ -3814,6 +3997,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     plot.growth = _gardenOptionIsTree(option) ? 0.82 : 0.76;
     plot.watered = false;
     plot.sparkle = 1;
+    _nurtureGardenHeart(2, plot: plot, plantCare: 2);
     final String harvestLabel = _gardenHarvestLabel(option);
     if (fruit != null) {
       _gardenMessage =
@@ -5343,6 +5527,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             if (_gardenNurseryPlot != null) _buildGardenNurseryOverlay(),
             if (_showGardenHousePanel) _buildGardenHouseOverlay(),
             if (_showGardenMarketPanel) _buildGardenMarketOverlay(),
+            if (_showGardenHeartPanel) _buildGardenHeartOverlay(),
             if (_showGardenWelcome)
               _GardenWelcomeCard(
                 key: const ValueKey('garden-welcome-card'),
@@ -5384,6 +5569,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   lawnGrowth: _gardenLawnGrowth,
                   pondWater: _gardenPondWater,
                   marketReady: _gardenFruitTotal > 0,
+                  heartLevel: _gardenHeartLevel,
+                  heartPulse: _gardenHeartPulse,
                   time: _motionTime,
                 ),
                 willChange: true,
@@ -5419,9 +5606,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 ),
               ),
               _buildGardenHouseTarget(),
+              _buildGardenHeartTarget(),
               _buildGardenStation(
                 key: const ValueKey('garden-station-journal'),
-                position: const Offset(214, 516),
+                position: const Offset(330, 512),
                 icon: Icons.menu_book_rounded,
                 title: 'Garden journal',
                 status: _gardenHabitatDay == _dayKey(_gardenNow)
@@ -5430,13 +5618,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 color: const Color(0xFF78A544),
                 ready: _gardenHabitatDay != _dayKey(_gardenNow),
                 onTap: () {
-                  _guideGardenCaretaker(const Offset(276, 548));
+                  _guideGardenCaretaker(const Offset(360, 558));
                   _visitGardenJournal();
                 },
               ),
               _buildGardenStation(
                 key: const ValueKey('garden-station-water'),
-                position: const Offset(734, 704),
+                position: const Offset(744, 450),
                 icon: Icons.water_drop_rounded,
                 title: 'Rain barrel',
                 status: _gardenWaterBarrelDay == _dayKey(_gardenNow)
@@ -5445,13 +5633,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 color: const Color(0xFF328EC1),
                 ready: _gardenWaterBarrelDay != _dayKey(_gardenNow),
                 onTap: () {
-                  _guideGardenCaretaker(const Offset(668, 748));
+                  _guideGardenCaretaker(const Offset(690, 500));
                   _collectGardenWaterBarrel();
                 },
               ),
               _buildGardenStation(
                 key: const ValueKey('garden-station-compost'),
-                position: const Offset(224, 1048),
+                position: const Offset(174, 1008),
                 icon: Icons.recycling_rounded,
                 title: 'Compost mixer',
                 status: _gardenCompost > 0
@@ -5460,26 +5648,26 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 color: const Color(0xFF9A6B35),
                 ready: _gardenCompost > 0,
                 onTap: () {
-                  _guideGardenCaretaker(const Offset(296, 1088));
+                  _guideGardenCaretaker(const Offset(238, 1042));
                   _collectGardenCompost();
                 },
               ),
               _buildGardenStation(
                 key: const ValueKey('garden-lawn-mower'),
-                position: const Offset(446, 940),
+                position: const Offset(470, 1042),
                 icon: Icons.grass_rounded,
                 title: 'Side lawn',
                 status: _gardenLawnStatusText(),
                 color: const Color(0xFF4F9B40),
                 ready: _gardenLawnGrowth >= 0.28,
                 onTap: () {
-                  _guideGardenCaretaker(const Offset(390, 974));
+                  _guideGardenCaretaker(const Offset(420, 1080));
                   _mowGardenLawn();
                 },
               ),
               _buildGardenStation(
                 key: const ValueKey('garden-produce-market'),
-                position: const Offset(824, 1212),
+                position: const Offset(780, 1170),
                 icon: Icons.storefront_rounded,
                 title: 'Produce stall',
                 status: _gardenFruitTotal > 0
@@ -5533,19 +5721,90 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
   }
 
+  Widget _buildGardenHeartTarget() {
+    final double pulse = (sin(_motionTime * 2.7) + 1) / 2;
+    final bool giftReady =
+        _dailyGardenTasksComplete && !_gardenDailyRewardClaimed;
+    final String status = giftReady
+        ? 'Heart Gift ready'
+        : _gardenHeartLevel >= 5
+        ? 'Radiant and thriving'
+        : '$_gardenHeartPoints/$_gardenHeartNextLevelAt care';
+    return Positioned(
+      left: 342,
+      top: 564,
+      width: 236,
+      height: 294,
+      child: GestureDetector(
+        key: const ValueKey('garden-heart-scene'),
+        behavior: HitTestBehavior.translucent,
+        onTap: _openGardenHeart,
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            if (giftReady)
+              Positioned(
+                top: 32,
+                child: Transform.scale(
+                  scale: 1 + pulse * 0.1,
+                  child: Container(
+                    width: 116,
+                    height: 116,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(
+                          0xFFFFE986,
+                        ).withValues(alpha: 0.45 + pulse * 0.4),
+                        width: 5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(
+                            0xFFFFD95C,
+                          ).withValues(alpha: 0.12 + pulse * 0.2),
+                          blurRadius: 24,
+                          spreadRadius: 8,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            Positioned(
+              bottom: 8,
+              child: Transform.scale(
+                scale: 1 + pulse * 0.018,
+                child: _GardenTinyBadge(
+                  text: status,
+                  color: giftReady
+                      ? const Color(0xEEF0A51A)
+                      : const Color(0xEE8D466B),
+                  borderColor: giftReady
+                      ? const Color(0xFFFFF1A0)
+                      : const Color(0xFFFFC9DE),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildGardenPondTarget() {
     final double pulse = (sin(_motionTime * 2.1) + 1) / 2;
     final bool ready = _gardenPondWater > 0;
     return Positioned(
-      left: 90,
-      top: 1085,
+      left: 70,
+      top: 1100,
       width: 160,
       height: 130,
       child: GestureDetector(
         key: const ValueKey('garden-pond-reservoir'),
         behavior: HitTestBehavior.opaque,
         onTap: () {
-          _guideGardenCaretaker(const Offset(260, 1168));
+          _guideGardenCaretaker(const Offset(250, 1178));
           _collectGardenPondWater();
         },
         child: Stack(
@@ -5826,6 +6085,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final double sparkle = plot.sparkle.clamp(0.0, 1.0);
     final bool tree =
         plot.planted && _gardenOptionIsTree(_plantOptionForPlot(plot));
+    final int careLevel = plot.planted ? _gardenPlantCareLevel(plot) : 1;
     final double plantScale = tree
         ? switch (plot.growthStage) {
             0 => 0.86,
@@ -6003,6 +6263,43 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     borderColor: const Color(0xFFD8FF84),
                   ),
                 ),
+              if (unlocked && plot.planted && careLevel > 1)
+                Positioned(
+                  right: 27,
+                  top: 82,
+                  child: Tooltip(
+                    message: 'Plant bond level $careLevel',
+                    child: Container(
+                      key: ValueKey('garden-plant-care-${plot.id}'),
+                      height: 25,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xEE7A3F60),
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(color: const Color(0xFFFFC5D9)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.favorite_rounded,
+                            color: Color(0xFFFF91B2),
+                            size: 14,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            '$careLevel',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               if (sparkle > 0)
                 Positioned.fill(
                   child: IgnorePointer(
@@ -6142,6 +6439,420 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                           : 'NEED ${selected.seedCost} SEEDS',
                       icon: Icons.spa_rounded,
                       onPressed: _confirmGardenNurseryPlant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGardenHeartOverlay() {
+    final bool giftReady =
+        _dailyGardenTasksComplete && !_gardenDailyRewardClaimed;
+
+    Widget careStep({
+      required IconData icon,
+      required String label,
+      required bool done,
+      required Color color,
+    }) {
+      return Expanded(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: done ? color : const Color(0xFFE4EED9),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: done
+                      ? const Color(0xFFFFE986)
+                      : const Color(0xFF9AAF87),
+                  width: 2,
+                ),
+              ),
+              child: Icon(
+                done ? Icons.check_rounded : icon,
+                color: done ? Colors.white : const Color(0xFF5B7350),
+                size: 23,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              maxLines: 1,
+              style: TextStyle(
+                color: done ? const Color(0xFF3A6B30) : const Color(0xFF738269),
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget heartStat(IconData icon, String value, String label, Color color) {
+      return Expanded(
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 25),
+            const SizedBox(height: 3),
+            Text(
+              value,
+              maxLines: 1,
+              style: const TextStyle(
+                color: Color(0xFF2E5C2B),
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF68805D),
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Positioned.fill(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _closeGardenHeart,
+              child: ColoredBox(color: Colors.black.withValues(alpha: 0.52)),
+            ),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            top: 124,
+            bottom: 94,
+            child: Container(
+              key: const ValueKey('garden-heart-panel'),
+              padding: const EdgeInsets.fromLTRB(15, 13, 15, 15),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7FFEA),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFFC9DE), width: 3),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0xAA000000),
+                    blurRadius: 22,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4E9C43),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFFFE986),
+                                width: 3,
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x449ACE55),
+                                  blurRadius: 12,
+                                  spreadRadius: 3,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.favorite_rounded,
+                            color: Color(0xFFFF8EAC),
+                            size: 36,
+                          ),
+                          Positioned(
+                            right: 0,
+                            bottom: 1,
+                            child: Container(
+                              width: 23,
+                              height: 23,
+                              alignment: Alignment.center,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFFFD75A),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                '$_gardenHeartLevel',
+                                style: const TextStyle(
+                                  color: Color(0xFF5D3C16),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Garden Heart',
+                              style: TextStyle(
+                                color: Color(0xFF285320),
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            Text(
+                              'Lv $_gardenHeartLevel  $_gardenHeartTitle',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF9A4E70),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _RoundIconButton(
+                        icon: Icons.close_rounded,
+                        onPressed: _closeGardenHeart,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: LinearProgressIndicator(
+                            minHeight: 12,
+                            value: _gardenHeartProgress,
+                            backgroundColor: const Color(0xFFDCE8CF),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Color(0xFFFF7FA6),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 9),
+                      Text(
+                        _gardenHeartLevel >= 5
+                            ? 'MAX'
+                            : '$_gardenHeartPoints/$_gardenHeartNextLevelAt',
+                        style: const TextStyle(
+                          color: Color(0xFF4B6E39),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 11,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF2F6),
+                      borderRadius: BorderRadius.circular(7),
+                      border: Border.all(color: const Color(0xFFF2B5CA)),
+                    ),
+                    child: Text(
+                      _gardenHeartThought,
+                      textAlign: TextAlign.center,
+                      maxLines: 3,
+                      style: const TextStyle(
+                        color: Color(0xFF75445A),
+                        fontSize: 13,
+                        height: 1.25,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 13),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      "TODAY'S CARE",
+                      style: TextStyle(
+                        color: Color(0xFF3B692F),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      careStep(
+                        icon: Icons.spa_rounded,
+                        label: 'Plant',
+                        done: _gardenDailyPlantDone,
+                        color: const Color(0xFF70AB3D),
+                      ),
+                      careStep(
+                        icon: Icons.water_drop_rounded,
+                        label: 'Water',
+                        done: _gardenDailyWaterDone,
+                        color: const Color(0xFF3B9CCC),
+                      ),
+                      careStep(
+                        icon: Icons.local_florist_rounded,
+                        label: 'Gather',
+                        done: _gardenDailyCollectDone,
+                        color: const Color(0xFFE483A8),
+                      ),
+                      careStep(
+                        icon: Icons.content_cut_rounded,
+                        label: 'Tidy',
+                        done: _gardenDailyTidyDone,
+                        color: const Color(0xFFA8753D),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 13),
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAF4DE),
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Row(
+                      children: [
+                        heartStat(
+                          Icons.favorite_rounded,
+                          '$_gardenBondedPlantCount',
+                          'plant bonds',
+                          const Color(0xFFE46D94),
+                        ),
+                        heartStat(
+                          Icons.sell_rounded,
+                          '+$_gardenHeartMarketBonus%',
+                          'market value',
+                          const Color(0xFFC7832C),
+                        ),
+                        heartStat(
+                          Icons.local_fire_department_rounded,
+                          '$_gardenLoginStreak',
+                          'day care streak',
+                          const Color(0xFFE89A2D),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 11,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF5CC),
+                      borderRadius: BorderRadius.circular(7),
+                      border: Border.all(color: const Color(0xFFE6C75B)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFFD95F),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _gardenHeartLevel >= 5
+                                ? Icons.auto_awesome_rounded
+                                : Icons.park_rounded,
+                            color: const Color(0xFF6B5720),
+                            size: 23,
+                          ),
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _gardenHeartLevel >= 5
+                                    ? 'RADIANT GARDEN'
+                                    : 'NEXT BLOOM AT $_gardenHeartNextLevelAt CARE',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFF66531E),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              Text(
+                                _gardenHeartLevel >= 5
+                                    ? 'Every plant now shares the Heart at its brightest.'
+                                    : 'A fuller canopy and +${_gardenHeartMarketBonus + 4}% produce value.',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFF7C6A36),
+                                  fontSize: 10,
+                                  height: 1.18,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: _PrimaryButton(
+                      key: const ValueKey('garden-heart-action'),
+                      label: giftReady
+                          ? 'OPEN HEART GIFT'
+                          : _gardenDailyRewardClaimed
+                          ? 'COME BACK TOMORROW'
+                          : 'CONTINUE CARE $_dailyGardenTaskCount/4',
+                      icon: giftReady
+                          ? Icons.redeem_rounded
+                          : _gardenDailyRewardClaimed
+                          ? Icons.favorite_rounded
+                          : Icons.spa_rounded,
+                      onPressed: giftReady
+                          ? _claimDailyEcosystemReward
+                          : _continueGardenCare,
                     ),
                   ),
                 ],
@@ -6904,10 +7615,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _dailyGardenTasksComplete && !_gardenDailyRewardClaimed;
     return Container(
       key: const ValueKey('garden-ecosystem-panel'),
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xEE173E20),
+        gradient: const LinearGradient(
+          colors: [Color(0xF21D4A28), Color(0xF25E304B)],
+        ),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFFBEEB7C), width: 2),
         boxShadow: const [
@@ -6921,13 +7634,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       child: Row(
         children: [
           SizedBox(
-            width: 102,
+            width: 112,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  '$_gardenMoodLabel garden',
+                  '$_gardenHeartTitle - $_gardenMoodLabel',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -6942,21 +7655,21 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   child: SizedBox(
                     height: 9,
                     child: LinearProgressIndicator(
-                      value: _gardenMood / 100,
+                      value: _gardenHeartProgress,
                       backgroundColor: const Color(0xFF0D2814),
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        _gardenMood >= 62
-                            ? const Color(0xFF9BE94F)
-                            : _gardenMood >= 38
-                            ? const Color(0xFFFFCF45)
-                            : const Color(0xFFE36B4B),
+                        const Color(0xFFFF83AA),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Mood $_gardenMood%',
+                  _gardenHeartLevel >= 5
+                      ? 'Heart Lv 5 - radiant'
+                      : 'Lv $_gardenHeartLevel  $_gardenHeartPoints/$_gardenHeartNextLevelAt care',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Color(0xFFD7F1C3),
                     fontSize: 10,
@@ -8677,6 +9390,8 @@ class _BackyardGardenPainter extends CustomPainter {
     required this.lawnGrowth,
     required this.pondWater,
     required this.marketReady,
+    required this.heartLevel,
+    required this.heartPulse,
     required this.time,
   });
 
@@ -8690,6 +9405,8 @@ class _BackyardGardenPainter extends CustomPainter {
   final double lawnGrowth;
   final int pondWater;
   final bool marketReady;
+  final int heartLevel;
+  final double heartPulse;
   final double time;
 
   bool get _night => world.ambient == GardenAmbient.fireflies;
@@ -8700,10 +9417,12 @@ class _BackyardGardenPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     _drawGround(canvas, size);
     _drawHouseEdge(canvas, size);
+    _drawGardenRooms(canvas, size);
     _drawPath(canvas, size);
     _drawPond(canvas, size);
     _drawFenceAndBorders(canvas, size);
     _drawBackyardDetails(canvas, size);
+    _drawGardenHeart(canvas);
     _drawLivingYard(canvas, size);
     _drawPlotBeds(canvas);
     _drawMoodOverlay(canvas, size);
@@ -9203,59 +9922,315 @@ class _BackyardGardenPainter extends CustomPainter {
     }
   }
 
-  void _drawPath(Canvas canvas, Size size) {
-    final Path route = Path()
-      ..moveTo(size.width * 0.48, 450)
-      ..cubicTo(size.width * 0.58, 568, 318, 638, 432, 792)
-      ..cubicTo(572, 988, 288, 1098, 418, 1306)
-      ..cubicTo(512, 1462, 438, 1550, 548, size.height + 80);
-
-    canvas.drawPath(
-      route,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 166
-        ..strokeCap = StrokeCap.round
-        ..color = const Color(0xAA6B5A36),
+  void _drawGardenRooms(Canvas canvas, Size size) {
+    _drawGardenRoom(
+      canvas,
+      const Rect.fromLTWH(22, 500, 344, 520),
+      seed: 17,
+      fill: _night ? const Color(0xFF36513F) : const Color(0xFF8CCB72),
+      border: const Color(0xFFECA7C3),
+      label: 'BLOOM NOOK',
+      labelCenter: const Offset(180, 518),
     );
-    canvas.drawPath(
-      route,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 132
-        ..strokeCap = StrokeCap.round
-        ..color = _winter ? const Color(0xFFE3DCC5) : const Color(0xFFD2BA78),
+    _drawGardenRoom(
+      canvas,
+      const Rect.fromLTWH(554, 500, 344, 620),
+      seed: 29,
+      fill: _night ? const Color(0xFF334D37) : const Color(0xFF77B65A),
+      border: const Color(0xFFD6E675),
+      label: 'ORCHARD WALK',
+      labelCenter: const Offset(738, 518),
+    );
+    _drawGardenRoom(
+      canvas,
+      const Rect.fromLTWH(8, 1036, 512, 624),
+      seed: 43,
+      fill: _night ? const Color(0xFF294A43) : const Color(0xFF71B99A),
+      border: const Color(0xFF8DDDE2),
+      label: 'POND MEADOW',
+      labelCenter: const Offset(250, 1060),
+    );
+    _drawGardenRoom(
+      canvas,
+      const Rect.fromLTWH(526, 1090, 372, 566),
+      seed: 61,
+      fill: _night ? const Color(0xFF4E4931) : const Color(0xFFAFC768),
+      border: const Color(0xFFFFD775),
+      label: 'KITCHEN GROVE',
+      labelCenter: const Offset(720, 1108),
     );
 
+    final Rect courtyard = Rect.fromCenter(
+      center: const Offset(460, 742),
+      width: 286,
+      height: 226,
+    );
+    canvas.drawOval(
+      courtyard,
+      Paint()
+        ..shader = RadialGradient(
+          colors: _night
+              ? const [Color(0xFF527057), Color(0xFF2F563D)]
+              : const [Color(0xFFD6EFA0), Color(0xFF73AD54)],
+        ).createShader(courtyard),
+    );
     for (int i = 0; i < 20; i += 1) {
-      final double y = 482 + i * 60;
-      final double x = 430 + sin(i * 0.88) * 68 + cos(i * 0.33) * 22;
+      final double angle = i * pi * 2 / 20;
+      final Offset stone = Offset(
+        courtyard.center.dx + cos(angle) * courtyard.width * 0.5,
+        courtyard.center.dy + sin(angle) * courtyard.height * 0.5,
+      );
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: stone,
+          width: 30 + (i % 3) * 4,
+          height: 18 + (i % 2) * 3,
+        ),
+        Paint()
+          ..color = _winter ? const Color(0xFFE8EFE1) : const Color(0xFFB7A56D),
+      );
+    }
+  }
+
+  void _drawGardenRoom(
+    Canvas canvas,
+    Rect rect, {
+    required int seed,
+    required Color fill,
+    required Color border,
+    required String label,
+    required Offset labelCenter,
+  }) {
+    final Path boundary = _organicZonePath(rect, seed, wobble: 0.045);
+    canvas.drawPath(
+      boundary,
+      Paint()..color = fill.withValues(alpha: _winter ? 0.24 : 0.32),
+    );
+    canvas.drawPath(
+      boundary,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 13
+        ..color = border.withValues(alpha: _winter ? 0.3 : 0.28),
+    );
+    _drawMapLabel(canvas, labelCenter, label);
+  }
+
+  void _drawPath(Canvas canvas, Size size) {
+    final Path upper = Path()
+      ..moveTo(460, 452)
+      ..cubicTo(462, 520, 458, 558, 460, 610);
+    final Path leftLoop = Path()
+      ..moveTo(460, 600)
+      ..cubicTo(354, 608, 306, 664, 320, 744)
+      ..cubicTo(330, 812, 386, 842, 460, 852);
+    final Path rightLoop = Path()
+      ..moveTo(460, 600)
+      ..cubicTo(566, 608, 614, 664, 600, 744)
+      ..cubicTo(590, 812, 534, 842, 460, 852);
+    final Path lower = Path()
+      ..moveTo(460, 846)
+      ..cubicTo(496, 962, 424, 1082, 460, 1212)
+      ..cubicTo(504, 1370, 424, 1502, 482, size.height + 60);
+    final Path bloomBranch = Path()
+      ..moveTo(328, 690)
+      ..cubicTo(270, 704, 232, 754, 208, 844);
+    final Path orchardBranch = Path()
+      ..moveTo(592, 690)
+      ..cubicTo(650, 704, 688, 754, 706, 842);
+    final Path meadowBranch = Path()
+      ..moveTo(448, 1190)
+      ..cubicTo(364, 1234, 322, 1320, 326, 1438);
+    final Path groveBranch = Path()
+      ..moveTo(474, 1190)
+      ..cubicTo(568, 1226, 646, 1286, 696, 1390);
+
+    void drawRoute(Path route, double width) {
+      canvas.drawPath(
+        route,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = width + 24
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..color = const Color(0x88604E2E),
+      );
+      canvas.drawPath(
+        route,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = width
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..color = _winter ? const Color(0xFFE6E0CC) : const Color(0xFFD8C486),
+      );
+    }
+
+    for (final Path route in [upper, leftLoop, rightLoop, lower]) {
+      drawRoute(route, 88);
+    }
+    for (final Path route in [
+      bloomBranch,
+      orchardBranch,
+      meadowBranch,
+      groveBranch,
+    ]) {
+      drawRoute(route, 42);
+    }
+
+    for (int i = 0; i < 17; i += 1) {
+      final double y = 490 + i * 72;
+      final double x = 460 + sin(i * 1.13) * 22;
       final Rect stone = Rect.fromCenter(
         center: Offset(x, y),
-        width: 92 + (i % 3) * 13,
-        height: 44 + (i % 2) * 9,
+        width: 54 + (i % 3) * 6,
+        height: 25 + (i % 2) * 4,
       );
       canvas.save();
       canvas.translate(stone.center.dx, stone.center.dy);
-      canvas.rotate(sin(i) * 0.12);
-      final Rect local = Rect.fromCenter(
-        center: Offset.zero,
-        width: stone.width,
-        height: stone.height,
-      );
+      canvas.rotate(sin(i * 0.8) * 0.08);
       canvas.drawRRect(
-        RRect.fromRectAndRadius(local, const Radius.circular(22)),
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset.zero,
+            width: stone.width,
+            height: stone.height,
+          ),
+          const Radius.circular(14),
+        ),
         Paint()
-          ..color = _winter ? const Color(0xFFF6F3DF) : const Color(0xFFEAD89B),
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(local, const Radius.circular(22)),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.2
-          ..color = const Color(0x55775B31),
+          ..color = _winter ? const Color(0xFFF8F5E8) : const Color(0xFFF0DEA3),
       );
       canvas.restore();
+    }
+  }
+
+  void _drawGardenHeart(Canvas canvas) {
+    final double pulse = sin(time * 1.7) * 0.018 + heartPulse * 0.055;
+    final double scale = 0.8 + (heartLevel - 1) * 0.075 + pulse;
+    final Offset center = const Offset(460, 690);
+
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(scale);
+
+    final Rect glow = Rect.fromCenter(
+      center: const Offset(0, 24),
+      width: 260,
+      height: 250,
+    );
+    canvas.drawOval(
+      glow,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFFFFE88C).withValues(alpha: 0.08 + heartPulse * 0.18),
+            Colors.transparent,
+          ],
+        ).createShader(glow),
+    );
+
+    final Path trunk = Path()
+      ..moveTo(-18, 22)
+      ..quadraticBezierTo(-28, 82, -24, 148)
+      ..quadraticBezierTo(-2, 158, 24, 148)
+      ..quadraticBezierTo(28, 82, 18, 22)
+      ..close();
+    canvas.drawPath(
+      trunk,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFF6D4325), Color(0xFFB47B42), Color(0xFF674020)],
+        ).createShader(const Rect.fromLTWH(-28, 20, 56, 140)),
+    );
+    final Paint branch = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 12
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFF81502B);
+    canvas.drawLine(const Offset(-5, 58), const Offset(-64, -12), branch);
+    canvas.drawLine(const Offset(7, 48), const Offset(66, -18), branch);
+
+    final Path heart = Path()
+      ..moveTo(0, 88)
+      ..cubicTo(-22, 65, -116, 6, -104, -64)
+      ..cubicTo(-96, -116, -32, -124, 0, -78)
+      ..cubicTo(32, -124, 96, -116, 104, -64)
+      ..cubicTo(116, 6, 22, 65, 0, 88)
+      ..close();
+    canvas.drawPath(
+      heart,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _winter
+              ? const [Color(0xFFB8D9AC), Color(0xFF729A6A)]
+              : _night
+              ? const [Color(0xFF5B9D63), Color(0xFF2F6744)]
+              : const [Color(0xFF88D94E), Color(0xFF3D963F)],
+        ).createShader(const Rect.fromLTWH(-112, -126, 224, 218)),
+    );
+    canvas.drawPath(
+      heart,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 8
+        ..color = const Color(0xFF2F6E35),
+    );
+
+    final Path innerHeart = Path()
+      ..moveTo(0, 48)
+      ..cubicTo(-12, 34, -54, 8, -50, -25)
+      ..cubicTo(-46, -50, -16, -54, 0, -32)
+      ..cubicTo(16, -54, 46, -50, 50, -25)
+      ..cubicTo(54, 8, 12, 34, 0, 48)
+      ..close();
+    canvas.drawPath(
+      innerHeart,
+      Paint()
+        ..color = Color.lerp(
+          const Color(0xFFF08AAC),
+          const Color(0xFFFFD45F),
+          (heartLevel - 1) / 4,
+        )!.withValues(alpha: 0.72),
+    );
+
+    final int bloomCount = 4 + heartLevel * 4;
+    for (int i = 0; i < bloomCount; i += 1) {
+      final double angle = i * 2.399;
+      final double radius = 30 + (i % 4) * 17;
+      final Offset bloom = Offset(
+        cos(angle) * radius,
+        sin(angle) * radius * 0.72 - 18 + sin(time * 2 + i) * 2,
+      );
+      canvas.drawCircle(
+        bloom,
+        5 + (i % 2).toDouble(),
+        Paint()
+          ..color = i.isEven
+              ? const Color(0xFFFFA9C2)
+              : const Color(0xFFFFE47A),
+      );
+      canvas.drawCircle(bloom, 2, Paint()..color = const Color(0xFFFFF7D6));
+    }
+    canvas.restore();
+
+    final int moteCount = 4 + heartLevel * 2;
+    for (int i = 0; i < moteCount; i += 1) {
+      final double phase = (time * (0.12 + i * 0.006) + i * 0.13) % 1;
+      final Offset mote = Offset(
+        center.dx + sin(time + i * 1.4) * (80 + i * 3),
+        804 - phase * 220,
+      );
+      canvas.drawCircle(
+        mote,
+        2.5 + (i % 3).toDouble(),
+        Paint()
+          ..color = const Color(
+            0xFFFFE78A,
+          ).withValues(alpha: (1 - phase) * 0.72),
+      );
     }
   }
 
@@ -9985,6 +10960,8 @@ class _BackyardGardenPainter extends CustomPainter {
         oldDelegate.lawnGrowth != lawnGrowth ||
         oldDelegate.pondWater != pondWater ||
         oldDelegate.marketReady != marketReady ||
+        oldDelegate.heartLevel != heartLevel ||
+        oldDelegate.heartPulse != heartPulse ||
         oldDelegate.plots != plots;
   }
 }
