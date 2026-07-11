@@ -278,6 +278,9 @@ void main() {
       find.byKey(const ValueKey('garden-station-journal')),
       findsOneWidget,
     );
+    expect(find.byKey(const ValueKey('garden-lawn-mower')), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-pond-reservoir')), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-produce-market')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-house-scene')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-caretaker')), findsOneWidget);
     expect(find.text('Orchard Grove'), findsOneWidget);
@@ -620,7 +623,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('player-garden-plot-1')));
     await tester.pump(const Duration(milliseconds: 160));
 
-    expect(find.text('Collected blooms: +260 pts, +135 seeds'), findsOneWidget);
+    expect(find.text('Collected blooms: +260 pts, +135 coins'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('player-garden-plot-1')));
     await tester.pump(const Duration(milliseconds: 160));
@@ -629,5 +632,73 @@ void main() {
       find.textContaining('Watered Blossom Bush. Ready in'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('fruit harvests stock the pantry and sell at the market', (
+    tester,
+  ) async {
+    await pumpGardenNinja(
+      tester,
+      prefs: {
+        'garden_ninja_garden_v4': jsonEncode({
+          'version': 4,
+          'seeds': 1250,
+          'plots': [
+            {
+              'id': 0,
+              'plantIndex': 6,
+              'growth': 1,
+              'grassCut': true,
+              'upgradeLevel': 1,
+              'mature': true,
+              'watered': true,
+              'weed': false,
+            },
+          ],
+        }),
+      },
+    );
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-0')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.textContaining('Picked 3 apples'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-house-upgrade')));
+    await tester.pump(const Duration(milliseconds: 160));
+    await tester.tap(find.byKey(const ValueKey('garden-house-open-market')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.byKey(const ValueKey('garden-market-panel')), findsOneWidget);
+    expect(find.text('Apple  x3'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-market-sell-Apple')));
+    await tester.pump(const Duration(milliseconds: 160));
+    expect(find.text('Apple  x2'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-market-sell-all')));
+    await tester.pump(const Duration(milliseconds: 160));
+    expect(find.text('PANTRY EMPTY'), findsOneWidget);
+  });
+
+  testWidgets('lawn mowing and pond irrigation are playable systems', (
+    tester,
+  ) async {
+    await pumpGardenNinja(tester);
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+    await tester.tap(find.byKey(const ValueKey('garden-lawn-mower')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.textContaining('Lawn mowed:'), findsOneWidget);
+    expect(find.textContaining('Regrowing'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-pond-reservoir')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.textContaining('Pond irrigation:'), findsOneWidget);
   });
 }
