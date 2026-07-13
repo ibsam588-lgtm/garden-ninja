@@ -309,7 +309,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const double _gardenMaxScale = 1.65;
   static const double _gardenInitialScale = 0.445;
   static const double _gardenInitialTranslateX = -9;
-  static const double _gardenInitialTranslateY = 158;
+  static const double _gardenInitialTranslateY = 66;
   static const double _gardenDamageLineY = _worldHeight - 106;
   static const double _minSlashSegment = 7;
   static const int _maxSlashTrails = 22;
@@ -616,7 +616,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   final List<PlayerGardenPlot> _playerGardenPlots = [
     PlayerGardenPlot(
       id: 0,
-      position: const Offset(500, 680),
+      position: const Offset(486, 650),
       unlockLevel: 1,
       asset: 'assets/images/sprites/tree_apple.png',
       plantIndex: 6,
@@ -626,7 +626,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     PlayerGardenPlot(
       id: 1,
-      position: const Offset(182, 850),
+      position: const Offset(182, 908),
       unlockLevel: 1,
       asset: 'assets/images/sprites/pink_blossom_bush.png',
       plantIndex: 4,
@@ -637,7 +637,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     PlayerGardenPlot(
       id: 2,
-      position: const Offset(492, 870),
+      position: const Offset(704, 964),
       unlockLevel: 1,
       asset: 'assets/images/sprites/blue_bell_bloom.png',
       plantIndex: 1,
@@ -646,13 +646,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     PlayerGardenPlot(
       id: 3,
-      position: const Offset(738, 890),
+      position: const Offset(474, 1064),
       unlockLevel: 1,
       grassCut: true,
     ),
-    PlayerGardenPlot(id: 4, position: const Offset(718, 278), unlockLevel: 2),
-    PlayerGardenPlot(id: 5, position: const Offset(718, 444), unlockLevel: 3),
-    PlayerGardenPlot(id: 6, position: const Offset(718, 610), unlockLevel: 4),
+    PlayerGardenPlot(id: 4, position: const Offset(704, 286), unlockLevel: 2),
+    PlayerGardenPlot(id: 5, position: const Offset(772, 456), unlockLevel: 3),
+    PlayerGardenPlot(id: 6, position: const Offset(788, 638), unlockLevel: 4),
     PlayerGardenPlot(id: 7, position: const Offset(184, 1080), unlockLevel: 5),
     PlayerGardenPlot(id: 8, position: const Offset(476, 1100), unlockLevel: 6),
     PlayerGardenPlot(id: 9, position: const Offset(742, 1110), unlockLevel: 7),
@@ -3240,9 +3240,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int get _currentHouseBackyardLevelCount =>
       _currentGardenHouse.maxGardenLevel - _currentHouseFirstGardenLevel + 1;
 
-  String get _gardenProgressLabel =>
-      'House ${_gardenHouseTier + 1}/${_gardenHouseTiers.length}  Backyard $_currentHouseBackyardLevel/$_currentHouseBackyardLevelCount';
-
   int get _maxGardenLevel => _currentGardenHouse.maxGardenLevel;
 
   int get _maxPlantUpgradeLevel => min(4, _gardenHouseTier + 2);
@@ -3251,6 +3248,27 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   Iterable<PlayerGardenPlot> get _currentHouseGardenPlots => _playerGardenPlots
       .where((plot) => plot.unlockLevel <= _currentGardenHouse.maxGardenLevel);
+
+  PlayerGardenPlot? get _nextGardenExpansionPlot => _playerGardenPlots
+      .where(
+        (plot) =>
+            plot.unlockLevel == _gardenLevel + 1 &&
+            plot.unlockLevel <= _currentGardenHouse.maxGardenLevel,
+      )
+      .firstOrNull;
+
+  int get _gardenBuildAttentionCount {
+    int count = _gardenLawnGrowth >= 0.28 ? 1 : 0;
+    if (_nextGardenExpansionPlot != null) {
+      count += 1;
+    }
+    if (_currentHouseGardenPlots.any(
+      (plot) => _isGardenPlotUnlocked(plot) && plot.weed,
+    )) {
+      count += 1;
+    }
+    return count;
+  }
 
   String? _gardenHouseUpgradeBlocker(
     GardenHouseTier current,
@@ -3628,11 +3646,28 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         GardenTool.plant => 'Tap an empty plot to open nursery',
         GardenTool.move => 'Tap a plant, then tap its new empty bed',
         GardenTool.water => 'Tap growing plants to water',
-        GardenTool.build => 'Clear weeds, develop land, or upgrade plants',
+        GardenTool.build => 'Build mode: choose an action or tap a plant',
         GardenTool.sun => 'Tap growing plants for sun boost',
       };
       _gardenMessageLife = 2.1;
     });
+  }
+
+  void _buildNextGardenLand() {
+    setState(() {
+      final PlayerGardenPlot? plot = _nextGardenExpansionPlot;
+      if (plot == null) {
+        _gardenMessage = _nextGardenHouse == null
+            ? 'Every backyard zone is developed'
+            : 'This backyard is complete - upgrade the house next';
+        _gardenMessageLife = 2.2;
+        return;
+      }
+      _gardenTool = GardenTool.build;
+      _guideGardenCaretakerToPlot(plot);
+      _tryExpandGarden(plot);
+    });
+    _queueGardenSave();
   }
 
   void _selectGardenPlant(int index) {
@@ -4285,6 +4320,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _queueGardenSave();
   }
 
+  // ignore: unused_element
   String _gardenForecastText(DateTime now) {
     if (_gardenGiftPlotId != null) {
       return 'The ninja left a gift - find the seed bag';
@@ -5722,41 +5758,27 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             ),
             Positioned.fill(child: _buildScrollableGardenMap()),
             _buildGardenTopHud(),
-            Positioned(
-              left: 14,
-              right: 14,
-              top: 136,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _openGardenHeart,
-                child: _buildGardenEcosystemPanel(),
-              ),
-            ),
             if (_gardenMessageLife > 0)
               Positioned(
-                left: 54,
-                right: 54,
-                top: 218,
+                left: 42,
+                right: 42,
+                top: 76,
                 child: Opacity(
                   opacity: _gardenMessageLife.clamp(0.0, 1.0),
                   child: _GardenToast(message: _gardenMessage),
                 ),
               ),
-            Positioned(
-              left: 42,
-              right: 42,
-              bottom: 124,
-              child: IgnorePointer(
-                child: _GardenForecastPill(
-                  key: const ValueKey('garden-forecast'),
-                  text: _gardenForecastText(_gardenNow),
-                ),
+            if (_gardenTool == GardenTool.build)
+              Positioned(
+                left: 18,
+                right: 18,
+                bottom: 112,
+                child: _buildGardenBuildTray(),
               ),
-            ),
             Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
+              left: 12,
+              right: 12,
+              bottom: 10,
               child: _buildGardenToolbar(),
             ),
             if (_gardenNurseryPlot != null) _buildGardenNurseryOverlay(),
@@ -5847,9 +5869,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               _buildGardenPondTarget(),
               _buildGardenHouseTarget(),
               _buildGardenHeartTarget(),
+              _buildGardenLawnTarget(),
               _buildGardenStation(
                 key: const ValueKey('garden-station-journal'),
-                position: const Offset(332, 548),
+                position: const Offset(350, 524),
                 icon: Icons.menu_book_rounded,
                 title: 'Garden journal',
                 status: _gardenHabitatDay == _dayKey(_gardenNow)
@@ -5864,7 +5887,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               ),
               _buildGardenStation(
                 key: const ValueKey('garden-station-water'),
-                position: const Offset(548, 548),
+                position: const Offset(438, 526),
                 icon: Icons.water_drop_rounded,
                 title: 'Rain barrel',
                 status: _gardenWaterBarrelDay == _dayKey(_gardenNow)
@@ -5879,7 +5902,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               ),
               _buildGardenStation(
                 key: const ValueKey('garden-station-compost'),
-                position: const Offset(342, 1068),
+                position: const Offset(342, 1050),
                 icon: Icons.recycling_rounded,
                 title: 'Compost mixer',
                 status: _gardenCompost > 0
@@ -5893,21 +5916,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 },
               ),
               _buildGardenStation(
-                key: const ValueKey('garden-lawn-mower'),
-                position: const Offset(150, 1056),
-                icon: Icons.grass_rounded,
-                title: 'Side lawn',
-                status: _gardenLawnStatusText(),
-                color: const Color(0xFF4F9B40),
-                ready: _gardenLawnGrowth >= 0.28,
-                onTap: () {
-                  _guideGardenCaretaker(const Offset(118, 1072));
-                  _mowGardenLawn();
-                },
-              ),
-              _buildGardenStation(
                 key: const ValueKey('garden-produce-market'),
-                position: const Offset(810, 776),
+                position: const Offset(800, 784),
                 icon: Icons.storefront_rounded,
                 title: 'Produce stall',
                 status: _gardenFruitTotal > 0
@@ -5928,31 +5938,50 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   Widget _buildGardenHouseTarget() {
     final double pulse = (sin(_motionTime * 2.2) + 1) / 2;
+    final GardenHouseTier? next = _nextGardenHouse;
+    final bool upgradeReady =
+        next != null &&
+        _gardenHouseUpgradeBlocker(_currentGardenHouse, next) == null;
     return Positioned(
-      left: 38,
-      top: 142,
-      width: 520,
-      height: 390,
+      left: 0,
+      top: 72,
+      width: 490,
+      height: 510,
       child: GestureDetector(
         key: const ValueKey('garden-house-scene'),
         behavior: HitTestBehavior.translucent,
         onTap: _openGardenHousePanel,
         child: Align(
-          alignment: Alignment.bottomCenter,
-          child: Transform.scale(
-            scale: 1 + pulse * 0.025,
-            child: _GardenTinyBadge(
-              text: _gardenFruitTotal > 0
-                  ? 'Pantry: $_gardenFruitTotal fruit'
-                  : '${_currentGardenHouse.name}  Lv ${_gardenHouseTier + 1}',
-              color: const Color(0xEE315A28),
-              borderColor: Color.lerp(
-                const Color(0xFFC8E98D),
-                const Color(0xFFFFE978),
-                pulse,
-              )!,
-            ),
-          ),
+          alignment: const Alignment(0.72, 0.76),
+          child: upgradeReady
+              ? Transform.scale(
+                  scale: 1 + pulse * 0.06,
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5E8C5),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFFFFD85B),
+                        width: 3,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x77FFD95C),
+                          blurRadius: 12,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.arrow_upward_rounded,
+                      color: Color(0xFF56872C),
+                      size: 30,
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
         ),
       ),
     );
@@ -5967,42 +5996,45 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       top: 516,
       width: 112,
       height: 132,
-      child: GestureDetector(
-        key: const ValueKey('garden-heart-scene'),
-        behavior: HitTestBehavior.translucent,
-        onTap: _openGardenHeart,
-        child: giftReady
-            ? Align(
-                alignment: Alignment.topCenter,
-                child: Transform.scale(
-                  scale: 1 + pulse * 0.08,
-                  child: Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: const Color(0xEEF0A51A),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFFFFF1A0),
-                        width: 3,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x88FFD95C),
-                          blurRadius: 14,
-                          spreadRadius: 3,
+      child: IgnorePointer(
+        ignoring: !giftReady,
+        child: GestureDetector(
+          key: const ValueKey('garden-heart-scene'),
+          behavior: HitTestBehavior.translucent,
+          onTap: _openGardenHeart,
+          child: giftReady
+              ? Align(
+                  alignment: Alignment.topCenter,
+                  child: Transform.scale(
+                    scale: 1 + pulse * 0.08,
+                    child: Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: const Color(0xEEF0A51A),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFFFF1A0),
+                          width: 3,
                         ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.favorite_rounded,
-                      color: Colors.white,
-                      size: 30,
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x88FFD95C),
+                            blurRadius: 14,
+                            spreadRadius: 3,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.favorite_rounded,
+                        color: Colors.white,
+                        size: 30,
+                      ),
                     ),
                   ),
-                ),
-              )
-            : const SizedBox.expand(),
+                )
+              : const SizedBox.expand(),
+        ),
       ),
     );
   }
@@ -6011,10 +6043,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final double pulse = (sin(_motionTime * 2.1) + 1) / 2;
     final bool ready = _gardenPondWater > 0;
     return Positioned(
-      left: 54,
-      top: 548,
-      width: 214,
-      height: 160,
+      left: 42,
+      top: 598,
+      width: 300,
+      height: 166,
       child: GestureDetector(
         key: const ValueKey('garden-pond-reservoir'),
         behavior: HitTestBehavior.opaque,
@@ -6027,7 +6059,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           child: Transform.scale(
             scale: ready ? 1 + pulse * 0.025 : 1,
             child: Container(
-              height: 40,
+              height: 34,
               padding: const EdgeInsets.symmetric(horizontal: 9),
               decoration: BoxDecoration(
                 color: const Color(0xE8174D5E),
@@ -6074,6 +6106,92 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGardenLawnTarget() {
+    final bool ready = _gardenLawnGrowth >= 0.28;
+    final bool buildMode = _gardenTool == GardenTool.build;
+    final double pulse = (sin(_motionTime * 3.1) + 1) / 2;
+    return Positioned(
+      left: 54,
+      top: 986,
+      width: 224,
+      height: 164,
+      child: GestureDetector(
+        key: const ValueKey('garden-lawn-mower'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          _guideGardenCaretaker(const Offset(166, 1072));
+          _mowGardenLawn();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: buildMode
+                  ? const Color(
+                      0xFFFFE66D,
+                    ).withValues(alpha: 0.62 + pulse * 0.3)
+                  : Colors.transparent,
+              width: buildMode ? 5 : 0,
+            ),
+          ),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: AnimatedScale(
+              duration: const Duration(milliseconds: 180),
+              scale: ready ? 1 + pulse * 0.035 : 1,
+              child: Container(
+                margin: const EdgeInsets.only(top: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: ready
+                      ? const Color(0xEE4B7D26)
+                      : const Color(0xD92D4B2C),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: ready
+                        ? const Color(0xFFFFE579)
+                        : const Color(0xFF9DC889),
+                    width: 2,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x55000000),
+                      blurRadius: 7,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      ready ? Icons.content_cut_rounded : Icons.grass_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      ready ? 'MOW LAWN' : _gardenLawnStatusText(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -6147,82 +6265,54 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }) {
     final double pulse = (sin(_motionTime * 2.4 + position.dx) + 1) / 2;
     return Positioned(
-      left: position.dx - 64,
-      top: position.dy + sin(_motionTime * 1.6 + position.dy) * 1.5,
-      width: 128,
-      height: 58,
-      child: GestureDetector(
-        key: key,
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Transform.scale(
-          scale: ready ? 1 + pulse * 0.02 : 1,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xE8244920),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: ready
-                    ? Color.lerp(
-                        const Color(0xFFFFD85D),
-                        const Color(0xFFFFFFB1),
-                        pulse,
-                      )!
-                    : const Color(0xFFB5D98B),
-                width: ready ? 2.5 : 1.5,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x66000000),
-                  blurRadius: 8,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
+      left: position.dx - 56,
+      top: position.dy - 62,
+      width: 112,
+      height: 104,
+      child: Tooltip(
+        message: '$title: $status',
+        child: Semantics(
+          button: true,
+          label: '$title, $status',
+          child: GestureDetector(
+            key: key,
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Transform.scale(
+                scale: ready ? 1 + pulse * 0.05 : 1,
+                child: Container(
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
-                    color: Color.lerp(color, const Color(0xFF18391C), 0.2),
-                    borderRadius: BorderRadius.circular(7),
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 23),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      Text(
-                        status,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: ready
-                              ? const Color(0xFFFFEB7A)
-                              : const Color(0xFFCDE6BC),
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w800,
-                        ),
+                    color: Color.lerp(
+                      color,
+                      const Color(0xFF1A3520),
+                      ready ? 0.06 : 0.32,
+                    ),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: ready
+                          ? Color.lerp(
+                              const Color(0xFFFFD85D),
+                              const Color(0xFFFFFFB1),
+                              pulse,
+                            )!
+                          : const Color(0xFFB5D98B),
+                      width: ready ? 2.5 : 1.5,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x66000000),
+                        blurRadius: 7,
+                        offset: Offset(0, 3),
                       ),
                     ],
                   ),
+                  child: Icon(icon, color: Colors.white, size: 23),
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -6352,11 +6442,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             clipBehavior: Clip.none,
             children: [
               if (activeTarget)
-                Positioned(
-                  bottom: 10,
-                  child: _GardenPlantTargetGlow(
-                    key: ValueKey('garden-plant-target-glow-${plot.id}'),
-                    pulse: targetPulse,
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: SizedBox.expand(
+                      key: ValueKey('garden-plant-target-glow-${plot.id}'),
+                    ),
                   ),
                 ),
               if (!unlocked) ...[
@@ -7238,6 +7328,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     ],
                   ),
                   const SizedBox(height: 11),
+                  _GardenWorldSelector(
+                    world: _currentGardenWorld,
+                    index: _selectedGardenWorld,
+                    total: _gardenWorlds.length,
+                    unlockedCount: _unlockedGardenWorldCount,
+                    onPrevious: () => _selectGardenWorld(-1),
+                    onNext: () => _selectGardenWorld(1),
+                  ),
+                  const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
@@ -7893,6 +7992,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
   }
 
+  // ignore: unused_element
   Widget _buildGardenEcosystemPanel() {
     Widget taskIcon({
       required IconData icon,
@@ -8086,124 +8186,89 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   Widget _buildGardenTopHud() {
     return Positioned(
-      left: 14,
-      right: 14,
-      top: 12,
+      left: 8,
+      right: 8,
+      top: 8,
       child: SizedBox(
-        height: 118,
-        child: Stack(
-          clipBehavior: Clip.none,
+        height: 52,
+        child: Row(
           children: [
-            Align(
-              alignment: Alignment.topCenter,
+            Expanded(
+              flex: 16,
               child: GestureDetector(
                 key: const ValueKey('garden-house-upgrade'),
                 behavior: HitTestBehavior.opaque,
                 onTap: _openGardenHousePanel,
-                child: _GardenTitleBoard(
-                  title: 'My Garden',
-                  subtitle: _gardenProgressLabel,
+                child: _GardenCompactProgressBoard(
+                  level: _gardenLevel,
+                  streak: _gardenLoginStreak,
+                  progress:
+                      _currentHouseBackyardLevel /
+                      _currentHouseBackyardLevelCount,
+                  subtitle:
+                      'House ${_gardenHouseTier + 1}/${_gardenHouseTiers.length}',
+                  dailyReady:
+                      _dailyGardenTasksComplete && !_gardenDailyRewardClaimed,
+                  tendedToday: _gardenLastTendedDay == _dayKey(_gardenNow),
+                  onDailyTap: _openGardenHeart,
                 ),
               ),
             ),
-            Positioned(
-              left: 0,
-              top: 0,
-              child: _GardenStreakChip(
-                key: const ValueKey('garden-streak-chip'),
-                streak: _gardenLoginStreak,
-                tendedToday: _gardenLastTendedDay == _dayKey(_gardenNow),
+            const SizedBox(width: 4),
+            Expanded(
+              flex: 10,
+              child: _GardenStatChip(
+                asset: 'assets/images/icons/seed_coin.png',
+                value: _formatNumber(_seeds),
               ),
             ),
-            Positioned(
-              right: 0,
-              top: 0,
+            const SizedBox(width: 4),
+            Expanded(
+              flex: 8,
               child: GestureDetector(
+                key: const ValueKey('garden-resource-water'),
                 behavior: HitTestBehavior.opaque,
-                onTap: _openUpgrades,
-                child: Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xDD263B31),
-                    border: Border.all(
-                      color: const Color(0xCCBEEB86),
-                      width: 2,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x66000000),
-                        blurRadius: 9,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.settings_rounded,
-                    color: Colors.white,
-                    size: 28,
-                  ),
+                onTap: () => _selectGardenTool(GardenTool.water),
+                child: _GardenStatChip(
+                  asset: 'assets/images/icons/water_drop.png',
+                  value: '$_waterCharges',
                 ),
               ),
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 48,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _GardenStatChip(
-                      asset: 'assets/images/icons/seed_coin.png',
-                      value: _formatNumber(_seeds),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: GestureDetector(
-                      key: const ValueKey('garden-resource-water'),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _selectGardenTool(GardenTool.water),
-                      child: _GardenStatChip(
-                        asset: 'assets/images/icons/water_drop.png',
-                        value: '$_waterCharges',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: GestureDetector(
-                      key: const ValueKey('garden-tool-sun'),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _selectGardenTool(GardenTool.sun),
-                      child: _GardenStatChip(
-                        asset: 'assets/images/icons/sun_boost.png',
-                        value: '$_sunDrops',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _GardenStatChip(
-                      icon: Icons.eco_rounded,
-                      value: _formatNumber(_gardenPoints),
-                    ),
-                  ),
-                ],
+            const SizedBox(width: 4),
+            Expanded(
+              flex: 8,
+              child: _GardenStatChip(
+                icon: Icons.eco_rounded,
+                value: _gardenPoints >= 1000
+                    ? '${(_gardenPoints / 1000).toStringAsFixed(1)}k'
+                    : '$_gardenPoints',
               ),
             ),
-            Positioned(
-              left: 52,
-              right: 52,
-              bottom: 0,
-              child: _GardenWorldSelector(
-                world: _currentGardenWorld,
-                index: _selectedGardenWorld,
-                total: _gardenWorlds.length,
-                unlockedCount: _unlockedGardenWorldCount,
-                onPrevious: () => _selectGardenWorld(-1),
-                onNext: () => _selectGardenWorld(1),
+            const SizedBox(width: 4),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _openUpgrades,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6EED4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF9B8354), width: 2),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x55000000),
+                      blurRadius: 6,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.settings_rounded,
+                  color: Color(0xFF354237),
+                  size: 25,
+                ),
               ),
             ),
           ],
@@ -8251,10 +8316,123 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             icon: Icons.handyman_rounded,
             label: 'Build',
             selected: _gardenTool == GardenTool.build,
+            badge: _gardenBuildAttentionCount,
             onTap: () => _selectGardenTool(GardenTool.build),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildGardenBuildTray() {
+    Widget action({
+      required Key key,
+      required IconData icon,
+      required String label,
+      required bool ready,
+      required VoidCallback onTap,
+    }) {
+      return Expanded(
+        child: GestureDetector(
+          key: key,
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: ready ? const Color(0xFFFFF0C8) : const Color(0xFFE2DBC6),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: ready
+                    ? const Color(0xFFD59A35)
+                    : const Color(0xFF918B78),
+                width: 1.8,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  color: ready
+                      ? const Color(0xFF6A4A24)
+                      : const Color(0xFF777265),
+                  size: 20,
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: ready
+                            ? const Color(0xFF4D351C)
+                            : const Color(0xFF777265),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final PlayerGardenPlot? nextLand = _nextGardenExpansionPlot;
+    final String landLabel = nextLand == null
+        ? 'Land done'
+        : nextLand.grassCut
+        ? 'Expand'
+        : 'Clear land';
+    return Container(
+      key: const ValueKey('garden-build-tray'),
+      height: 58,
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: const Color(0xF5F8EED4),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF9F7440), width: 2),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          action(
+            key: const ValueKey('garden-build-mow'),
+            icon: Icons.content_cut_rounded,
+            label: _gardenLawnGrowth >= 0.28 ? 'Mow lawn' : 'Regrowing',
+            ready: _gardenLawnGrowth >= 0.28,
+            onTap: _mowGardenLawn,
+          ),
+          const SizedBox(width: 5),
+          action(
+            key: const ValueKey('garden-build-land'),
+            icon: Icons.grid_view_rounded,
+            label: landLabel,
+            ready: nextLand != null,
+            onTap: _buildNextGardenLand,
+          ),
+          const SizedBox(width: 5),
+          action(
+            key: const ValueKey('garden-build-home'),
+            icon: Icons.home_work_rounded,
+            label: 'House',
+            ready: true,
+            onTap: _openGardenHousePanel,
+          ),
+        ],
+      ),
     );
   }
 
@@ -9481,6 +9659,7 @@ class GardenCrackPainter extends CustomPainter {
   bool shouldRepaint(covariant GardenCrackPainter oldDelegate) => false;
 }
 
+// ignore: unused_element
 class _GardenTitleBoard extends StatelessWidget {
   const _GardenTitleBoard({required this.title, required this.subtitle});
 
@@ -9579,6 +9758,167 @@ class _GardenTitleBoard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GardenCompactProgressBoard extends StatelessWidget {
+  const _GardenCompactProgressBoard({
+    required this.level,
+    required this.streak,
+    required this.progress,
+    required this.subtitle,
+    required this.dailyReady,
+    required this.tendedToday,
+    required this.onDailyTap,
+  });
+
+  final int level;
+  final int streak;
+  final double progress;
+  final String subtitle;
+  final bool dailyReady;
+  final bool tendedToday;
+  final VoidCallback onDailyTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF527C35), Color(0xFF294D2C)],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFD9CCA1), width: 2),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x55000000),
+            blurRadius: 7,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            key: const ValueKey('garden-streak-chip'),
+            behavior: HitTestBehavior.opaque,
+            onTap: onDailyTap,
+            child: SizedBox(
+              width: 43,
+              height: 46,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Icon(
+                    Icons.star_rounded,
+                    color: Color(0xFF8CCF4E),
+                    size: 42,
+                    shadows: [
+                      Shadow(
+                        color: Color(0x99000000),
+                        blurRadius: 3,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '$level',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      shadows: [
+                        Shadow(
+                          color: Color(0xAA27411D),
+                          blurRadius: 2,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (dailyReady)
+                    Positioned(
+                      right: 1,
+                      top: 1,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE74A3B),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                      ),
+                    ),
+                  if (tendedToday)
+                    const Positioned(
+                      right: 0,
+                      bottom: 1,
+                      child: Icon(
+                        Icons.check_circle_rounded,
+                        key: ValueKey('garden-tended-star'),
+                        color: Color(0xFFDFFF83),
+                        size: 13,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(1, 4, 7, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'MY GARDEN',
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        height: 1,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      minHeight: 5,
+                      value: progress.clamp(0, 1),
+                      backgroundColor: const Color(0xFF1A3420),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFFFFC94A),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$subtitle  Day $streak',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFE7F5C7),
+                      fontSize: 7.5,
+                      height: 1,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -9781,83 +10121,175 @@ class _BuilderBackyardPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     _drawGround(canvas, size);
+    _drawIsometricFence(canvas, size);
     _drawPaths(canvas, size);
-    _drawHouse(canvas);
-    _drawFence(canvas, size);
-    _drawPond(canvas);
+    _drawIsometricHouse(canvas);
+    _drawIsometricPond(canvas);
     _drawFacilities(canvas);
-    _drawPlotBeds(canvas);
+    _drawIsometricPlotBeds(canvas);
     _drawLivingDetails(canvas, size);
     _drawMoodTint(canvas, size);
   }
 
   void _drawGround(Canvas canvas, Size size) {
     final Rect full = Offset.zero & size;
-    final Color outerTop = _night
-        ? const Color(0xFF182F31)
-        : _winter
-        ? const Color(0xFFD7E6D3)
-        : const Color(0xFF305F35);
     canvas.drawRect(
       full,
       Paint()
         ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [outerTop, Color.lerp(outerTop, Colors.black, 0.28)!],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: _night
+              ? const [Color(0xFF203B51), Color(0xFF234C3C)]
+              : _winter
+              ? const [Color(0xFFCDE3EE), Color(0xFF8EAF91)]
+              : const [Color(0xFFBEE8F0), Color(0xFF5F9E55)],
         ).createShader(full),
     );
 
-    final Rect lot = Rect.fromLTRB(20, 92, size.width - 20, size.height - 36);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        lot.shift(const Offset(0, 16)),
-        const Radius.circular(34),
-      ),
+    final Paint distant = Paint()
+      ..color = _night
+          ? const Color(0xFF315345)
+          : _winter
+          ? const Color(0xFF9CB49E)
+          : const Color(0xFF79A765);
+    final Path hills = Path()
+      ..moveTo(0, 220)
+      ..quadraticBezierTo(120, 82, 260, 190)
+      ..quadraticBezierTo(420, 34, 600, 178)
+      ..quadraticBezierTo(770, 72, size.width, 205)
+      ..lineTo(size.width, 330)
+      ..lineTo(0, 330)
+      ..close();
+    canvas.drawPath(hills, distant);
+
+    final Path lot = Path()
+      ..moveTo(18, 146)
+      ..lineTo(size.width - 18, 112)
+      ..lineTo(size.width - 12, size.height - 86)
+      ..lineTo(size.width * 0.52, size.height - 18)
+      ..lineTo(18, size.height - 82)
+      ..close();
+    canvas.drawPath(
+      lot.shift(const Offset(0, 17)),
       Paint()
-        ..color = const Color(0x6608170A)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+        ..color = const Color(0x5C142411)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 13),
     );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(lot, const Radius.circular(34)),
+    canvas.drawPath(
+      lot,
       Paint()
         ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [_grassLight, _grassDark],
-        ).createShader(lot),
+        ).createShader(lot.getBounds()),
     );
 
-    const double tile = 70;
-    final Paint lightTile = Paint()
+    canvas.save();
+    canvas.clipPath(lot);
+    final Paint grid = Paint()
+      ..strokeWidth = 1.2
       ..color = Colors.white.withValues(alpha: _winter ? 0.1 : 0.055);
-    final Paint darkTile = Paint()
-      ..color = Colors.black.withValues(alpha: _night ? 0.075 : 0.035);
-    for (double y = lot.top; y < lot.bottom; y += tile) {
-      for (double x = lot.left; x < lot.right; x += tile) {
-        final int row = ((y - lot.top) / tile).round();
-        final int column = ((x - lot.left) / tile).round();
-        final Rect cell = Rect.fromLTWH(x, y, tile, tile);
-        canvas.drawRect(cell, (row + column).isEven ? lightTile : darkTile);
-      }
+    for (double x = -size.height; x < size.width + size.height; x += 72) {
+      canvas.drawLine(
+        Offset(x, 120),
+        Offset(x + size.height, size.height),
+        grid,
+      );
+      canvas.drawLine(
+        Offset(x + size.height, 120),
+        Offset(x, size.height),
+        grid,
+      );
     }
+    canvas.restore();
 
-    final double grassLength = 2.5 + lawnGrowth.clamp(0.0, 1.0) * 8;
     final Paint blade = Paint()
       ..strokeWidth = 1.4
       ..strokeCap = StrokeCap.round
       ..color = (_winter ? const Color(0xFFEAF5DF) : const Color(0xFF327D3A))
-          .withValues(alpha: 0.34);
-    for (int i = 0; i < 250; i += 1) {
+          .withValues(alpha: 0.22);
+    for (int i = 0; i < 150; i += 1) {
       final double x = 34 + ((i * 83) % 1000) / 1000 * (size.width - 68);
-      final double y = 520 + ((i * 137) % 1000) / 1000 * (size.height - 590);
-      final double sway = sin(time * 1.2 + i * 0.7) * 2.6;
+      final double y = 430 + ((i * 137) % 1000) / 1000 * (size.height - 510);
+      final double sway = sin(time * 1.2 + i * 0.7) * 1.6;
       canvas.drawLine(
         Offset(x, y),
-        Offset(x + sway, y - grassLength - (i % 3) * 1.6),
+        Offset(x + sway, y - 4 - (i % 3) * 1.2),
         blade,
       );
     }
+    _drawMowableLawn(canvas);
+  }
+
+  void _drawMowableLawn(Canvas canvas) {
+    final double growth = lawnGrowth.clamp(0.0, 1.0);
+    final Path patch = Path()
+      ..moveTo(66, 1010)
+      ..lineTo(250, 988)
+      ..lineTo(278, 1120)
+      ..lineTo(86, 1150)
+      ..close();
+    canvas.drawPath(
+      patch.shift(const Offset(0, 9)),
+      Paint()..color = const Color(0x44241811),
+    );
+    canvas.drawPath(
+      patch,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: growth >= 0.28
+              ? const [Color(0xFF6BAD45), Color(0xFF3B7C36)]
+              : const [Color(0xFF8FC566), Color(0xFF68A451)],
+        ).createShader(patch.getBounds()),
+    );
+
+    canvas.save();
+    canvas.clipPath(patch);
+    if (growth < 0.28) {
+      for (int stripe = -2; stripe < 7; stripe += 1) {
+        final Path line = Path()
+          ..moveTo(44 + stripe * 44, 1000)
+          ..lineTo(102 + stripe * 44, 1148)
+          ..lineTo(134 + stripe * 44, 1148)
+          ..lineTo(76 + stripe * 44, 1000)
+          ..close();
+        canvas.drawPath(
+          line,
+          Paint()..color = Colors.white.withValues(alpha: 0.055),
+        );
+      }
+    }
+    final double bladeLength = 4 + growth * 25;
+    final Paint grass = Paint()
+      ..strokeWidth = 2.3
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFF2E7133);
+    for (int i = 0; i < 92; i += 1) {
+      final double x = 72 + ((i * 47) % 1000) / 1000 * 196;
+      final double y = 1014 + ((i * 83) % 1000) / 1000 * 124;
+      final double sway = sin(time * 2 + i * 0.8) * (1 + growth * 3.5);
+      canvas.drawLine(
+        Offset(x, y),
+        Offset(x + sway, y - bladeLength * (0.62 + (i % 4) * 0.11)),
+        grass,
+      );
+    }
+    canvas.restore();
+    canvas.drawPath(
+      patch,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = tool == GardenTool.build ? 5 : 2
+        ..color = tool == GardenTool.build
+            ? const Color(
+                0xFFFFE36C,
+              ).withValues(alpha: 0.58 + (sin(time * 3) + 1) * 0.16)
+            : const Color(0x55618545),
+    );
   }
 
   void _drawPaths(Canvas canvas, Size size) {
@@ -9932,6 +10364,309 @@ class _BuilderBackyardPainter extends CustomPainter {
     }
   }
 
+  void _drawIsometricHouse(Canvas canvas) {
+    final double levelLift = _tier * 10;
+    final Color wallFront = Color.lerp(house.wallColor, Colors.white, 0.12)!;
+    final Color wallSide = Color.lerp(
+      house.wallColor,
+      const Color(0xFF8D765C),
+      0.25,
+    )!;
+
+    final Path shadow = Path()
+      ..moveTo(18, 500)
+      ..lineTo(318, 580)
+      ..lineTo(478, 492)
+      ..lineTo(185, 420)
+      ..close();
+    canvas.drawPath(
+      shadow.shift(const Offset(13, 17)),
+      Paint()
+        ..color = const Color(0x4A172014)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+    );
+
+    final Path front = Path()
+      ..moveTo(18, 244 - levelLift)
+      ..lineTo(324, 316 - levelLift)
+      ..lineTo(324, 570)
+      ..lineTo(18, 500)
+      ..close();
+    final Path side = Path()
+      ..moveTo(324, 316 - levelLift)
+      ..lineTo(462, 242 - levelLift)
+      ..lineTo(462, 492)
+      ..lineTo(324, 570)
+      ..close();
+    canvas.drawPath(front, Paint()..color = wallFront);
+    canvas.drawPath(side, Paint()..color = wallSide);
+
+    for (int row = 0; row < 8; row += 1) {
+      final double y = 288 - levelLift + row * 30;
+      canvas.drawLine(
+        Offset(26, y),
+        Offset(316, y + 69),
+        Paint()
+          ..strokeWidth = 1.3
+          ..color = const Color(0x225B4938),
+      );
+    }
+
+    final Path roofFront = Path()
+      ..moveTo(-8, 245 - levelLift)
+      ..lineTo(176, 76 - levelLift)
+      ..lineTo(363, 224 - levelLift)
+      ..lineTo(322, 344 - levelLift)
+      ..close();
+    final Path roofSide = Path()
+      ..moveTo(176, 76 - levelLift)
+      ..lineTo(490, 220 - levelLift)
+      ..lineTo(363, 224 - levelLift)
+      ..close();
+    final Color roofLight = Color.lerp(house.roofColor, Colors.white, 0.12)!;
+    final Color roofDark = Color.lerp(house.roofColor, Colors.black, 0.18)!;
+    canvas.drawPath(
+      roofFront.shift(const Offset(8, 10)),
+      Paint()..color = const Color(0x43191813),
+    );
+    canvas.drawPath(roofFront, Paint()..color = roofLight);
+    canvas.drawPath(roofSide, Paint()..color = roofDark);
+
+    final Paint roofLine = Paint()
+      ..strokeWidth = 3
+      ..color = Colors.black.withValues(alpha: 0.16);
+    for (int i = 0; i < 9; i += 1) {
+      final double t = i / 9;
+      canvas.drawLine(
+        Offset.lerp(
+          Offset(4, 242 - levelLift),
+          Offset(176, 84 - levelLift),
+          t,
+        )!,
+        Offset.lerp(
+          Offset(322, 335 - levelLift),
+          Offset(354, 228 - levelLift),
+          t,
+        )!,
+        roofLine,
+      );
+    }
+    for (int i = 1; i < 7; i += 1) {
+      final double t = i / 7;
+      canvas.drawLine(
+        Offset.lerp(
+          Offset(0, 244 - levelLift),
+          Offset(322, 340 - levelLift),
+          t,
+        )!,
+        Offset.lerp(
+          Offset(176, 82 - levelLift),
+          Offset(360, 225 - levelLift),
+          t,
+        )!,
+        roofLine,
+      );
+    }
+
+    if (houseActive) {
+      canvas.drawPath(
+        roofFront,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 7
+          ..color = const Color(
+            0xFFFFE66F,
+          ).withValues(alpha: 0.45 + (sin(time * 3) + 1) * 0.16),
+      );
+    }
+
+    void window(Offset center, {bool sideWindow = false}) {
+      final Path frame = Path()
+        ..moveTo(center.dx - 34, center.dy - 31)
+        ..lineTo(center.dx + 31, center.dy - 17)
+        ..lineTo(center.dx + 31, center.dy + 37)
+        ..lineTo(center.dx - 34, center.dy + 23)
+        ..close();
+      if (sideWindow) {
+        frame
+          ..reset()
+          ..moveTo(center.dx - 27, center.dy - 15)
+          ..lineTo(center.dx + 27, center.dy - 43)
+          ..lineTo(center.dx + 27, center.dy + 15)
+          ..lineTo(center.dx - 27, center.dy + 43)
+          ..close();
+      }
+      canvas.drawPath(
+        frame,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 8
+          ..strokeJoin = StrokeJoin.round
+          ..color = const Color(0xFF66513D),
+      );
+      canvas.drawPath(
+        frame,
+        Paint()
+          ..color = _night ? const Color(0xFFFFD66F) : const Color(0xFF73BDD1),
+      );
+    }
+
+    window(Offset(92, 346 - levelLift * 0.45));
+    window(Offset(236, 380 - levelLift * 0.45));
+    if (_tier >= 1) {
+      window(Offset(95, 438 - levelLift * 0.2));
+      window(Offset(232, 470 - levelLift * 0.2));
+    }
+    window(Offset(390, 392 - levelLift * 0.25), sideWindow: true);
+
+    final Path door = Path()
+      ..moveTo(349, 438)
+      ..lineTo(411, 405)
+      ..lineTo(411, 506)
+      ..lineTo(349, 541)
+      ..close();
+    canvas.drawPath(
+      door,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFF315B52), Color(0xFF183A34)],
+        ).createShader(door.getBounds()),
+    );
+    canvas.drawCircle(
+      const Offset(397, 469),
+      5,
+      Paint()..color = const Color(0xFFFFD467),
+    );
+
+    final Path steps = Path()
+      ..moveTo(342, 545)
+      ..lineTo(414, 506)
+      ..lineTo(462, 531)
+      ..lineTo(385, 574)
+      ..close();
+    canvas.drawPath(steps, Paint()..color = const Color(0xFFB49C78));
+
+    for (final Offset base in const [Offset(58, 382), Offset(208, 416)]) {
+      final Path box = Path()
+        ..moveTo(base.dx - 36, base.dy + 28)
+        ..lineTo(base.dx + 36, base.dy + 45)
+        ..lineTo(base.dx + 33, base.dy + 61)
+        ..lineTo(base.dx - 39, base.dy + 44)
+        ..close();
+      canvas.drawPath(box, Paint()..color = const Color(0xFF84552E));
+      for (int i = 0; i < 5; i += 1) {
+        canvas.drawCircle(
+          base + Offset(-25 + i * 13, 26 + i * 3),
+          7,
+          Paint()
+            ..color = i.isEven
+                ? const Color(0xFFF18AB0)
+                : const Color(0xFF7CB74C),
+        );
+      }
+    }
+  }
+
+  void _drawIsometricFence(Canvas canvas, Size size) {
+    final Color backWood = _tier >= 2
+        ? const Color(0xFFE9DFC8)
+        : const Color(0xFF9B6B3A);
+    final Color frontWood = _tier >= 2
+        ? const Color(0xFFF6F1DF)
+        : const Color(0xFFF0E7D0);
+    final Color edge = const Color(0xFF695037);
+
+    void segment(Offset start, Offset end, Color wood, {int posts = 7}) {
+      canvas.drawLine(
+        start,
+        end,
+        Paint()
+          ..strokeWidth = 10
+          ..strokeCap = StrokeCap.round
+          ..color = edge,
+      );
+      canvas.drawLine(
+        start - const Offset(0, 5),
+        end - const Offset(0, 5),
+        Paint()
+          ..strokeWidth = 6
+          ..strokeCap = StrokeCap.round
+          ..color = wood,
+      );
+      for (int i = 0; i <= posts; i += 1) {
+        final Offset point = Offset.lerp(start, end, i / posts)!;
+        final Path post = Path()
+          ..moveTo(point.dx - 8, point.dy + 15)
+          ..lineTo(point.dx + 8, point.dy + 12)
+          ..lineTo(point.dx + 8, point.dy - 43)
+          ..lineTo(point.dx, point.dy - 54)
+          ..lineTo(point.dx - 8, point.dy - 40)
+          ..close();
+        canvas.drawPath(post, Paint()..color = wood);
+        canvas.drawPath(
+          post,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2
+            ..color = edge,
+        );
+      }
+    }
+
+    segment(const Offset(470, 188), const Offset(884, 122), backWood);
+    segment(
+      const Offset(884, 122),
+      const Offset(900, 1180),
+      backWood,
+      posts: 12,
+    );
+    segment(
+      const Offset(20, 530),
+      const Offset(24, 1248),
+      frontWood,
+      posts: 10,
+    );
+    segment(
+      const Offset(24, 1248),
+      const Offset(366, 1304),
+      frontWood,
+      posts: 6,
+    );
+    segment(
+      const Offset(550, 1304),
+      const Offset(894, 1240),
+      frontWood,
+      posts: 6,
+    );
+
+    final Path gate = Path()
+      ..moveTo(374, 1262)
+      ..lineTo(544, 1262)
+      ..lineTo(544, 1342)
+      ..lineTo(374, 1342)
+      ..close();
+    canvas.drawPath(gate, Paint()..color = const Color(0xFF7F542E));
+    canvas.drawPath(
+      gate,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6
+        ..color = edge,
+    );
+    final Rect gateBounds = gate.getBounds();
+    for (int i = 1; i < 5; i += 1) {
+      final double x = gateBounds.left + gateBounds.width * i / 5;
+      canvas.drawLine(
+        Offset(x, gateBounds.top + 5),
+        Offset(x, gateBounds.bottom - 5),
+        Paint()
+          ..strokeWidth = 4
+          ..color = const Color(0xFFB78248),
+      );
+    }
+  }
+
+  // ignore: unused_element
   void _drawHouse(Canvas canvas) {
     final double extraWidth = _tier * 13;
     final double extraHeight = _tier * 18;
@@ -10190,6 +10925,7 @@ class _BuilderBackyardPainter extends CustomPainter {
     );
   }
 
+  // ignore: unused_element
   void _drawFence(Canvas canvas, Size size) {
     final Color wood = _tier >= 2
         ? const Color(0xFFF1E4CB)
@@ -10285,6 +11021,86 @@ class _BuilderBackyardPainter extends CustomPainter {
     );
   }
 
+  void _drawIsometricPond(Canvas canvas) {
+    final Path rim = Path()
+      ..moveTo(46, 660)
+      ..lineTo(222, 604)
+      ..lineTo(334, 672)
+      ..lineTo(154, 750)
+      ..close();
+    final Path water = Path()
+      ..moveTo(67, 661)
+      ..lineTo(221, 617)
+      ..lineTo(310, 672)
+      ..lineTo(153, 730)
+      ..close();
+    canvas.drawPath(
+      rim.shift(const Offset(0, 13)),
+      Paint()
+        ..color = const Color(0x48182016)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
+    );
+    canvas.drawPath(rim, Paint()..color = const Color(0xFF6F705D));
+    canvas.drawPath(
+      water,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF77D4E6), Color(0xFF2D8DAC)],
+        ).createShader(water.getBounds()),
+    );
+    canvas.drawPath(
+      water,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 7
+        ..color = const Color(0xFFB8B092),
+    );
+
+    for (int i = 0; i < 5; i += 1) {
+      final double phase = (time * 0.28 + i * 0.19) % 1;
+      final Offset center = Offset(
+        145 + i * 28 + sin(time * 0.7 + i) * 4,
+        666 + (i % 2) * 22,
+      );
+      canvas.drawOval(
+        Rect.fromCenter(center: center, width: 31, height: 14),
+        Paint()..color = const Color(0xFF6CB153),
+      );
+      if (i.isEven) {
+        canvas.drawCircle(
+          center - const Offset(0, 5),
+          5,
+          Paint()..color = const Color(0xFFF6A0C5),
+        );
+      }
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: const Offset(205, 660),
+          width: 24 + phase * 90,
+          height: 8 + phase * 28,
+        ),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = Colors.white.withValues(alpha: (1 - phase) * 0.45),
+      );
+    }
+
+    if (pondWater > 0) {
+      for (int i = 0; i < pondWater + 2; i += 1) {
+        final double phase = (time * 0.9 + i / (pondWater + 2)) % 1;
+        final Offset drop = Offset(
+          205 + (i - pondWater / 2) * 7 * phase,
+          659 - 58 * sin(phase * pi),
+        );
+        canvas.drawCircle(drop, 2.6, Paint()..color = const Color(0xFFD6FAFF));
+      }
+    }
+  }
+
+  // ignore: unused_element
   void _drawPond(Canvas canvas) {
     final Path pond = Path()
       ..moveTo(55, 600)
@@ -10381,7 +11197,6 @@ class _BuilderBackyardPainter extends CustomPainter {
     _drawMarket(canvas);
     _drawCompost(canvas);
     _drawMower(canvas);
-    _drawVegetableBed(canvas);
     if (_tier >= 1) {
       _drawBeehive(canvas);
     }
@@ -10432,7 +11247,7 @@ class _BuilderBackyardPainter extends CustomPainter {
   }
 
   void _drawRainBarrel(Canvas canvas) {
-    const Offset center = Offset(548, 522);
+    const Offset center = Offset(438, 526);
     final Rect barrel = Rect.fromCenter(center: center, width: 65, height: 82);
     canvas.drawOval(
       Rect.fromCenter(
@@ -10635,6 +11450,7 @@ class _BuilderBackyardPainter extends CustomPainter {
     canvas.restore();
   }
 
+  // ignore: unused_element
   void _drawVegetableBed(Canvas canvas) {
     const Rect bed = Rect.fromLTWH(618, 964, 238, 104);
     canvas.drawRRect(
@@ -10748,6 +11564,205 @@ class _BuilderBackyardPainter extends CustomPainter {
     }
   }
 
+  Path _isometricBedPath(
+    Offset center,
+    double width,
+    double height, {
+    double inset = 0,
+  }) {
+    final double halfWidth = max(4, width / 2 - inset);
+    final double halfHeight = max(3, height / 2 - inset * 0.52);
+    return Path()
+      ..moveTo(center.dx, center.dy - halfHeight)
+      ..lineTo(center.dx + halfWidth, center.dy)
+      ..lineTo(center.dx, center.dy + halfHeight)
+      ..lineTo(center.dx - halfWidth, center.dy)
+      ..close();
+  }
+
+  void _drawIsometricPlotBeds(Canvas canvas) {
+    for (final PlayerGardenPlot plot in plots) {
+      if (plot.unlockLevel > house.maxGardenLevel + 1) {
+        continue;
+      }
+      final bool unlocked = plot.unlockLevel <= gardenLevel;
+      final bool next =
+          plot.unlockLevel == gardenLevel + 1 &&
+          plot.unlockLevel <= house.maxGardenLevel;
+      final bool tree = plot.plantIndex != null && plot.plantIndex! >= 6;
+      final double width = tree ? 174 : 168;
+      final double height = tree ? 78 : 98;
+      final Path top = _isometricBedPath(plot.position, width, height);
+      final Path lower = _isometricBedPath(
+        plot.position + const Offset(0, 13),
+        width,
+        height,
+      );
+      final bool moveTarget =
+          tool == GardenTool.move &&
+          movingPlotId != null &&
+          !plot.planted &&
+          unlocked;
+      final bool moveSelected = movingPlotId == plot.id;
+      final bool plantTarget =
+          tool == GardenTool.plant && !plot.planted && unlocked && !plot.weed;
+      final bool active = moveTarget || moveSelected || plantTarget;
+      final double pulse = (sin(time * 3.2 + plot.id) + 1) / 2;
+
+      canvas.drawPath(
+        lower.shift(const Offset(0, 7)),
+        Paint()
+          ..color = const Color(0x44241710)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+      );
+
+      if (!unlocked) {
+        canvas.drawPath(lower, Paint()..color = const Color(0xFF596B48));
+        canvas.drawPath(
+          top,
+          Paint()
+            ..color = plot.grassCut
+                ? const Color(0xFF9A8C68)
+                : const Color(0xFF6F8E55),
+        );
+        final Path inner = _isometricBedPath(
+          plot.position,
+          width,
+          height,
+          inset: 13,
+        );
+        canvas.drawPath(
+          inner,
+          Paint()
+            ..color = plot.grassCut
+                ? const Color(0xFF76664D)
+                : const Color(0xFF537A45),
+        );
+        canvas.drawPath(
+          top,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = next ? 7 : 3
+            ..color = next
+                ? const Color(0xFFFFE56E).withValues(alpha: 0.55 + pulse * 0.33)
+                : const Color(0x779BB18A),
+        );
+        for (int i = -1; i < 3; i += 1) {
+          canvas.save();
+          canvas.clipPath(inner);
+          canvas.drawLine(
+            Offset(plot.position.dx - 90 + i * 50, plot.position.dy + 48),
+            Offset(plot.position.dx - 20 + i * 50, plot.position.dy - 48),
+            Paint()
+              ..strokeWidth = 13
+              ..color = Colors.white.withValues(alpha: 0.09),
+          );
+          canvas.restore();
+        }
+        _drawLock(canvas, plot.position, next);
+        continue;
+      }
+
+      if (tree) {
+        canvas.drawPath(
+          top,
+          Paint()
+            ..color = active
+                ? const Color(0x555BDF62)
+                : const Color(0x2A70B95A),
+        );
+        final Paint grid = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = active ? 4 : 2
+          ..color = active
+              ? Colors.white.withValues(alpha: 0.78)
+              : Colors.white.withValues(alpha: 0.18);
+        canvas.drawPath(top, grid);
+        canvas.drawLine(
+          Offset(
+            plot.position.dx - width * 0.25,
+            plot.position.dy - height * 0.25,
+          ),
+          Offset(
+            plot.position.dx + width * 0.25,
+            plot.position.dy + height * 0.25,
+          ),
+          grid,
+        );
+        canvas.drawLine(
+          Offset(
+            plot.position.dx + width * 0.25,
+            plot.position.dy - height * 0.25,
+          ),
+          Offset(
+            plot.position.dx - width * 0.25,
+            plot.position.dy + height * 0.25,
+          ),
+          grid,
+        );
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: plot.position + const Offset(0, 9),
+            width: 76,
+            height: 29,
+          ),
+          Paint()..color = const Color(0xAA4A3321),
+        );
+      } else {
+        canvas.drawPath(lower, Paint()..color = const Color(0xFF765035));
+        canvas.drawPath(
+          top,
+          Paint()
+            ..shader = const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFD8C391), Color(0xFF8F7650)],
+            ).createShader(top.getBounds()),
+        );
+        final Path soil = _isometricBedPath(
+          plot.position,
+          width,
+          height,
+          inset: 15,
+        );
+        canvas.drawPath(
+          soil,
+          Paint()
+            ..shader = const RadialGradient(
+              center: Alignment(-0.25, -0.4),
+              colors: [Color(0xFF7A5131), Color(0xFF3F291C)],
+            ).createShader(soil.getBounds()),
+        );
+        for (int i = 0; i < 10; i += 1) {
+          final double dx = -52 + ((i * 43 + plot.id * 19) % 100) / 100 * 104;
+          final double dy = -15 + ((i * 67 + plot.id * 11) % 100) / 100 * 30;
+          canvas.drawCircle(
+            plot.position + Offset(dx, dy),
+            1.4 + (i % 2),
+            Paint()..color = const Color(0x557DAB5A),
+          );
+        }
+      }
+
+      if (active) {
+        canvas.drawPath(
+          _isometricBedPath(
+            plot.position,
+            width + 15 + pulse * 12,
+            height + 8 + pulse * 7,
+          ),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = moveSelected ? 8 : 6
+            ..color = moveSelected
+                ? const Color(0xFF74C8FF)
+                : const Color(0xFFDFFF75).withValues(alpha: 0.62 + pulse * 0.3),
+        );
+      }
+    }
+  }
+
+  // ignore: unused_element
   void _drawPlotBeds(Canvas canvas) {
     for (final PlayerGardenPlot plot in plots) {
       if (plot.unlockLevel > house.maxGardenLevel + 1) {
@@ -12805,99 +13820,111 @@ class _GardenToolButton extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.badge = 0,
   });
 
   final IconData icon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
-    final (Color top, Color bottom, Color border, Color glow) = switch (label) {
-      'Move' => (
-        const Color(0xFF6E9ED0),
-        const Color(0xFF315A8C),
-        const Color(0xFFAED7FF),
-        const Color(0x66569DE1),
-      ),
-      'Water' => (
-        const Color(0xFF60A8CB),
-        const Color(0xFF1F5E83),
-        const Color(0xFF94D7FF),
-        const Color(0x6639A7E8),
-      ),
-      'Build' => (
-        const Color(0xFFC4914F),
-        const Color(0xFF71411D),
-        const Color(0xFFFFD58B),
-        const Color(0x66D18B35),
-      ),
-      _ => (
-        const Color(0xFF8AC448),
-        const Color(0xFF356D1F),
-        const Color(0xFFCFF78A),
-        const Color(0x668CEB4E),
-      ),
+    final Color iconColor = switch (label) {
+      'Move' => const Color(0xFF3C77B9),
+      'Water' => const Color(0xFF2F86C1),
+      'Build' => const Color(0xFF795027),
+      _ => const Color(0xFF5A942F),
     };
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: AnimatedScale(
         duration: const Duration(milliseconds: 160),
-        scale: selected ? 1.03 : 1,
+        scale: selected ? 1.025 : 1,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          height: 100,
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          height: 88,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [top, bottom],
+              colors: selected
+                  ? const [Color(0xFFFFFFDC), Color(0xFFFFE69A)]
+                  : const [Color(0xFFFFF7DE), Color(0xFFEAD7A8)],
             ),
             borderRadius: BorderRadius.circular(9),
             border: Border.all(
-              color: selected ? const Color(0xFFFFF08A) : border,
+              color: selected
+                  ? const Color(0xFF79A93C)
+                  : const Color(0xFFAD8951),
               width: selected ? 3 : 2,
             ),
-            boxShadow: [
-              const BoxShadow(
-                color: Color(0x99000000),
-                blurRadius: 10,
-                offset: Offset(0, 5),
-              ),
+            boxShadow: const [
               BoxShadow(
-                color: selected ? glow : Colors.transparent,
-                blurRadius: 12,
-                spreadRadius: 1,
+                color: Color(0x77000000),
+                blurRadius: 8,
+                offset: Offset(0, 4),
               ),
             ],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              Icon(icon, color: Colors.white, size: 40),
-              const SizedBox(height: 7),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    shadows: [
-                      Shadow(
-                        color: Color(0xAA000000),
-                        blurRadius: 2,
-                        offset: Offset(0, 2),
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, color: iconColor, size: 34),
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        style: const TextStyle(
+                          color: Color(0xFF3F382B),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
+              if (badge > 0)
+                Positioned(
+                  right: -8,
+                  top: -11,
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 22),
+                    height: 22,
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE64B3C),
+                      borderRadius: BorderRadius.circular(11),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x66000000),
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      '$badge',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -13102,7 +14129,9 @@ String _staticDurationLabel(Duration duration) {
   return '${max(1, duration.inMinutes)}m';
 }
 
+// ignore: unused_element
 class _GardenPlantTargetGlow extends StatelessWidget {
+  // ignore: unused_element_parameter
   const _GardenPlantTargetGlow({super.key, required this.pulse});
 
   final double pulse;
@@ -13363,12 +14392,9 @@ class _GardenToast extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _GardenStreakChip extends StatelessWidget {
-  const _GardenStreakChip({
-    super.key,
-    required this.streak,
-    required this.tendedToday,
-  });
+  const _GardenStreakChip({required this.streak, required this.tendedToday});
 
   final int streak;
   final bool tendedToday;
@@ -13433,7 +14459,9 @@ class _GardenStreakChip extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _GardenForecastPill extends StatelessWidget {
+  // ignore: unused_element_parameter
   const _GardenForecastPill({super.key, required this.text});
 
   final String text;
