@@ -10123,7 +10123,7 @@ class _BuilderBackyardPainter extends CustomPainter {
     _drawGround(canvas, size);
     _drawIsometricFence(canvas, size);
     _drawPaths(canvas, size);
-    _drawIsometricHouse(canvas);
+    _drawNaturalTownhouse(canvas);
     _drawIsometricPond(canvas);
     _drawFacilities(canvas);
     _drawIsometricPlotBeds(canvas);
@@ -10182,114 +10182,267 @@ class _BuilderBackyardPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_grassLight, _grassDark],
+          colors: [
+            Color.lerp(_grassLight, const Color(0xFFD3D480), 0.12)!,
+            _grassLight,
+            _grassDark,
+          ],
+          stops: const [0, 0.46, 1],
         ).createShader(lot.getBounds()),
     );
 
     canvas.save();
     canvas.clipPath(lot);
-    final Paint grid = Paint()
-      ..strokeWidth = 1.2
-      ..color = Colors.white.withValues(alpha: _winter ? 0.1 : 0.055);
-    for (double x = -size.height; x < size.width + size.height; x += 72) {
-      canvas.drawLine(
-        Offset(x, 120),
-        Offset(x + size.height, size.height),
-        grid,
+
+    final List<Color> turfColors = _winter
+        ? const [
+            Color(0xFFAAC59E),
+            Color(0xFFC5D4A8),
+            Color(0xFF91B18D),
+            Color(0xFFD1DAB5),
+          ]
+        : _night
+        ? const [
+            Color(0xFF285A3F),
+            Color(0xFF3C7250),
+            Color(0xFF426B41),
+            Color(0xFF234B39),
+          ]
+        : const [
+            Color(0xFF72AD4E),
+            Color(0xFF9BC667),
+            Color(0xFF5E9846),
+            Color(0xFFAFBF64),
+            Color(0xFF4F873E),
+          ];
+
+    // Broad, irregular color changes keep the lawn organic at every zoom level.
+    for (int i = 0; i < 52; i += 1) {
+      final double x = 8 + ((i * 191) % 997) / 997 * (size.width - 16);
+      final double y = 180 + ((i * 317) % 991) / 991 * (size.height - 250);
+      final double patchWidth = 80 + (i % 7) * 27;
+      final double patchHeight = 36 + (i % 5) * 18;
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(-0.34 + (i % 9) * 0.075);
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset.zero,
+          width: patchWidth,
+          height: patchHeight,
+        ),
+        Paint()
+          ..color = turfColors[i % turfColors.length].withValues(
+            alpha: _winter ? 0.15 : 0.14,
+          )
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 19),
       );
-      canvas.drawLine(
-        Offset(x + size.height, 120),
-        Offset(x, size.height),
-        grid,
+      canvas.restore();
+    }
+
+    final List<Path> bladeLayers = List<Path>.generate(5, (_) => Path());
+    for (int i = 0; i < 1120; i += 1) {
+      final double x = 22 + ((i * 193) % 1009) / 1009 * (size.width - 44);
+      final double y = 188 + ((i * 313) % 1013) / 1013 * (size.height - 264);
+      final double length = 5.2 + (i % 7) * 1.05;
+      final double breeze = sin(time * 1.45 + i * 0.37 + y * 0.006);
+      final double sway = breeze * (1.8 + (i % 4) * 0.5);
+      bladeLayers[i % bladeLayers.length]
+        ..moveTo(x, y)
+        ..quadraticBezierTo(
+          x + sway * 0.35,
+          y - length * 0.56,
+          x + sway,
+          y - length,
+        );
+    }
+    final List<Color> bladeColors = _winter
+        ? const [
+            Color(0xFF6F946E),
+            Color(0xFF87A77E),
+            Color(0xFFDDE8C7),
+            Color(0xFF789A75),
+            Color(0xFFABC39A),
+          ]
+        : const [
+            Color(0xFF2F7636),
+            Color(0xFF4D913D),
+            Color(0xFF80AD45),
+            Color(0xFF326B35),
+            Color(0xFF9FAE43),
+          ];
+    for (int i = 0; i < bladeLayers.length; i += 1) {
+      canvas.drawPath(
+        bladeLayers[i],
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.25 + (i % 3) * 0.28
+          ..strokeCap = StrokeCap.round
+          ..color = bladeColors[i].withValues(alpha: _night ? 0.42 : 0.52),
       );
+    }
+
+    final List<Path> tuftLayers = List<Path>.generate(4, (_) => Path());
+    for (int tuft = 0; tuft < 170; tuft += 1) {
+      final double x = 30 + ((tuft * 359) % 1009) / 1009 * (size.width - 60);
+      final double y = 210 + ((tuft * 557) % 1013) / 1013 * (size.height - 300);
+      for (int blade = 0; blade < 4; blade += 1) {
+        final double spread = (blade - 1.5) * 3.2;
+        final double length = 9 + ((tuft + blade) % 6) * 1.7;
+        final double breeze = sin(time * 1.7 + tuft * 0.51 + blade) * 3;
+        tuftLayers[tuft % tuftLayers.length]
+          ..moveTo(x + spread * 0.2, y)
+          ..quadraticBezierTo(
+            x + spread * 0.5 + breeze * 0.25,
+            y - length * 0.55,
+            x + spread + breeze,
+            y - length,
+          );
+      }
+    }
+    for (int i = 0; i < tuftLayers.length; i += 1) {
+      canvas.drawPath(
+        tuftLayers[i],
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.7
+          ..strokeCap = StrokeCap.round
+          ..color = bladeColors[(i + 1) % bladeColors.length].withValues(
+            alpha: _night ? 0.46 : 0.63,
+          ),
+      );
+    }
+
+    for (int i = 0; i < 34; i += 1) {
+      final double x = 34 + ((i * 271) % 997) / 997 * (size.width - 68);
+      final double y = 260 + ((i * 431) % 991) / 991 * (size.height - 350);
+      final double sway = sin(time * 1.15 + i) * 1.8;
+      final Offset center = Offset(x + sway, y);
+      final Color leafColor = i.isEven
+          ? const Color(0xFF4B8C3B)
+          : const Color(0xFF78A746);
+      for (int leaf = 0; leaf < 3; leaf += 1) {
+        final double angle = -pi / 2 + (leaf - 1) * 1.85;
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: center + Offset(cos(angle) * 3.8, sin(angle) * 3.2),
+            width: 6.8,
+            height: 4.4,
+          ),
+          Paint()..color = leafColor.withValues(alpha: 0.72),
+        );
+      }
+      if (i % 6 == 0 && !_winter) {
+        canvas.drawCircle(
+          center - const Offset(0, 5),
+          2.2,
+          Paint()..color = const Color(0xFFFFE9A0).withValues(alpha: 0.9),
+        );
+      }
     }
     canvas.restore();
 
-    final Paint blade = Paint()
-      ..strokeWidth = 1.4
-      ..strokeCap = StrokeCap.round
-      ..color = (_winter ? const Color(0xFFEAF5DF) : const Color(0xFF327D3A))
-          .withValues(alpha: 0.22);
-    for (int i = 0; i < 150; i += 1) {
-      final double x = 34 + ((i * 83) % 1000) / 1000 * (size.width - 68);
-      final double y = 430 + ((i * 137) % 1000) / 1000 * (size.height - 510);
-      final double sway = sin(time * 1.2 + i * 0.7) * 1.6;
-      canvas.drawLine(
-        Offset(x, y),
-        Offset(x + sway, y - 4 - (i % 3) * 1.2),
-        blade,
-      );
-    }
     _drawMowableLawn(canvas);
   }
 
   void _drawMowableLawn(Canvas canvas) {
     final double growth = lawnGrowth.clamp(0.0, 1.0);
     final Path patch = Path()
-      ..moveTo(66, 1010)
-      ..lineTo(250, 988)
-      ..lineTo(278, 1120)
-      ..lineTo(86, 1150)
+      ..moveTo(64, 1025)
+      ..cubicTo(94, 997, 196, 984, 244, 1000)
+      ..quadraticBezierTo(277, 1040, 273, 1099)
+      ..cubicTo(242, 1136, 134, 1154, 88, 1137)
+      ..quadraticBezierTo(58, 1090, 64, 1025)
       ..close();
-    canvas.drawPath(
-      patch.shift(const Offset(0, 9)),
-      Paint()..color = const Color(0x44241811),
-    );
     canvas.drawPath(
       patch,
       Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: growth >= 0.28
-              ? const [Color(0xFF6BAD45), Color(0xFF3B7C36)]
-              : const [Color(0xFF8FC566), Color(0xFF68A451)],
-        ).createShader(patch.getBounds()),
+        ..color =
+            (growth >= 0.28 ? const Color(0xFF367A35) : const Color(0xFFA6C978))
+                .withValues(alpha: 0.11 + growth * 0.08),
     );
 
     canvas.save();
     canvas.clipPath(patch);
     if (growth < 0.28) {
-      for (int stripe = -2; stripe < 7; stripe += 1) {
-        final Path line = Path()
-          ..moveTo(44 + stripe * 44, 1000)
-          ..lineTo(102 + stripe * 44, 1148)
-          ..lineTo(134 + stripe * 44, 1148)
-          ..lineTo(76 + stripe * 44, 1000)
-          ..close();
-        canvas.drawPath(
-          line,
-          Paint()..color = Colors.white.withValues(alpha: 0.055),
+      final Paint mowingTrace = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 14
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0xFFCAE39A).withValues(alpha: 0.09);
+      for (int stripe = 0; stripe < 5; stripe += 1) {
+        canvas.drawArc(
+          Rect.fromLTWH(45 + stripe * 41, 1000, 105, 156),
+          0.68,
+          1.72,
+          false,
+          mowingTrace,
         );
       }
     }
-    final double bladeLength = 4 + growth * 25;
-    final Paint grass = Paint()
-      ..strokeWidth = 2.3
-      ..strokeCap = StrokeCap.round
-      ..color = const Color(0xFF2E7133);
-    for (int i = 0; i < 92; i += 1) {
-      final double x = 72 + ((i * 47) % 1000) / 1000 * 196;
-      final double y = 1014 + ((i * 83) % 1000) / 1000 * 124;
-      final double sway = sin(time * 2 + i * 0.8) * (1 + growth * 3.5);
-      canvas.drawLine(
-        Offset(x, y),
-        Offset(x + sway, y - bladeLength * (0.62 + (i % 4) * 0.11)),
-        grass,
+    final double bladeLength = 3.5 + growth * 27;
+    final List<Path> grassLayers = List<Path>.generate(4, (_) => Path());
+    for (int i = 0; i < 210; i += 1) {
+      final double x = 66 + ((i * 59) % 997) / 997 * 207;
+      final double y = 1008 + ((i * 103) % 991) / 991 * 136;
+      final double length = bladeLength * (0.58 + (i % 6) * 0.085);
+      final double sway = sin(time * 2.1 + i * 0.48) * (1.2 + growth * 5.2);
+      grassLayers[i % grassLayers.length]
+        ..moveTo(x, y)
+        ..quadraticBezierTo(
+          x + sway * 0.42,
+          y - length * 0.55,
+          x + sway,
+          y - length,
+        );
+    }
+    const List<Color> growthColors = [
+      Color(0xFF2B6B31),
+      Color(0xFF3D8135),
+      Color(0xFF5A963A),
+      Color(0xFF789E3B),
+    ];
+    for (int i = 0; i < grassLayers.length; i += 1) {
+      canvas.drawPath(
+        grassLayers[i],
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.7 + (i % 2) * 0.45
+          ..strokeCap = StrokeCap.round
+          ..color = growthColors[i].withValues(alpha: 0.78),
       );
     }
+    if (growth > 0.62) {
+      for (int i = 0; i < 12; i += 1) {
+        final double x = 79 + ((i * 73) % 181);
+        final double y = 1024 + ((i * 47) % 100);
+        final double sway = sin(time * 2 + i) * 4;
+        canvas.drawLine(
+          Offset(x, y),
+          Offset(x + sway, y - 24 - (i % 3) * 4),
+          Paint()
+            ..strokeWidth = 1.5
+            ..color = const Color(0xFF557E2D),
+        );
+        canvas.drawCircle(
+          Offset(x + sway, y - 25 - (i % 3) * 4),
+          2.5,
+          Paint()..color = const Color(0xFFD8C96A),
+        );
+      }
+    }
     canvas.restore();
-    canvas.drawPath(
-      patch,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = tool == GardenTool.build ? 5 : 2
-        ..color = tool == GardenTool.build
-            ? const Color(
-                0xFFFFE36C,
-              ).withValues(alpha: 0.58 + (sin(time * 3) + 1) * 0.16)
-            : const Color(0x55618545),
-    );
+    if (tool == GardenTool.build) {
+      canvas.drawPath(
+        patch,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 5
+          ..color = const Color(
+            0xFFFFE36C,
+          ).withValues(alpha: 0.58 + (sin(time * 3) + 1) * 0.16),
+      );
+    }
   }
 
   void _drawPaths(Canvas canvas, Size size) {
@@ -10364,6 +10517,589 @@ class _BuilderBackyardPainter extends CustomPainter {
     }
   }
 
+  void _drawNaturalTownhouse(Canvas canvas) {
+    Path polygon(List<Offset> points) {
+      final Path path = Path()..moveTo(points.first.dx, points.first.dy);
+      for (final Offset point in points.skip(1)) {
+        path.lineTo(point.dx, point.dy);
+      }
+      return path..close();
+    }
+
+    canvas.save();
+    canvas.translate(14, 0);
+
+    final Color wallFront = Color.lerp(
+      house.wallColor,
+      const Color(0xFFFFF8E7),
+      0.72,
+    )!;
+    final Color wallSide = Color.lerp(
+      house.wallColor,
+      const Color(0xFFC9B990),
+      0.42,
+    )!;
+    final Color roofBase = Color.lerp(
+      house.roofColor,
+      const Color(0xFF26394B),
+      0.68,
+    )!;
+    final Color roofLight = Color.lerp(roofBase, const Color(0xFF60758A), 0.3)!;
+    final Color roofDark = Color.lerp(roofBase, const Color(0xFF111C29), 0.4)!;
+    final Color trim = _night
+        ? const Color(0xFFE7E2D1)
+        : const Color(0xFFFFF8E8);
+    final double roofLift = _tier * 3.5;
+
+    final Path footprint = polygon(const [
+      Offset(43, 486),
+      Offset(309, 551),
+      Offset(468, 467),
+      Offset(199, 405),
+    ]);
+    canvas.drawPath(
+      footprint.shift(const Offset(13, 20)),
+      Paint()
+        ..color = const Color(0x55152113)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 13),
+    );
+
+    final Path patio = polygon(const [
+      Offset(278, 535),
+      Offset(405, 468),
+      Offset(480, 507),
+      Offset(350, 579),
+    ]);
+    canvas.drawPath(
+      patio,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFFE0D3B5), Color(0xFFA99574)],
+        ).createShader(patio.getBounds()),
+    );
+    for (int i = 0; i < 4; i += 1) {
+      canvas.drawLine(
+        Offset(302 + i * 31, 530 - i * 16),
+        Offset(374 + i * 29, 569 - i * 16),
+        Paint()
+          ..strokeWidth = 1.5
+          ..color = const Color(0x33604C35),
+      );
+    }
+
+    final Path frontWall = polygon([
+      Offset(45, 264 - roofLift),
+      Offset(306, 326 - roofLift),
+      const Offset(306, 554),
+      const Offset(45, 493),
+    ]);
+    final Path sideWall = polygon([
+      Offset(306, 326 - roofLift),
+      Offset(449, 250 - roofLift),
+      const Offset(449, 477),
+      const Offset(306, 554),
+    ]);
+    canvas.drawPath(
+      frontWall,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color.lerp(wallFront, Colors.white, 0.18)!, wallFront],
+        ).createShader(frontWall.getBounds()),
+    );
+    canvas.drawPath(
+      sideWall,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [wallSide, Color.lerp(wallSide, Colors.black, 0.1)!],
+        ).createShader(sideWall.getBounds()),
+    );
+
+    canvas.save();
+    canvas.clipPath(frontWall);
+    final Paint siding = Paint()
+      ..strokeWidth = 1.6
+      ..color = const Color(0x29564634);
+    for (int row = 0; row < 10; row += 1) {
+      final double y = 287 - roofLift + row * 24.5;
+      canvas.drawLine(Offset(48, y), Offset(304, y + 61), siding);
+      canvas.drawLine(
+        Offset(48, y - 1.7),
+        Offset(304, y + 59.3),
+        Paint()
+          ..strokeWidth = 1
+          ..color = Colors.white.withValues(alpha: 0.3),
+      );
+    }
+    canvas.restore();
+
+    canvas.save();
+    canvas.clipPath(sideWall);
+    for (int row = 0; row < 9; row += 1) {
+      final double y = 350 - roofLift + row * 25;
+      canvas.drawLine(
+        Offset(307, y),
+        Offset(448, y - 75),
+        Paint()
+          ..strokeWidth = 1.4
+          ..color = const Color(0x28504030),
+      );
+    }
+    canvas.restore();
+
+    final Path foundationFront = polygon(const [
+      Offset(45, 470),
+      Offset(306, 531),
+      Offset(306, 554),
+      Offset(45, 493),
+    ]);
+    final Path foundationSide = polygon(const [
+      Offset(306, 531),
+      Offset(449, 454),
+      Offset(449, 477),
+      Offset(306, 554),
+    ]);
+    canvas.drawPath(foundationFront, Paint()..color = const Color(0xFFB7A989));
+    canvas.drawPath(foundationSide, Paint()..color = const Color(0xFF8E8068));
+
+    final Offset ridgeStart = Offset(165, 100 - roofLift);
+    final Offset ridgeEnd = Offset(380, 198 - roofLift);
+    final Offset eaveLeft = Offset(28, 273 - roofLift);
+    final Offset eaveFront = Offset(316, 342 - roofLift);
+    final Offset eaveSide = Offset(468, 259 - roofLift);
+    final Offset eaveBack = Offset(193, 190 - roofLift);
+    final Path roofFront = polygon([eaveLeft, eaveFront, ridgeEnd, ridgeStart]);
+    final Path roofSide = polygon([eaveFront, eaveSide, ridgeEnd]);
+    final Path roofBack = polygon([eaveBack, eaveSide, ridgeEnd, ridgeStart]);
+
+    canvas.drawPath(
+      roofFront.shift(const Offset(7, 11)),
+      Paint()..color = const Color(0x40121B18),
+    );
+    canvas.drawPath(
+      roofBack,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [roofLight, roofBase],
+        ).createShader(roofBack.getBounds()),
+    );
+    canvas.drawPath(
+      roofFront,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [roofLight, roofBase, roofDark],
+          stops: const [0, 0.62, 1],
+        ).createShader(roofFront.getBounds()),
+    );
+    canvas.drawPath(roofSide, Paint()..color = roofDark);
+
+    canvas.save();
+    canvas.clipPath(roofFront);
+    for (int row = 1; row <= 7; row += 1) {
+      final double t = row / 8;
+      final Offset left = Offset.lerp(ridgeStart, eaveLeft, t)!;
+      final Offset right = Offset.lerp(ridgeEnd, eaveFront, t)!;
+      canvas.drawLine(
+        left,
+        right,
+        Paint()
+          ..strokeWidth = row.isEven ? 3 : 2
+          ..color = Colors.black.withValues(alpha: 0.19),
+      );
+      final int shingles = 5 + row;
+      for (int shingle = 1; shingle < shingles; shingle += 1) {
+        if ((shingle + row).isOdd) {
+          continue;
+        }
+        final Offset start = Offset.lerp(left, right, shingle / shingles)!;
+        canvas.drawLine(
+          start,
+          start + Offset(-4, 8 + row * 0.55),
+          Paint()
+            ..strokeWidth = 1.5
+            ..color = Colors.white.withValues(alpha: 0.11),
+        );
+      }
+    }
+    canvas.restore();
+    canvas.drawLine(
+      eaveLeft,
+      eaveFront,
+      Paint()
+        ..strokeWidth = 9
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0xFFEEE6D3),
+    );
+    canvas.drawLine(
+      eaveFront,
+      eaveSide,
+      Paint()
+        ..strokeWidth = 8
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0xFFC8BCA6),
+    );
+    canvas.drawLine(
+      ridgeStart,
+      ridgeEnd,
+      Paint()
+        ..strokeWidth = 7
+        ..strokeCap = StrokeCap.round
+        ..color = Color.lerp(roofLight, Colors.white, 0.18)!,
+    );
+
+    final Path chimney = polygon([
+      Offset(262, 155 - roofLift),
+      Offset(291, 167 - roofLift),
+      Offset(291, 103 - roofLift),
+      Offset(262, 91 - roofLift),
+    ]);
+    canvas.drawPath(
+      chimney,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFF9D5A42), Color(0xFF6E382E)],
+        ).createShader(chimney.getBounds()),
+    );
+    canvas.drawLine(
+      Offset(257, 91 - roofLift),
+      Offset(296, 107 - roofLift),
+      Paint()
+        ..strokeWidth = 8
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0xFF4F302B),
+    );
+    for (int puff = 0; puff < 4; puff += 1) {
+      final double progress = (time * (0.055 + puff * 0.004) + puff * 0.23) % 1;
+      final Offset smoke = Offset(
+        276 + sin(time * 0.8 + puff) * 9 + progress * 10,
+        77 - roofLift - progress * 78,
+      );
+      canvas.drawCircle(
+        smoke,
+        8 + progress * 10,
+        Paint()
+          ..color = (_night ? const Color(0xFF9FA9B1) : Colors.white)
+              .withValues(alpha: (1 - progress) * 0.18)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+    }
+
+    void frontWindow(Offset center, {bool flowerBox = false}) {
+      const double width = 58;
+      const double height = 58;
+      final double slope = width * 0.118;
+      final Path outer = polygon([
+        Offset(center.dx - width / 2, center.dy - height / 2 - slope),
+        Offset(center.dx + width / 2, center.dy - height / 2 + slope),
+        Offset(center.dx + width / 2, center.dy + height / 2 + slope),
+        Offset(center.dx - width / 2, center.dy + height / 2 - slope),
+      ]);
+      final Path glass = polygon([
+        Offset(center.dx - 22, center.dy - 22 - 5),
+        Offset(center.dx + 22, center.dy - 22 + 5),
+        Offset(center.dx + 22, center.dy + 22 + 5),
+        Offset(center.dx - 22, center.dy + 22 - 5),
+      ]);
+      canvas.drawPath(
+        outer.shift(const Offset(3, 5)),
+        Paint()..color = const Color(0x4A30251A),
+      );
+      canvas.drawPath(outer, Paint()..color = trim);
+      canvas.drawPath(
+        glass,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: _night
+                ? const [Color(0xFFFFE28A), Color(0xFFE69A43)]
+                : const [Color(0xFFBFE9ED), Color(0xFF4D99B0)],
+          ).createShader(glass.getBounds()),
+      );
+      canvas.drawLine(
+        Offset(center.dx, center.dy - 23),
+        Offset(center.dx, center.dy + 27),
+        Paint()
+          ..strokeWidth = 4
+          ..color = trim,
+      );
+      canvas.drawLine(
+        Offset(center.dx - 22, center.dy - 1),
+        Offset(center.dx + 22, center.dy + 9),
+        Paint()
+          ..strokeWidth = 4
+          ..color = trim,
+      );
+      canvas.drawLine(
+        Offset(center.dx - 16, center.dy - 16),
+        Offset(center.dx - 2, center.dy - 9),
+        Paint()
+          ..strokeWidth = 2.5
+          ..strokeCap = StrokeCap.round
+          ..color = Colors.white.withValues(alpha: 0.52),
+      );
+
+      if (flowerBox) {
+        final Path box = polygon([
+          Offset(center.dx - 34, center.dy + 30),
+          Offset(center.dx + 35, center.dy + 46),
+          Offset(center.dx + 31, center.dy + 62),
+          Offset(center.dx - 38, center.dy + 46),
+        ]);
+        canvas.drawPath(box, Paint()..color = const Color(0xFF83512D));
+        for (int flower = 0; flower < 6; flower += 1) {
+          final double sway = sin(time * 1.6 + flower) * 1.5;
+          final Offset bloom = Offset(
+            center.dx - 27 + flower * 11.2 + sway,
+            center.dy + 31 + flower * 2.3,
+          );
+          canvas.drawCircle(
+            bloom,
+            6,
+            Paint()
+              ..color = flower.isEven
+                  ? const Color(0xFFF28FB6)
+                  : const Color(0xFF86B64B),
+          );
+        }
+      }
+    }
+
+    void sideWindow(Offset center) {
+      final Path outer = polygon([
+        center + const Offset(-29, -18),
+        center + const Offset(29, -49),
+        center + const Offset(29, 20),
+        center + const Offset(-29, 51),
+      ]);
+      final Path glass = polygon([
+        center + const Offset(-21, -14),
+        center + const Offset(21, -36),
+        center + const Offset(21, 16),
+        center + const Offset(-21, 38),
+      ]);
+      canvas.drawPath(
+        outer.shift(const Offset(3, 5)),
+        Paint()..color = const Color(0x4A30251A),
+      );
+      canvas.drawPath(outer, Paint()..color = trim);
+      canvas.drawPath(
+        glass,
+        Paint()
+          ..shader = LinearGradient(
+            colors: _night
+                ? const [Color(0xFFFFE18A), Color(0xFFD78E3C)]
+                : const [Color(0xFFA9DFE8), Color(0xFF397F9B)],
+          ).createShader(glass.getBounds()),
+      );
+      canvas.drawLine(
+        center + const Offset(0, -29),
+        center + const Offset(0, 28),
+        Paint()
+          ..strokeWidth = 4
+          ..color = trim,
+      );
+    }
+
+    frontWindow(Offset(102, 331 - roofLift * 0.32), flowerBox: true);
+    frontWindow(Offset(228, 361 - roofLift * 0.32), flowerBox: true);
+    frontWindow(const Offset(103, 435));
+    frontWindow(const Offset(229, 465));
+    sideWindow(Offset(375, 344 - roofLift * 0.28));
+
+    final Path dormerWall = polygon([
+      Offset(169, 205 - roofLift),
+      Offset(224, 218 - roofLift),
+      Offset(224, 255 - roofLift),
+      Offset(169, 242 - roofLift),
+    ]);
+    final Path dormerRoof = polygon([
+      Offset(158, 204 - roofLift),
+      Offset(195, 169 - roofLift),
+      Offset(236, 202 - roofLift),
+      Offset(225, 221 - roofLift),
+    ]);
+    canvas.drawPath(dormerWall, Paint()..color = wallFront);
+    canvas.drawPath(dormerRoof, Paint()..color = roofDark);
+    final Path dormerGlass = polygon([
+      Offset(181, 207 - roofLift),
+      Offset(214, 215 - roofLift),
+      Offset(214, 240 - roofLift),
+      Offset(181, 232 - roofLift),
+    ]);
+    canvas.drawPath(dormerGlass, Paint()..color = const Color(0xFF74B6C8));
+    canvas.drawPath(
+      dormerGlass,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4
+        ..color = trim,
+    );
+
+    final Path door = polygon(const [
+      Offset(337, 424),
+      Offset(407, 387),
+      Offset(407, 500),
+      Offset(337, 538),
+    ]);
+    canvas.drawPath(
+      door,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF315E70), Color(0xFF173C4A)],
+        ).createShader(door.getBounds()),
+    );
+    canvas.drawPath(
+      door,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6
+        ..strokeJoin = StrokeJoin.round
+        ..color = trim,
+    );
+    final Path doorWindow = polygon(const [
+      Offset(350, 428),
+      Offset(393, 405),
+      Offset(393, 438),
+      Offset(350, 461),
+    ]);
+    canvas.drawPath(
+      doorWindow,
+      Paint()
+        ..color = _night ? const Color(0xFFFFD673) : const Color(0xFF8DD0DA),
+    );
+    canvas.drawCircle(
+      const Offset(392, 469),
+      5,
+      Paint()..color = const Color(0xFFFFD76A),
+    );
+
+    final Path canopy = polygon(const [
+      Offset(322, 408),
+      Offset(409, 361),
+      Offset(450, 382),
+      Offset(358, 432),
+    ]);
+    canvas.drawPath(canopy, Paint()..color = roofDark);
+    canvas.drawLine(
+      const Offset(348, 425),
+      const Offset(348, 536),
+      Paint()
+        ..strokeWidth = 8
+        ..strokeCap = StrokeCap.round
+        ..color = trim,
+    );
+    final Path stepOne = polygon(const [
+      Offset(326, 538),
+      Offset(410, 493),
+      Offset(460, 519),
+      Offset(373, 566),
+    ]);
+    final Path stepTwo = polygon(const [
+      Offset(344, 555),
+      Offset(420, 514),
+      Offset(469, 539),
+      Offset(390, 582),
+    ]);
+    canvas.drawPath(stepTwo, Paint()..color = const Color(0xFF96866C));
+    canvas.drawPath(stepOne, Paint()..color = const Color(0xFFC7B89B));
+
+    final double lampPulse = 0.82 + sin(time * 2.3) * 0.05;
+    canvas.drawCircle(
+      const Offset(424, 412),
+      22,
+      Paint()
+        ..color = const Color(0xFFFFD96A).withValues(alpha: 0.12 * lampPulse)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 11),
+    );
+    canvas.drawCircle(
+      const Offset(424, 412),
+      6,
+      Paint()..color = const Color(0xFFFFE48B).withValues(alpha: lampPulse),
+    );
+
+    for (int pot = 0; pot < 2; pot += 1) {
+      final Offset base = pot == 0
+          ? const Offset(322, 531)
+          : const Offset(449, 502);
+      canvas.drawOval(
+        Rect.fromCenter(center: base, width: 30, height: 12),
+        Paint()..color = const Color(0xFF6D4428),
+      );
+      canvas.drawPath(
+        Path()
+          ..moveTo(base.dx - 12, base.dy)
+          ..lineTo(base.dx + 12, base.dy)
+          ..lineTo(base.dx + 8, base.dy + 24)
+          ..lineTo(base.dx - 8, base.dy + 24)
+          ..close(),
+        Paint()..color = const Color(0xFFA76339),
+      );
+      for (int leaf = 0; leaf < 5; leaf += 1) {
+        final double angle = -2.7 + leaf * 0.65;
+        final double sway = sin(time * 1.4 + leaf + pot) * 2;
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: base + Offset(cos(angle) * 13 + sway, -9 + sin(angle) * 9),
+            width: 13,
+            height: 7,
+          ),
+          Paint()
+            ..color = leaf.isEven
+                ? const Color(0xFF4A8C43)
+                : const Color(0xFF75A84B),
+        );
+      }
+    }
+
+    if (_tier >= 2) {
+      final Path solarPanel = polygon([
+        Offset(301, 181 - roofLift),
+        Offset(361, 208 - roofLift),
+        Offset(335, 236 - roofLift),
+        Offset(273, 207 - roofLift),
+      ]);
+      canvas.drawPath(solarPanel, Paint()..color = const Color(0xFF244E66));
+      canvas.drawPath(
+        solarPanel,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3
+          ..color = const Color(0xFF9ED4E3),
+      );
+    }
+
+    if (houseActive) {
+      final double pulse = 0.46 + (sin(time * 3) + 1) * 0.14;
+      canvas.drawPath(
+        frontWall,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 7
+          ..color = const Color(0xFFFFE774).withValues(alpha: pulse),
+      );
+      canvas.drawPath(
+        roofFront,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 7
+          ..color = const Color(0xFFFFE774).withValues(alpha: pulse),
+      );
+    }
+    canvas.restore();
+  }
+
+  // Kept temporarily so older scene snapshots can still be compared locally.
+  // ignore: unused_element
   void _drawIsometricHouse(Canvas canvas) {
     final double levelLift = _tier * 10;
     final Color wallFront = Color.lerp(house.wallColor, Colors.white, 0.12)!;
@@ -11932,11 +12668,72 @@ class _BuilderBackyardPainter extends CustomPainter {
   }
 
   void _drawLivingDetails(Canvas canvas, Size size) {
-    final Paint hedge = Paint()
-      ..color = _night ? const Color(0xFF25543B) : const Color(0xFF4C9943);
-    for (double y = 170; y < size.height - 100; y += 82) {
-      canvas.drawCircle(Offset(52, y), 28, hedge);
-      canvas.drawCircle(Offset(size.width - 54, y + 35), 30, hedge);
+    void drawShrub(Offset center, int index) {
+      final double breeze = sin(time * 1.25 + index * 0.9) * 2.4;
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: center + const Offset(3, 18),
+          width: 66,
+          height: 25,
+        ),
+        Paint()
+          ..color = const Color(0x47182B15)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+      final List<Color> colors = _night
+          ? const [Color(0xFF1D4935), Color(0xFF2E6240), Color(0xFF3C7148)]
+          : const [
+              Color(0xFF2F7135),
+              Color(0xFF4C9440),
+              Color(0xFF6BA648),
+              Color(0xFF3A813C),
+            ];
+      for (int lobe = 0; lobe < 7; lobe += 1) {
+        final double angle = lobe * pi * 2 / 7 + index * 0.31;
+        final double radius = 19 + ((index + lobe * 3) % 9).toDouble();
+        final Offset lobeCenter =
+            center +
+            Offset(
+              cos(angle) * (16 + lobe % 3 * 4) + breeze * (0.2 + lobe * 0.04),
+              sin(angle) * 13 - (lobe.isEven ? 5 : 0),
+            );
+        canvas.drawCircle(
+          lobeCenter,
+          radius,
+          Paint()..color = colors[(index + lobe) % colors.length],
+        );
+        canvas.drawCircle(
+          lobeCenter - const Offset(5, 6),
+          radius * 0.34,
+          Paint()..color = Colors.white.withValues(alpha: 0.055),
+        );
+      }
+      for (int tip = 0; tip < 4; tip += 1) {
+        final double angle = -2.7 + tip * 0.82;
+        canvas.save();
+        canvas.translate(
+          center.dx + cos(angle) * 26 + breeze,
+          center.dy + sin(angle) * 17,
+        );
+        canvas.rotate(angle + breeze * 0.015);
+        canvas.drawOval(
+          Rect.fromCenter(center: Offset.zero, width: 15, height: 7),
+          Paint()
+            ..color = tip.isEven
+                ? const Color(0xFF75AD4D)
+                : const Color(0xFF4C8B3F),
+        );
+        canvas.restore();
+      }
+    }
+
+    for (int i = 0; i < 13; i += 1) {
+      final double y = 210 + i * 132 + (i % 3) * 17;
+      drawShrub(Offset(24 + (i % 4) * 7, y), i);
+    }
+    for (int i = 0; i < 12; i += 1) {
+      final double y = 260 + i * 139 + (i % 4) * 13;
+      drawShrub(Offset(size.width - 26 - (i % 3) * 6, y), i + 17);
     }
 
     final int flowerCount = 42 + _tier * 8;
