@@ -36,7 +36,7 @@ enum TargetType { weed, flower, bonus, reward }
 
 enum TutorialStep { slashWeed, avoidFlowers, toughWeed, useIce, frozenSlash }
 
-enum GardenTool { plant, move, water, build, sun }
+enum GardenTool { harvest, plant, water, build, move, sun }
 
 enum GardenAmbient { petals, bambooLeaves, fireflies, snow }
 
@@ -152,6 +152,22 @@ class GardenMarketOrder {
     required this.pointReward,
   });
 
+  final String produce;
+  final int quantity;
+  final int coinReward;
+  final int pointReward;
+}
+
+class GardenCustomerOrder {
+  const GardenCustomerOrder({
+    required this.customer,
+    required this.produce,
+    required this.quantity,
+    required this.coinReward,
+    required this.pointReward,
+  });
+
+  final String customer;
   final String produce;
   final int quantity;
   final int coinReward;
@@ -712,7 +728,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   DateTime _lastSfxPlayed = DateTime.fromMillisecondsSinceEpoch(0);
   GamePhase _phase = GamePhase.home;
   GamePhase _phaseBeforePause = GamePhase.home;
-  GardenTool _gardenTool = GardenTool.water;
+  GardenTool _gardenTool = GardenTool.harvest;
   ForceUpdateState _forceUpdateState = ForceUpdateState.idle;
 
   int _nextTargetId = 1;
@@ -744,12 +760,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int _gardenBestStreak = 1;
   int _gardenMood = 62;
   int _gardenCompost = 0;
+  int _gardenBouquets = 0;
   int _gardenApples = 0;
   int _gardenLemons = 0;
   int _gardenOranges = 0;
   int _gardenPondWater = 4;
   int _gardenMarketSales = 0;
+  int _gardenCustomersServed = 0;
+  int _gardenCustomerOrderIndex = 0;
   int _gardenHeartPoints = 12;
+  int? _gardenCustomerNextAtMs;
   int? _gardenLawnLastMowedMs;
   int? _gardenPondRefillMs;
   int? _gardenGiftPlotId;
@@ -783,7 +803,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   double _gardenWeedTimer = 90;
   double _gardenMessageLife = 0;
   double _gardenHeartPulse = 0;
+  double _gardenCustomerCelebration = 0;
+  double _gardenCutBurst = 0;
   double _motionTime = 0;
+  int? _gardenCutPlotId;
   Offset? _lastSlashPoint;
   Offset _gardenCaretakerPosition = const Offset(360, 760);
   Offset _gardenCaretakerTarget = const Offset(360, 760);
@@ -872,6 +895,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           ? '${duration.inHours}h'
           : '${duration.inHours}h ${minutes}m';
     }
+    if (duration.inMinutes < 1) {
+      return '${max(1, duration.inSeconds)}s';
+    }
     return '${max(1, duration.inMinutes)}m';
   }
 
@@ -928,6 +954,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       0,
       (data['gardenCompost'] as num?)?.toInt() ?? _gardenCompost,
     );
+    _gardenBouquets = max(
+      0,
+      (data['gardenBouquets'] as num?)?.toInt() ?? _gardenBouquets,
+    );
     _gardenApples = max(
       0,
       (data['gardenApples'] as num?)?.toInt() ?? _gardenApples,
@@ -948,6 +978,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       0,
       (data['gardenMarketSales'] as num?)?.toInt() ?? _gardenMarketSales,
     );
+    _gardenCustomersServed = max(
+      0,
+      (data['gardenCustomersServed'] as num?)?.toInt() ??
+          _gardenCustomersServed,
+    );
+    _gardenCustomerOrderIndex = max(
+      0,
+      (data['gardenCustomerOrderIndex'] as num?)?.toInt() ??
+          _gardenCustomerOrderIndex,
+    );
+    _gardenCustomerNextAtMs = (data['gardenCustomerNextAtMs'] as num?)?.toInt();
     _gardenHeartPoints = max(
       0,
       (data['gardenHeartPoints'] as num?)?.toInt() ??
@@ -1047,7 +1088,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   Map<String, dynamic> _gardenSavePayload() {
     return {
-      'version': 6,
+      'version': 7,
       'seeds': _seeds,
       'waterCharges': _waterCharges,
       'sunDrops': _sunDrops,
@@ -1057,11 +1098,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       'gardenHarvests': _gardenHarvests,
       'gardenMood': _gardenMood,
       'gardenCompost': _gardenCompost,
+      'gardenBouquets': _gardenBouquets,
       'gardenApples': _gardenApples,
       'gardenLemons': _gardenLemons,
       'gardenOranges': _gardenOranges,
       'gardenPondWater': _gardenPondWater,
       'gardenMarketSales': _gardenMarketSales,
+      'gardenCustomersServed': _gardenCustomersServed,
+      'gardenCustomerOrderIndex': _gardenCustomerOrderIndex,
+      'gardenCustomerNextAtMs': _gardenCustomerNextAtMs,
       'gardenHeartPoints': _gardenHeartPoints,
       'gardenLawnLastMowedMs': _gardenLawnLastMowedMs,
       'gardenPondRefillMs': _gardenPondRefillMs,
@@ -1442,6 +1487,182 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   int get _gardenFruitTotal => _gardenApples + _gardenLemons + _gardenOranges;
 
+  int get _gardenProduceTotal => _gardenBouquets + _gardenFruitTotal;
+
+  String _gardenProduceForOption(GardenPlantOption option) {
+    return switch (option.name) {
+      'Apple Tree' => 'Apple',
+      'Lemon Tree' => 'Lemon',
+      'Orange Tree' => 'Orange',
+      _ => 'Bouquet',
+    };
+  }
+
+  IconData _gardenProduceIcon(String produce) {
+    return switch (produce) {
+      'Apple' => Icons.apple_rounded,
+      'Lemon' => Icons.circle_rounded,
+      'Orange' => Icons.circle_rounded,
+      _ => Icons.local_florist_rounded,
+    };
+  }
+
+  Color _gardenProduceColor(String produce) {
+    return switch (produce) {
+      'Apple' => const Color(0xFFD94B3E),
+      'Lemon' => const Color(0xFFF4CE3C),
+      'Orange' => const Color(0xFFF28A31),
+      _ => const Color(0xFFE978A6),
+    };
+  }
+
+  String _gardenProduceLabel(String produce, int quantity) {
+    final String lower = produce.toLowerCase();
+    return '$quantity $lower${quantity == 1 ? '' : 's'}';
+  }
+
+  bool _gardenHasProduceSource(String produce) {
+    if (_gardenFruitCount(produce) > 0) {
+      return true;
+    }
+    return _playerGardenPlots.any(
+      (plot) =>
+          plot.planted &&
+          _gardenProduceForOption(_plantOptionForPlot(plot)) == produce,
+    );
+  }
+
+  GardenCustomerOrder get _gardenCustomerOrder {
+    final List<String> producePool = [
+      'Bouquet',
+      if (_gardenHasProduceSource('Apple')) 'Apple',
+      if (_gardenHasProduceSource('Lemon')) 'Lemon',
+      if (_gardenHasProduceSource('Orange')) 'Orange',
+    ];
+    const List<String> customers = ['Maya', 'Theo', 'June', 'Ari', 'Nora'];
+    final int index = _gardenCustomerOrderIndex;
+    final String produce = producePool[index % producePool.length];
+    final int quantity = produce == 'Bouquet'
+        ? 1 + ((index ~/ producePool.length) % 2)
+        : 1 + ((index + _gardenHouseTier) % 2);
+    final int basePrice = switch (produce) {
+      'Apple' => 22,
+      'Lemon' => 30,
+      'Orange' => 38,
+      _ => 26,
+    };
+    return GardenCustomerOrder(
+      customer: customers[index % customers.length],
+      produce: produce,
+      quantity: quantity,
+      coinReward: quantity * basePrice * 2 + 18 + _gardenLevel * 5,
+      pointReward: 24 + quantity * 12 + _gardenHouseTier * 8,
+    );
+  }
+
+  bool get _gardenCustomerAvailable {
+    final int? nextAt = _gardenCustomerNextAtMs;
+    return nextAt == null || _gardenNow.millisecondsSinceEpoch >= nextAt;
+  }
+
+  Duration get _gardenCustomerWait {
+    final int remaining = max(
+      0,
+      (_gardenCustomerNextAtMs ?? _gardenNow.millisecondsSinceEpoch) -
+          _gardenNow.millisecondsSinceEpoch,
+    );
+    return Duration(milliseconds: remaining);
+  }
+
+  bool get _canServeGardenCustomer {
+    final GardenCustomerOrder order = _gardenCustomerOrder;
+    return _gardenCustomerAvailable &&
+        _gardenFruitCount(order.produce) >= order.quantity;
+  }
+
+  void _focusGardenCustomerProduce() {
+    final GardenCustomerOrder order = _gardenCustomerOrder;
+    _gardenTool = GardenTool.harvest;
+    final PlayerGardenPlot? ready = _playerGardenPlots
+        .where(
+          (plot) =>
+              _isGardenPlotUnlocked(plot) &&
+              plot.ready &&
+              !plot.weed &&
+              _gardenProduceForOption(_plantOptionForPlot(plot)) ==
+                  order.produce,
+        )
+        .firstOrNull;
+    if (ready != null) {
+      ready.sparkle = 1;
+      _guideGardenCaretakerToPlot(ready);
+      _gardenMessage =
+          '${order.customer} needs ${_gardenProduceLabel(order.produce, order.quantity)} - cut the glowing crop';
+      _gardenMessageLife = 2.8;
+      return;
+    }
+
+    final PlayerGardenPlot? growing = _playerGardenPlots
+        .where(
+          (plot) =>
+              _isGardenPlotUnlocked(plot) &&
+              plot.planted &&
+              _gardenProduceForOption(_plantOptionForPlot(plot)) ==
+                  order.produce,
+        )
+        .firstOrNull;
+    if (growing != null) {
+      _gardenMessage =
+          '${order.customer} is waiting - ${_plantOptionForPlot(growing).name} is ready in ${_durationLabel(_remainingGardenTime(growing, _gardenNow))}';
+      _gardenMessageLife = 2.8;
+      return;
+    }
+
+    _gardenTool = GardenTool.plant;
+    _gardenMessage = order.produce == 'Bouquet'
+        ? 'Plant any flower to fill ${order.customer}\'s bouquet order'
+        : 'Plant an ${order.produce} Tree for ${order.customer}\'s order';
+    _gardenMessageLife = 2.8;
+  }
+
+  void _handleGardenCustomerAction() {
+    setState(() {
+      if (!_gardenCustomerAvailable) {
+        _gardenMessage =
+            'Next customer arrives in ${_durationLabel(_gardenCustomerWait)}';
+        _gardenMessageLife = 2.0;
+        return;
+      }
+      if (!_canServeGardenCustomer) {
+        _focusGardenCustomerProduce();
+        _playSfx(_sfxCrispLeaf, volume: 0.36);
+        return;
+      }
+
+      final GardenCustomerOrder order = _gardenCustomerOrder;
+      final int stock = _gardenFruitCount(order.produce);
+      _setGardenFruitCount(order.produce, stock - order.quantity);
+      _seeds += order.coinReward;
+      _gardenPoints += order.pointReward;
+      _score += order.pointReward;
+      _gardenMarketSales += order.coinReward;
+      _gardenCustomersServed += 1;
+      _gardenCustomerOrderIndex += 1;
+      _gardenCustomerNextAtMs = _gardenNow
+          .add(const Duration(seconds: 20))
+          .millisecondsSinceEpoch;
+      _gardenCustomerCelebration = 1;
+      _guideGardenCaretaker(const Offset(700, 748));
+      _bumpGardenMood(4);
+      _nurtureGardenHeart(2);
+      _gardenMessage =
+          '${order.customer} bought ${_gardenProduceLabel(order.produce, order.quantity)}: +${order.coinReward} coins';
+      _gardenMessageLife = 3.0;
+      _playSfx(_sfxComboSpark, volume: 0.62);
+    });
+    _queueGardenSave();
+  }
+
   double get _gardenLawnGrowth {
     final int? lastMowedMs = _gardenLawnLastMowedMs;
     if (lastMowedMs == null) {
@@ -1494,6 +1715,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   int _gardenFruitCount(String fruit) {
     return switch (fruit) {
+      'Bouquet' => _gardenBouquets,
       'Apple' => _gardenApples,
       'Lemon' => _gardenLemons,
       'Orange' => _gardenOranges,
@@ -1504,6 +1726,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void _setGardenFruitCount(String fruit, int count) {
     final int safeCount = max(0, count);
     switch (fruit) {
+      case 'Bouquet':
+        _gardenBouquets = safeCount;
       case 'Apple':
         _gardenApples = safeCount;
       case 'Lemon':
@@ -1519,6 +1743,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   int _gardenFruitPrice(String fruit) {
     final int basePrice = switch (fruit) {
+      'Bouquet' => 26,
       'Apple' => 22,
       'Lemon' => 30,
       'Orange' => 38,
@@ -1646,7 +1871,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _showGardenHeartPanel = false;
       _showGardenMarketPanel = true;
       _gardenNurseryPlotId = null;
-      _guideGardenCaretaker(const Offset(706, 1218));
+      _guideGardenCaretaker(const Offset(700, 748));
       _gardenMessageLife = 0;
     });
     _playSfx(_sfxCrispLeaf, volume: 0.4);
@@ -1655,9 +1880,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void _closeGardenMarket() {
     setState(() {
       _showGardenMarketPanel = false;
-      _gardenMessage = _gardenFruitTotal > 0
-          ? 'Fruit saved in the pantry for the next market visit'
-          : 'Grow fruit trees to stock the produce market';
+      _gardenMessage = _gardenProduceTotal > 0
+          ? 'Produce saved in the stand basket'
+          : 'Cut flowers or fruit to stock the garden stand';
       _gardenMessageLife = 2.0;
     });
   }
@@ -1715,7 +1940,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _gardenTool = GardenTool.plant;
       } else if (!_gardenDailyWaterDone) {
         _gardenTool = GardenTool.water;
-      } else if (!_gardenDailyCollectDone || !_gardenDailyTidyDone) {
+      } else if (!_gardenDailyCollectDone) {
+        _gardenTool = GardenTool.harvest;
+      } else if (!_gardenDailyTidyDone) {
         _gardenTool = GardenTool.build;
       }
     });
@@ -1723,16 +1950,18 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   void _sellAllGardenFruit() {
     setState(() {
-      final int total = _gardenFruitTotal;
+      final int total = _gardenProduceTotal;
       if (total <= 0) {
         _gardenMessage = 'The produce crates are empty';
         _gardenMessageLife = 1.8;
         return;
       }
       final int coins =
+          _gardenBouquets * _gardenFruitPrice('Bouquet') +
           _gardenApples * _gardenFruitPrice('Apple') +
           _gardenLemons * _gardenFruitPrice('Lemon') +
           _gardenOranges * _gardenFruitPrice('Orange');
+      _gardenBouquets = 0;
       _gardenApples = 0;
       _gardenLemons = 0;
       _gardenOranges = 0;
@@ -1740,7 +1969,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _gardenMarketSales += coins;
       _gardenPoints += total * 4;
       _bumpGardenMood(min(8, total));
-      _gardenMessage = 'Market sold $total fruit for $coins coins';
+      _gardenMessage = 'Garden stand sold $total items for $coins coins';
       _gardenMessageLife = 2.8;
       _playSfx(_sfxComboSpark, volume: 0.58);
     });
@@ -3108,7 +3337,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _refreshGardenPond(now);
       _refreshAllGardenPlots(now);
       _phase = GamePhase.garden;
-      _gardenTool = GardenTool.plant;
+      _gardenTool = GardenTool.harvest;
       _gardenMovingPlotId = null;
       _gardenMessageLife = 0;
       _gardenSessionWeedSpawns = 0;
@@ -3212,7 +3441,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   bool _isGardenPlotVisible(PlayerGardenPlot plot) {
-    return plot.unlockLevel <= _currentGardenHouse.maxGardenLevel + 1;
+    if (_isGardenPlotUnlocked(plot)) {
+      return true;
+    }
+    if (plot.unlockLevel == _gardenLevel + 1 &&
+        plot.unlockLevel <= _currentGardenHouse.maxGardenLevel) {
+      return true;
+    }
+    return _gardenTool == GardenTool.build &&
+        _gardenLevel >= _currentGardenHouse.maxGardenLevel &&
+        plot.unlockLevel == _currentGardenHouse.maxGardenLevel + 1;
   }
 
   int get _gardenExpandCost => 260 + ((_gardenLevel - 1) * 180);
@@ -3485,7 +3723,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   String _gardenPlotStatus(PlayerGardenPlot plot, DateTime now) {
     if (plot.weed) {
-      return _gardenTool == GardenTool.build ? 'Clear weed' : 'Needs Build';
+      return _gardenTool == GardenTool.harvest ? 'CUT WEED' : 'Weed';
     }
     if (_gardenTool == GardenTool.move) {
       if (_gardenMovingPlotId == plot.id) {
@@ -3506,7 +3744,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return 'Upgrade Lv ${plot.upgradeLevel + 1}';
     }
     if (plot.ready) {
-      return 'Ready';
+      final String produce = _gardenProduceForOption(_plantOptionForPlot(plot));
+      return _gardenTool == GardenTool.harvest
+          ? 'CUT ${produce.toUpperCase()}'
+          : 'Ready to cut';
     }
     if (!_isWateredToday(plot, now)) {
       return 'Water me';
@@ -3554,6 +3795,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _stepGardenCaretaker(dt);
     _gardenMessageLife = max(0, _gardenMessageLife - dt);
     _gardenHeartPulse = max(0, _gardenHeartPulse - dt * 0.72);
+    _gardenCustomerCelebration = max(0, _gardenCustomerCelebration - dt * 0.85);
+    _gardenCutBurst = max(0, _gardenCutBurst - dt * 2.1);
+    if (_gardenCutBurst <= 0) {
+      _gardenCutPlotId = null;
+    }
     _gardenWeedTimer -= dt;
 
     for (final plot in _playerGardenPlots) {
@@ -3643,6 +3889,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _gardenMovingPlotId = null;
       }
       _gardenMessage = switch (tool) {
+        GardenTool.harvest => 'Cut glowing crops and weeds for the stand',
         GardenTool.plant => 'Tap an empty plot to open nursery',
         GardenTool.move => 'Tap a plant, then tap its new empty bed',
         GardenTool.water => 'Tap growing plants to water',
@@ -3733,10 +3980,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       }
 
       if (plot.weed) {
-        if (_gardenTool == GardenTool.build) {
+        if (_gardenTool == GardenTool.harvest ||
+            _gardenTool == GardenTool.build) {
           _clearGardenWeed(plot);
         } else {
-          _gardenMessage = 'Choose Build to clear this weed';
+          _gardenMessage = 'Choose Cut to clear this weed';
           _gardenMessageLife = 2.1;
         }
         return;
@@ -3755,6 +4003,18 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       }
       if (plot.ready) {
         _collectGardenBlooms(plot);
+        return;
+      }
+      if (_gardenTool == GardenTool.harvest) {
+        final GardenPlantOption option = _plantOptionForPlot(plot);
+        _gardenMessage =
+            '${option.name} is ready in ${_durationLabel(_remainingGardenTime(plot, _gardenNow))}';
+        _gardenMessageLife = 2.1;
+        return;
+      }
+      if (_gardenTool == GardenTool.plant) {
+        _gardenMessage = 'This bed is already planted';
+        _gardenMessageLife = 1.8;
         return;
       }
       if (_gardenTool == GardenTool.sun) {
@@ -4132,6 +4392,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return;
     }
 
+    _gardenCutPlotId = plot.id;
+    _gardenCutBurst = 1;
     plot.weed = false;
     plot.sparkle = 1;
     _seeds += 18;
@@ -4204,6 +4466,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
 
     final GardenPlantOption option = _plantOptionForPlot(plot);
+    final String produce = _gardenProduceForOption(option);
     final int upgradeBonus = plot.upgradeLevel - 1;
     final int pointReward =
         option.points + ((plot.unlockLevel - 1) * 35) + (upgradeBonus * 60);
@@ -4211,18 +4474,19 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _gardenSeedRewardFor(option) +
         ((plot.unlockLevel - 1) * 10) +
         (upgradeBonus * 24);
-    final String? fruit = switch (option.name) {
-      'Apple Tree' => 'Apple',
-      'Lemon Tree' => 'Lemon',
-      'Orange Tree' => 'Orange',
-      _ => null,
-    };
+    final String? fruit = produce == 'Bouquet' ? null : produce;
     final int fruitCount = fruit == null
         ? 0
         : 2 +
               plot.upgradeLevel +
               (_gardenMood >= 82 ? 1 : 0) +
               ((_gardenPlantCareLevel(plot) - 1) ~/ 2);
+    final int bouquetCount = fruit == null
+        ? 1 +
+              plot.upgradeLevel +
+              (_gardenMood >= 82 ? 1 : 0) +
+              ((_gardenPlantCareLevel(plot) - 1) ~/ 2)
+        : 0;
     final int coinReward = fruit == null
         ? seedReward
         : max(12, seedReward ~/ 4);
@@ -4231,6 +4495,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _seeds += coinReward;
     if (fruit != null) {
       _addGardenFruit(fruit, fruitCount);
+    } else {
+      _gardenBouquets += bouquetCount;
     }
     if (option.name == 'Blue Bell') {
       _waterCharges = min(12, _waterCharges + 1);
@@ -4263,21 +4529,23 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     plot.growth = _gardenOptionIsTree(option) ? 0.82 : 0.76;
     plot.watered = false;
     plot.sparkle = 1;
+    _gardenCutPlotId = plot.id;
+    _gardenCutBurst = 1;
     _nurtureGardenHeart(2, plot: plot, plantCare: 2);
     final String harvestLabel = _gardenHarvestLabel(option);
     if (fruit != null) {
       _gardenMessage =
-          'Picked $fruitCount ${fruit.toLowerCase()}s: +$pointReward pts, +$coinReward coins';
+          'Cut $fruitCount ${fruit.toLowerCase()}s for the stand: +$pointReward pts, +$coinReward coins';
     } else if (_gardenOptionIsTree(option)) {
       _gardenMessage =
           'Collected $harvestLabel: +$pointReward pts, +$coinReward coins';
     } else {
       _gardenMessage =
-          'Collected blooms: +$pointReward pts, +$coinReward coins';
+          'Cut $bouquetCount bouquets for the stand: +$pointReward pts, +$coinReward coins';
     }
     _gardenMessageLife = 2.3;
     _completeDailyEcosystemTask(GardenEcosystemTask.collect, moodBoost: 5);
-    _playSfx(_sfxComboSpark, volume: 0.55);
+    _playSfx(_sfxBambooBlade, volume: 0.58);
   }
 
   PlayerGardenPlot? get _gardenGiftPlot {
@@ -5775,6 +6043,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 bottom: 112,
                 child: _buildGardenBuildTray(),
               ),
+            if (_gardenTool != GardenTool.build)
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 108,
+                child: _buildGardenCustomerOrderBar(),
+              ),
             Positioned(
               left: 12,
               right: 12,
@@ -5825,7 +6100,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   houseActive: _showGardenHousePanel,
                   lawnGrowth: _gardenLawnGrowth,
                   pondWater: _gardenPondWater,
-                  marketReady: _gardenFruitTotal > 0,
+                  marketReady: _gardenProduceTotal > 0,
                   heartLevel: _gardenHeartLevel,
                   heartPulse: _gardenHeartPulse,
                   tool: _gardenTool,
@@ -5870,21 +6145,22 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               _buildGardenHouseTarget(),
               _buildGardenHeartTarget(),
               _buildGardenLawnTarget(),
-              _buildGardenStation(
-                key: const ValueKey('garden-station-journal'),
-                position: const Offset(350, 524),
-                icon: Icons.menu_book_rounded,
-                title: 'Garden journal',
-                status: _gardenHabitatDay == _dayKey(_gardenNow)
-                    ? 'Checked in'
-                    : 'Daily bonus',
-                color: const Color(0xFF78A544),
-                ready: _gardenHabitatDay != _dayKey(_gardenNow),
-                onTap: () {
-                  _guideGardenCaretaker(const Offset(348, 590));
-                  _visitGardenJournal();
-                },
-              ),
+              if (_gardenTool == GardenTool.build)
+                _buildGardenStation(
+                  key: const ValueKey('garden-station-journal'),
+                  position: const Offset(350, 524),
+                  icon: Icons.menu_book_rounded,
+                  title: 'Garden journal',
+                  status: _gardenHabitatDay == _dayKey(_gardenNow)
+                      ? 'Checked in'
+                      : 'Daily bonus',
+                  color: const Color(0xFF78A544),
+                  ready: _gardenHabitatDay != _dayKey(_gardenNow),
+                  onTap: () {
+                    _guideGardenCaretaker(const Offset(348, 590));
+                    _visitGardenJournal();
+                  },
+                ),
               _buildGardenStation(
                 key: const ValueKey('garden-station-water'),
                 position: const Offset(438, 526),
@@ -5900,35 +6176,334 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   _collectGardenWaterBarrel();
                 },
               ),
-              _buildGardenStation(
-                key: const ValueKey('garden-station-compost'),
-                position: const Offset(342, 1050),
-                icon: Icons.recycling_rounded,
-                title: 'Compost mixer',
-                status: _gardenCompost > 0
-                    ? 'Mix x$_gardenCompost'
-                    : 'Clear to fill',
-                color: const Color(0xFF9A6B35),
-                ready: _gardenCompost > 0,
-                onTap: () {
-                  _guideGardenCaretaker(const Offset(342, 1058));
-                  _collectGardenCompost();
-                },
-              ),
+              if (_gardenTool == GardenTool.build)
+                _buildGardenStation(
+                  key: const ValueKey('garden-station-compost'),
+                  position: const Offset(342, 1050),
+                  icon: Icons.recycling_rounded,
+                  title: 'Compost mixer',
+                  status: _gardenCompost > 0
+                      ? 'Mix x$_gardenCompost'
+                      : 'Clear to fill',
+                  color: const Color(0xFF9A6B35),
+                  ready: _gardenCompost > 0,
+                  onTap: () {
+                    _guideGardenCaretaker(const Offset(342, 1058));
+                    _collectGardenCompost();
+                  },
+                ),
               _buildGardenStation(
                 key: const ValueKey('garden-produce-market'),
                 position: const Offset(800, 784),
                 icon: Icons.storefront_rounded,
-                title: 'Produce stall',
-                status: _gardenFruitTotal > 0
-                    ? 'Sell $_gardenFruitTotal fruit'
-                    : 'Grow fruit',
+                title: 'Garden stand',
+                status: _gardenCustomerAvailable
+                    ? '${_gardenCustomerOrder.customer} is waiting'
+                    : 'Next customer soon',
                 color: const Color(0xFFC47731),
-                ready: _gardenFruitTotal > 0,
+                ready: _gardenCustomerAvailable,
                 onTap: _openGardenMarket,
               ),
+              _buildGardenCustomerScene(),
               if (_gardenGiftPlot != null) _buildGardenGift(_gardenGiftPlot!),
               _buildGardenCaretaker(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGardenCustomerOrderBar() {
+    final GardenCustomerOrder order = _gardenCustomerOrder;
+    final int stock = _gardenFruitCount(order.produce);
+    final bool available = _gardenCustomerAvailable;
+    final bool canServe = _canServeGardenCustomer;
+    final bool celebrating = _gardenCustomerCelebration > 0;
+    final Color produceColor = _gardenProduceColor(order.produce);
+    final String actionLabel = available
+        ? canServe
+              ? 'SERVE'
+              : 'FIND'
+        : _durationLabel(_gardenCustomerWait);
+    final String customerAsset =
+        _avatarAssets[(_selectedAvatar + 1 + _gardenCustomerOrderIndex) %
+            _avatarAssets.length];
+
+    return GestureDetector(
+      key: const ValueKey('garden-customer-order-bar'),
+      behavior: HitTestBehavior.opaque,
+      onTap: _handleGardenCustomerAction,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        height: 72,
+        padding: const EdgeInsets.fromLTRB(7, 6, 7, 6),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: celebrating
+                ? const [Color(0xFFF0B63E), Color(0xFFB86B24)]
+                : const [Color(0xFFF8E8BD), Color(0xFFE7C782)],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: canServe ? const Color(0xFFFFE67A) : const Color(0xFF7A5528),
+            width: canServe ? 3 : 2,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x66000000),
+              blurRadius: 8,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 51,
+              height: 56,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: const Color(0xFFB8D97A),
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(color: const Color(0xFF5D7D38), width: 2),
+              ),
+              child: Transform.translate(
+                offset: const Offset(0, 7),
+                child: Image.asset(
+                  customerAsset,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                  filterQuality: FilterQuality.medium,
+                ),
+              ),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    celebrating
+                        ? 'SOLD - CUSTOMER HAPPY'
+                        : available
+                        ? '${order.customer.toUpperCase()} WANTS'
+                        : 'NEXT: ${order.customer.toUpperCase()}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF4C3218),
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(
+                        _gardenProduceIcon(order.produce),
+                        color: produceColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          '${order.quantity} ${order.produce.toUpperCase()}  BASKET $stock/${order.quantity}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF2E5726),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            minHeight: 5,
+                            value: order.quantity <= 0
+                                ? 0
+                                : (stock / order.quantity).clamp(0, 1),
+                            backgroundColor: const Color(0xFFC5B17D),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              canServe ? const Color(0xFF4D9B3B) : produceColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '+${order.coinReward}',
+                        style: const TextStyle(
+                          color: Color(0xFF8A5816),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 7),
+            Container(
+              key: const ValueKey('garden-customer-order-action'),
+              width: 63,
+              height: 49,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: canServe
+                    ? const Color(0xFF3F8F3D)
+                    : available
+                    ? const Color(0xFF315F42)
+                    : const Color(0xFF766D54),
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(color: const Color(0xFFFFEDAA), width: 2),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    canServe
+                        ? Icons.handshake_rounded
+                        : available
+                        ? Icons.content_cut_rounded
+                        : Icons.schedule_rounded,
+                    color: Colors.white,
+                    size: 21,
+                  ),
+                  Text(
+                    actionLabel,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGardenCustomerScene() {
+    final GardenCustomerOrder order = _gardenCustomerOrder;
+    final bool available = _gardenCustomerAvailable;
+    final bool canServe = _canServeGardenCustomer;
+    final double bob = sin(_motionTime * 2.2 + _gardenCustomerOrderIndex) * 4;
+    final double celebrate = _gardenCustomerCelebration.clamp(0.0, 1.0);
+    final String customerAsset =
+        _avatarAssets[(_selectedAvatar + 1 + _gardenCustomerOrderIndex) %
+            _avatarAssets.length];
+
+    return Positioned(
+      left: 728,
+      top: 486,
+      width: 182,
+      height: 238,
+      child: GestureDetector(
+        key: const ValueKey('garden-customer-scene'),
+        behavior: HitTestBehavior.opaque,
+        onTap: _handleGardenCustomerAction,
+        child: Opacity(
+          opacity: available ? 1 : 0.62,
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                top: 0,
+                left: 9,
+                right: 9,
+                child: Transform.translate(
+                  offset: Offset(0, bob * 0.35),
+                  child: Container(
+                    height: 58,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFDF8E8),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: canServe
+                            ? const Color(0xFFFFD858)
+                            : const Color(0xFF6D5131),
+                        width: 3,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x55000000),
+                          blurRadius: 7,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          available
+                              ? _gardenProduceIcon(order.produce)
+                              : Icons.schedule_rounded,
+                          color: available
+                              ? _gardenProduceColor(order.produce)
+                              : const Color(0xFF766D54),
+                          size: 28,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          available ? 'x${order.quantity}' : 'SOON',
+                          style: const TextStyle(
+                            color: Color(0xFF38532D),
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 53 + bob,
+                child: Transform.rotate(
+                  angle: sin(_motionTime * 1.5) * 0.02,
+                  child: Image.asset(
+                    customerAsset,
+                    width: 104,
+                    height: 142,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
+                  ),
+                ),
+              ),
+              if (celebrate > 0)
+                ...List<Widget>.generate(7, (index) {
+                  final double angle = index * pi * 2 / 7;
+                  return Positioned(
+                    left: 82 + cos(angle) * 68 * celebrate,
+                    top: 105 + sin(angle) * 74 * celebrate,
+                    child: Opacity(
+                      opacity: celebrate,
+                      child: const Icon(
+                        Icons.star_rounded,
+                        color: Color(0xFFFFD849),
+                        size: 21,
+                      ),
+                    ),
+                  );
+                }),
             ],
           ),
         ),
@@ -6407,7 +6982,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _gardenTool == GardenTool.move &&
         _gardenMovingPlotId != null;
     final bool moveSelected = _gardenMovingPlotId == plot.id;
-    final bool activeTarget = plantTarget || moveTarget || moveSelected;
+    final bool harvestTarget =
+        unlocked &&
+        _gardenTool == GardenTool.harvest &&
+        (plot.ready || plot.weed);
+    final bool activeTarget =
+        plantTarget || moveTarget || moveSelected || harvestTarget;
+    final bool cutBurst = _gardenCutPlotId == plot.id && _gardenCutBurst > 0;
     final bool showStatusBadge =
         unlocked && !plantTarget && (plot.weed || plot.planted || moveTarget);
     final bool nextLand =
@@ -6441,6 +7022,30 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             alignment: Alignment.center,
             clipBehavior: Clip.none,
             children: [
+              if (harvestTarget)
+                Positioned(
+                  bottom: 27,
+                  child: Transform.scale(
+                    scale: 1 + targetPulse * 0.1,
+                    child: Container(
+                      width: tree ? 126 : 104,
+                      height: tree ? 52 : 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0x33FFF07B),
+                        borderRadius: BorderRadius.circular(999),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFFFFDF58,
+                            ).withValues(alpha: 0.36 + targetPulse * 0.35),
+                            blurRadius: 18 + targetPulse * 10,
+                            spreadRadius: 5,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               if (activeTarget)
                 Positioned.fill(
                   child: IgnorePointer(
@@ -6521,15 +7126,33 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     filterQuality: FilterQuality.medium,
                   ),
                 ),
-              if (plot.ready && unlocked)
+              if (harvestTarget)
                 Positioned(
-                  top: 42,
-                  right: 34,
-                  child: Image.asset(
-                    'assets/images/icons/bloom_collect.png',
-                    width: 26,
-                    height: 26,
-                    filterQuality: FilterQuality.medium,
+                  right: 25,
+                  top: 30,
+                  child: Transform.scale(
+                    scale: 1 + targetPulse * 0.14,
+                    child: Container(
+                      width: 39,
+                      height: 39,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF7C842),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 3),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x88FFD83D),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.content_cut_rounded,
+                        color: Color(0xFF31552C),
+                        size: 23,
+                      ),
+                    ),
                   ),
                 ),
               if (showStatusBadge)
@@ -6607,6 +7230,25 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                         Icons.auto_awesome_rounded,
                         color: Color(0xFFFFF17A),
                         size: 54,
+                      ),
+                    ),
+                  ),
+                ),
+              if (cutBurst)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: _gardenCutBurst.clamp(0.0, 1.0),
+                      child: Transform.rotate(
+                        angle: -0.42,
+                        child: Transform.scale(
+                          scale: 0.82 + (1 - _gardenCutBurst) * 0.34,
+                          child: Image.asset(
+                            'assets/images/fx/slash_arc.png',
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.medium,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -7488,9 +8130,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                       onPressed: _openGardenMarket,
                       icon: const Icon(Icons.storefront_rounded, size: 22),
                       label: Text(
-                        _gardenFruitTotal > 0
-                            ? 'PRODUCE MARKET - $_gardenFruitTotal FRUIT'
-                            : 'OPEN PRODUCE MARKET',
+                        _gardenProduceTotal > 0
+                            ? 'GARDEN STAND - $_gardenProduceTotal ITEMS'
+                            : 'OPEN GARDEN STAND',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -7540,6 +8182,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   Widget _buildGardenMarketOverlay() {
     const Map<String, String> fruitAssets = {
+      'Bouquet': 'assets/images/sprites/pink_blossom_bush.png',
       'Apple': 'assets/images/sprites/tree_apple.png',
       'Lemon': 'assets/images/sprites/tree_lemon.png',
       'Orange': 'assets/images/sprites/tree_orange.png',
@@ -7703,7 +8346,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Produce Market',
+                              'Backyard Garden Stand',
                               style: TextStyle(
                                 color: Color(0xFF285320),
                                 fontSize: 21,
@@ -7711,7 +8354,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                               ),
                             ),
                             Text(
-                              'Pantry $_gardenFruitTotal - earned ${_formatNumber(_gardenMarketSales)} coins',
+                              'Basket $_gardenProduceTotal - served $_gardenCustomersServed customers',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -7857,6 +8500,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                       padding: EdgeInsets.zero,
                       physics: const BouncingScrollPhysics(),
                       children: [
+                        fruitRow('Bouquet'),
                         fruitRow('Apple'),
                         fruitRow('Lemon'),
                         fruitRow('Orange'),
@@ -7869,8 +8513,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     height: 56,
                     child: _PrimaryButton(
                       key: const ValueKey('garden-market-sell-all'),
-                      label: _gardenFruitTotal > 0
-                          ? 'SELL ALL $_gardenFruitTotal FRUIT'
+                      label: _gardenProduceTotal > 0
+                          ? 'SELL ALL $_gardenProduceTotal ITEMS'
                           : 'PANTRY EMPTY',
                       icon: Icons.savings_rounded,
                       onPressed: _sellAllGardenFruit,
@@ -8282,21 +8926,21 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       children: [
         Expanded(
           child: _GardenToolButton(
-            key: const ValueKey('garden-tool-plant'),
-            icon: Icons.spa_rounded,
-            label: 'Plant',
-            selected: _gardenTool == GardenTool.plant,
-            onTap: () => _selectGardenTool(GardenTool.plant),
+            key: const ValueKey('garden-tool-harvest'),
+            icon: Icons.content_cut_rounded,
+            label: 'Cut',
+            selected: _gardenTool == GardenTool.harvest,
+            onTap: () => _selectGardenTool(GardenTool.harvest),
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: _GardenToolButton(
-            key: const ValueKey('garden-tool-move'),
-            icon: Icons.open_with_rounded,
-            label: 'Move',
-            selected: _gardenTool == GardenTool.move,
-            onTap: () => _selectGardenTool(GardenTool.move),
+            key: const ValueKey('garden-tool-plant'),
+            icon: Icons.spa_rounded,
+            label: 'Plant',
+            selected: _gardenTool == GardenTool.plant,
+            onTap: () => _selectGardenTool(GardenTool.plant),
           ),
         ),
         const SizedBox(width: 10),
@@ -8408,6 +9052,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       ),
       child: Row(
         children: [
+          action(
+            key: const ValueKey('garden-tool-move'),
+            icon: Icons.open_with_rounded,
+            label: 'Move',
+            ready: true,
+            onTap: () => _selectGardenTool(GardenTool.move),
+          ),
+          const SizedBox(width: 5),
           action(
             key: const ValueKey('garden-build-mow'),
             icon: Icons.content_cut_rounded,
@@ -12097,6 +12749,42 @@ class _BuilderBackyardPainter extends CustomPainter {
               : const Color(0xFF65A946),
       );
     }
+
+    final Rect sign = Rect.fromLTWH(
+      counter.left + 15,
+      counter.top + 16,
+      counter.width - 58,
+      34,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(sign, const Radius.circular(6)),
+      Paint()..color = const Color(0xFF315F42),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(sign.deflate(3), const Radius.circular(4)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = const Color(0xFFF4D487),
+    );
+    final TextPainter signText = TextPainter(
+      text: const TextSpan(
+        text: 'GARDEN STAND',
+        style: TextStyle(
+          color: Color(0xFFFFF5D7),
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    signText.paint(
+      canvas,
+      Offset(
+        sign.center.dx - signText.width / 2,
+        sign.center.dy - signText.height / 2,
+      ),
+    );
   }
 
   void _drawCompost(Canvas canvas) {
@@ -12318,13 +13006,17 @@ class _BuilderBackyardPainter extends CustomPainter {
 
   void _drawIsometricPlotBeds(Canvas canvas) {
     for (final PlayerGardenPlot plot in plots) {
-      if (plot.unlockLevel > house.maxGardenLevel + 1) {
-        continue;
-      }
       final bool unlocked = plot.unlockLevel <= gardenLevel;
       final bool next =
           plot.unlockLevel == gardenLevel + 1 &&
           plot.unlockLevel <= house.maxGardenLevel;
+      final bool nextHouse =
+          tool == GardenTool.build &&
+          gardenLevel >= house.maxGardenLevel &&
+          plot.unlockLevel == house.maxGardenLevel + 1;
+      if (!unlocked && !next && !nextHouse) {
+        continue;
+      }
       final bool tree = plot.plantIndex != null && plot.plantIndex! >= 6;
       final double width = tree ? 174 : 168;
       final double height = tree ? 78 : 98;
@@ -12342,7 +13034,10 @@ class _BuilderBackyardPainter extends CustomPainter {
       final bool moveSelected = movingPlotId == plot.id;
       final bool plantTarget =
           tool == GardenTool.plant && !plot.planted && unlocked && !plot.weed;
-      final bool active = moveTarget || moveSelected || plantTarget;
+      final bool harvestTarget =
+          tool == GardenTool.harvest && unlocked && (plot.ready || plot.weed);
+      final bool active =
+          moveTarget || moveSelected || plantTarget || harvestTarget;
       final double pulse = (sin(time * 3.2 + plot.id) + 1) / 2;
 
       canvas.drawPath(
