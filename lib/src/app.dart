@@ -505,12 +505,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   ];
   static const List<GardenWorld> _gardenWorlds = [
     GardenWorld(
-      name: 'Orchard Grove',
+      name: 'Secret Garden Market',
       unlockPoints: 0,
-      ambient: GardenAmbient.petals,
-      accent: Color(0xFF91C957),
-      darkAccent: Color(0xFF315F1D),
-      bonus: 'Starter garden',
+      ambient: GardenAmbient.fireflies,
+      accent: Color(0xFFE9B85B),
+      darkAccent: Color(0xFF3E294D),
+      bonus: 'Lantern market opens at dusk',
     ),
     GardenWorld(
       name: 'Bamboo Zen',
@@ -521,12 +521,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       bonus: '+calm growth',
     ),
     GardenWorld(
-      name: 'Moon Lotus',
+      name: 'Orchard Grove',
       unlockPoints: 3200,
-      ambient: GardenAmbient.fireflies,
-      accent: Color(0xFF84D7FF),
-      darkAccent: Color(0xFF183B6A),
-      bonus: '+night blooms',
+      ambient: GardenAmbient.petals,
+      accent: Color(0xFF91C957),
+      darkAccent: Color(0xFF315F1D),
+      bonus: '+orchard harvests',
     ),
     GardenWorld(
       name: 'Winter Conservatory',
@@ -653,7 +653,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     PlayerGardenPlot(
       id: 2,
-      position: const Offset(704, 964),
+      position: const Offset(690, 875),
       unlockLevel: 1,
       asset: 'assets/images/sprites/blue_bell_bloom.png',
       plantIndex: 1,
@@ -662,46 +662,46 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     PlayerGardenPlot(
       id: 3,
-      position: const Offset(474, 1064),
+      position: const Offset(452, 1030),
       unlockLevel: 1,
       grassCut: true,
     ),
-    PlayerGardenPlot(id: 4, position: const Offset(704, 286), unlockLevel: 2),
-    PlayerGardenPlot(id: 5, position: const Offset(772, 456), unlockLevel: 3),
-    PlayerGardenPlot(id: 6, position: const Offset(788, 638), unlockLevel: 4),
-    PlayerGardenPlot(id: 7, position: const Offset(184, 1080), unlockLevel: 5),
-    PlayerGardenPlot(id: 8, position: const Offset(476, 1100), unlockLevel: 6),
-    PlayerGardenPlot(id: 9, position: const Offset(742, 1110), unlockLevel: 7),
-    PlayerGardenPlot(id: 10, position: const Offset(184, 1320), unlockLevel: 8),
-    PlayerGardenPlot(id: 11, position: const Offset(476, 1340), unlockLevel: 9),
+    PlayerGardenPlot(id: 4, position: const Offset(156, 684), unlockLevel: 2),
+    PlayerGardenPlot(id: 5, position: const Offset(376, 792), unlockLevel: 3),
+    PlayerGardenPlot(id: 6, position: const Offset(164, 1125), unlockLevel: 4),
+    PlayerGardenPlot(id: 7, position: const Offset(430, 1260), unlockLevel: 5),
+    PlayerGardenPlot(id: 8, position: const Offset(170, 1420), unlockLevel: 6),
+    PlayerGardenPlot(id: 9, position: const Offset(458, 1470), unlockLevel: 7),
+    PlayerGardenPlot(id: 10, position: const Offset(756, 1490), unlockLevel: 8),
+    PlayerGardenPlot(id: 11, position: const Offset(166, 1650), unlockLevel: 9),
     PlayerGardenPlot(
       id: 12,
-      position: const Offset(742, 1340),
+      position: const Offset(456, 1680),
       unlockLevel: 10,
     ),
     PlayerGardenPlot(
       id: 13,
-      position: const Offset(154, 1580),
+      position: const Offset(748, 1660),
       unlockLevel: 11,
     ),
     PlayerGardenPlot(
       id: 14,
-      position: const Offset(374, 1600),
+      position: const Offset(164, 1840),
       unlockLevel: 12,
     ),
     PlayerGardenPlot(
       id: 15,
-      position: const Offset(590, 1600),
+      position: const Offset(380, 1840),
       unlockLevel: 13,
     ),
     PlayerGardenPlot(
       id: 16,
-      position: const Offset(790, 1570),
+      position: const Offset(600, 1840),
       unlockLevel: 14,
     ),
     PlayerGardenPlot(
       id: 17,
-      position: const Offset(500, 1810),
+      position: const Offset(804, 1810),
       unlockLevel: 15,
     ),
   ];
@@ -1489,6 +1489,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   int get _gardenProduceTotal => _gardenBouquets + _gardenFruitTotal;
 
+  int get _gardenBasketCapacity => 24 + (_gardenHouseTier + 1) * 8;
+
   String _gardenProduceForOption(GardenPlantOption option) {
     return switch (option.name) {
       'Apple Tree' => 'Apple',
@@ -1652,7 +1654,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           .add(const Duration(seconds: 20))
           .millisecondsSinceEpoch;
       _gardenCustomerCelebration = 1;
-      _guideGardenCaretaker(const Offset(700, 748));
+      _guideGardenCaretaker(const Offset(710, 1260));
       _bumpGardenMood(4);
       _nurtureGardenHeart(2);
       _gardenMessage =
@@ -1871,7 +1873,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _showGardenHeartPanel = false;
       _showGardenMarketPanel = true;
       _gardenNurseryPlotId = null;
-      _guideGardenCaretaker(const Offset(700, 748));
+      _guideGardenCaretaker(const Offset(710, 1260));
       _gardenMessageLife = 0;
     });
     _playSfx(_sfxCrispLeaf, volume: 0.4);
@@ -3752,6 +3754,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (!_isWateredToday(plot, now)) {
       return 'Water me';
     }
+    if (_gardenTool == GardenTool.sun) {
+      return 'Add light';
+    }
     return _durationLabel(_remainingGardenTime(plot, now));
   }
 
@@ -3894,7 +3899,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         GardenTool.move => 'Tap a plant, then tap its new empty bed',
         GardenTool.water => 'Tap growing plants to water',
         GardenTool.build => 'Build mode: choose an action or tap a plant',
-        GardenTool.sun => 'Tap growing plants for sun boost',
+        GardenTool.sun => 'Tap a watered plant for a lantern growth boost',
       };
       _gardenMessageLife = 2.1;
     });
@@ -4357,12 +4362,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return;
     }
     if (!_isWateredToday(plot, now)) {
-      _gardenMessage = 'Water before using sun';
+      _gardenMessage = 'Water before adding lantern light';
       _gardenMessageLife = 2.0;
       return;
     }
     if (_sunDrops <= 0) {
-      _gardenMessage = 'Need sun drops';
+      _gardenMessage = 'Need lantern oil';
       _gardenMessageLife = 2.0;
       return;
     }
@@ -4379,7 +4384,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _nurtureGardenHeart(1, plot: plot, plantCare: 1);
     _gardenMessage = plot.ready
         ? '${option.name} blooms ready'
-        : 'Sun boost: ready in ${_durationLabel(_remainingGardenTime(plot, now))}';
+        : 'Lantern boost: ready in ${_durationLabel(_remainingGardenTime(plot, now))}';
     _gardenMessageLife = 2.2;
     _bumpGardenMood(2);
     _playSfx(_sfxComboSpark, volume: 0.56);
@@ -6020,7 +6025,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFF214F23), Color(0xFF0E2818)],
+                  colors: [Color(0xFF171A2D), Color(0xFF0A1420)],
                 ),
               ),
             ),
@@ -6142,6 +6147,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               for (final plot in _playerGardenPlots.where(_isGardenPlotVisible))
                 _buildGardenPlot(plot),
               _buildGardenPondTarget(),
+              _buildGardenMoonGateTarget(),
               _buildGardenHouseTarget(),
               _buildGardenHeartTarget(),
               _buildGardenLawnTarget(),
@@ -6194,13 +6200,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 ),
               _buildGardenStation(
                 key: const ValueKey('garden-produce-market'),
-                position: const Offset(800, 784),
+                position: const Offset(790, 1260),
                 icon: Icons.storefront_rounded,
-                title: 'Garden stand',
+                title: 'Night market',
                 status: _gardenCustomerAvailable
                     ? '${_gardenCustomerOrder.customer} is waiting'
                     : 'Next customer soon',
-                color: const Color(0xFFC47731),
+                color: const Color(0xFF8B5A9D),
                 ready: _gardenCustomerAvailable,
                 onTap: _openGardenMarket,
               ),
@@ -6242,11 +6248,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           gradient: LinearGradient(
             colors: celebrating
                 ? const [Color(0xFFF0B63E), Color(0xFFB86B24)]
-                : const [Color(0xFFF8E8BD), Color(0xFFE7C782)],
+                : const [Color(0xF23F2B4B), Color(0xF21F1A2B)],
           ),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: canServe ? const Color(0xFFFFE67A) : const Color(0xFF7A5528),
+            color: canServe ? const Color(0xFFFFE67A) : const Color(0xFFB89555),
             width: canServe ? 3 : 2,
           ),
           boxShadow: const [
@@ -6264,9 +6270,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               height: 56,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
-                color: const Color(0xFFB8D97A),
+                color: const Color(0xFF294C3C),
                 borderRadius: BorderRadius.circular(7),
-                border: Border.all(color: const Color(0xFF5D7D38), width: 2),
+                border: Border.all(color: const Color(0xFFD2AD63), width: 2),
               ),
               child: Transform.translate(
                 offset: const Offset(0, 7),
@@ -6293,7 +6299,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Color(0xFF4C3218),
+                      color: Color(0xFFFFE6AF),
                       fontSize: 9.5,
                       fontWeight: FontWeight.w900,
                     ),
@@ -6313,7 +6319,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: Color(0xFF2E5726),
+                            color: Color(0xFFE0F1C0),
                             fontSize: 11,
                             fontWeight: FontWeight.w900,
                           ),
@@ -6332,7 +6338,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                             value: order.quantity <= 0
                                 ? 0
                                 : (stock / order.quantity).clamp(0, 1),
-                            backgroundColor: const Color(0xFFC5B17D),
+                            backgroundColor: const Color(0xFF63566A),
                             valueColor: AlwaysStoppedAnimation<Color>(
                               canServe ? const Color(0xFF4D9B3B) : produceColor,
                             ),
@@ -6343,7 +6349,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                       Text(
                         '+${order.coinReward}',
                         style: const TextStyle(
-                          color: Color(0xFF8A5816),
+                          color: Color(0xFFFFD56F),
                           fontSize: 10,
                           fontWeight: FontWeight.w900,
                         ),
@@ -6409,8 +6415,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             _avatarAssets.length];
 
     return Positioned(
-      left: 728,
-      top: 486,
+      left: 634,
+      top: 1002,
       width: 182,
       height: 238,
       child: GestureDetector(
@@ -6433,12 +6439,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     height: 58,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFDF8E8),
+                      color: const Color(0xF23A2946),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: canServe
                             ? const Color(0xFFFFD858)
-                            : const Color(0xFF6D5131),
+                            : const Color(0xFFB89555),
                         width: 3,
                       ),
                       boxShadow: const [
@@ -6458,14 +6464,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                               : Icons.schedule_rounded,
                           color: available
                               ? _gardenProduceColor(order.produce)
-                              : const Color(0xFF766D54),
+                              : const Color(0xFFD8C39A),
                           size: 28,
                         ),
                         const SizedBox(width: 6),
                         Text(
                           available ? 'x${order.quantity}' : 'SOON',
                           style: const TextStyle(
-                            color: Color(0xFF38532D),
+                            color: Color(0xFFFFE6A5),
                             fontSize: 21,
                             fontWeight: FontWeight.w900,
                           ),
@@ -6618,7 +6624,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final double pulse = (sin(_motionTime * 2.1) + 1) / 2;
     final bool ready = _gardenPondWater > 0;
     return Positioned(
-      left: 42,
+      left: 562,
       top: 598,
       width: 300,
       height: 166,
@@ -6626,7 +6632,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         key: const ValueKey('garden-pond-reservoir'),
         behavior: HitTestBehavior.opaque,
         onTap: () {
-          _guideGardenCaretaker(const Offset(252, 704));
+          _guideGardenCaretaker(const Offset(772, 704));
           _collectGardenPondWater();
         },
         child: Align(
@@ -6681,6 +6687,67 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGardenMoonGateTarget() {
+    final int nextIndex = (_selectedGardenWorld + 1) % _gardenWorlds.length;
+    final GardenWorld nextWorld = _gardenWorldAt(nextIndex);
+    final bool unlocked = _isGardenWorldUnlocked(nextIndex);
+    final double pulse = (sin(_motionTime * 2.15) + 1) / 2;
+    return Positioned(
+      left: 626,
+      top: 142,
+      width: 274,
+      height: 278,
+      child: Semantics(
+        button: true,
+        label: unlocked
+            ? 'Enter ${nextWorld.name}'
+            : '${nextWorld.name} unlocks at ${nextWorld.unlockPoints} points',
+        child: GestureDetector(
+          key: const ValueKey('garden-moon-gate'),
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            _guideGardenCaretaker(const Offset(686, 390));
+            _selectGardenWorld(1);
+          },
+          child: Align(
+            alignment: const Alignment(0, 0.88),
+            child: Transform.scale(
+              scale: 1 + pulse * 0.04,
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xE73B2947),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: unlocked
+                        ? const Color(0xFFFFDB74)
+                        : const Color(0xFF9C8A82),
+                    width: 2.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFFD86A).withValues(
+                        alpha: unlocked ? 0.24 + pulse * 0.22 : 0.08,
+                      ),
+                      blurRadius: 12,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  unlocked ? Icons.door_sliding_rounded : Icons.lock_rounded,
+                  color: const Color(0xFFFFE6A5),
+                  size: 22,
+                ),
               ),
             ),
           ),
@@ -8881,12 +8948,25 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             ),
             const SizedBox(width: 4),
             Expanded(
-              flex: 8,
+              flex: 7,
               child: _GardenStatChip(
-                icon: Icons.eco_rounded,
+                icon: Icons.light_rounded,
                 value: _gardenPoints >= 1000
                     ? '${(_gardenPoints / 1000).toStringAsFixed(1)}k'
                     : '$_gardenPoints',
+              ),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              flex: 8,
+              child: GestureDetector(
+                key: const ValueKey('garden-resource-basket'),
+                behavior: HitTestBehavior.opaque,
+                onTap: _openGardenMarket,
+                child: _GardenStatChip(
+                  icon: Icons.shopping_basket_rounded,
+                  value: '$_gardenProduceTotal/$_gardenBasketCapacity',
+                ),
               ),
             ),
             const SizedBox(width: 4),
@@ -8928,7 +9008,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           child: _GardenToolButton(
             key: const ValueKey('garden-tool-harvest'),
             icon: Icons.content_cut_rounded,
-            label: 'Cut',
+            label: 'CUT',
             selected: _gardenTool == GardenTool.harvest,
             onTap: () => _selectGardenTool(GardenTool.harvest),
           ),
@@ -8938,7 +9018,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           child: _GardenToolButton(
             key: const ValueKey('garden-tool-plant'),
             icon: Icons.spa_rounded,
-            label: 'Plant',
+            label: 'PLANT',
             selected: _gardenTool == GardenTool.plant,
             onTap: () => _selectGardenTool(GardenTool.plant),
           ),
@@ -8946,11 +9026,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         const SizedBox(width: 10),
         Expanded(
           child: _GardenToolButton(
-            key: const ValueKey('garden-tool-water'),
-            icon: Icons.water_drop_rounded,
-            label: 'Water',
-            selected: _gardenTool == GardenTool.water,
-            onTap: () => _selectGardenTool(GardenTool.water),
+            key: const ValueKey('garden-tool-sun'),
+            icon: Icons.light_mode_rounded,
+            label: 'LIGHT',
+            selected: _gardenTool == GardenTool.sun,
+            badge: _sunDrops,
+            onTap: () => _selectGardenTool(GardenTool.sun),
           ),
         ),
         const SizedBox(width: 10),
@@ -8958,7 +9039,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           child: _GardenToolButton(
             key: const ValueKey('garden-tool-build'),
             icon: Icons.handyman_rounded,
-            label: 'Build',
+            label: 'BUILD',
             selected: _gardenTool == GardenTool.build,
             badge: _gardenBuildAttentionCount,
             onTap: () => _selectGardenTool(GardenTool.build),
@@ -10445,10 +10526,10 @@ class _GardenCompactProgressBoard extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF527C35), Color(0xFF294D2C)],
+          colors: [Color(0xFF5C3B69), Color(0xFF2B223C)],
         ),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFD9CCA1), width: 2),
+        border: Border.all(color: const Color(0xFFE0BD6A), width: 2),
         boxShadow: const [
           BoxShadow(
             color: Color(0x55000000),
@@ -10471,7 +10552,7 @@ class _GardenCompactProgressBoard extends StatelessWidget {
                 children: [
                   const Icon(
                     Icons.star_rounded,
-                    color: Color(0xFF8CCF4E),
+                    color: Color(0xFFE7B95B),
                     size: 42,
                     shadows: [
                       Shadow(
@@ -10775,11 +10856,14 @@ class _BuilderBackyardPainter extends CustomPainter {
     _drawGround(canvas, size);
     _drawIsometricFence(canvas, size);
     _drawPaths(canvas, size);
+    _drawMoonGate(canvas);
     _drawNaturalTownhouse(canvas);
     _drawIsometricPond(canvas);
+    _drawLavenderTerrace(canvas);
     _drawFacilities(canvas);
     _drawIsometricPlotBeds(canvas);
     _drawLivingDetails(canvas, size);
+    _drawLanternGarden(canvas);
     _drawMoodTint(canvas, size);
   }
 
@@ -11106,12 +11190,19 @@ class _BuilderBackyardPainter extends CustomPainter {
 
     final Path pondBranch = Path()
       ..moveTo(405, 690)
-      ..quadraticBezierTo(300, 650, 230, 642);
+      ..quadraticBezierTo(560, 640, 704, 662);
     _drawStonePath(canvas, pondBranch, 52);
 
+    if (_night) {
+      final Path moonGateBranch = Path()
+        ..moveTo(430, 610)
+        ..quadraticBezierTo(585, 495, 690, 345);
+      _drawStonePath(canvas, moonGateBranch, 46);
+    }
+
     final Path marketBranch = Path()
-      ..moveTo(420, 735)
-      ..quadraticBezierTo(610, 730, 755, 714);
+      ..moveTo(438, 1040)
+      ..quadraticBezierTo(594, 1102, 768, 1190);
     _drawStonePath(canvas, marketBranch, 54);
 
     final Path lowerBranch = Path()
@@ -11167,6 +11258,251 @@ class _BuilderBackyardPainter extends CustomPainter {
         canvas.restore();
       }
     }
+  }
+
+  void _drawMoonGate(Canvas canvas) {
+    if (!_night) {
+      return;
+    }
+
+    const Offset center = Offset(758, 278);
+    final Rect outer = Rect.fromCircle(center: center, radius: 123);
+    final Rect inner = Rect.fromCircle(center: center, radius: 88);
+    canvas.drawOval(
+      outer.shift(const Offset(11, 14)),
+      Paint()
+        ..color = const Color(0x66101417)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+    );
+    canvas.drawCircle(center, 123, Paint()..color = const Color(0xFF464A43));
+    canvas.drawCircle(center, 112, Paint()..color = const Color(0xFF767564));
+    canvas.drawCircle(center, 98, Paint()..color = const Color(0xFF292D2C));
+    canvas.drawCircle(
+      center,
+      89,
+      Paint()
+        ..shader = const RadialGradient(
+          center: Alignment(-0.3, -0.4),
+          colors: [Color(0xFF604A35), Color(0xFF251B18)],
+        ).createShader(inner),
+    );
+
+    for (int i = -3; i <= 3; i += 1) {
+      final double x = center.dx + i * 22;
+      canvas.drawLine(
+        Offset(x, center.dy - 77),
+        Offset(x, center.dy + 77),
+        Paint()
+          ..strokeWidth = 4
+          ..color = const Color(0xFF2B1C18).withValues(alpha: 0.78),
+      );
+    }
+    canvas.drawLine(
+      Offset(center.dx - 82, center.dy),
+      Offset(center.dx + 82, center.dy),
+      Paint()
+        ..strokeWidth = 7
+        ..color = const Color(0xFF221714),
+    );
+
+    final double lockPulse = (sin(time * 2.2) + 1) / 2;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: center + const Offset(0, 8),
+          width: 42,
+          height: 38,
+        ),
+        const Radius.circular(7),
+      ),
+      Paint()
+        ..color = Color.lerp(
+          const Color(0xFFAA7331),
+          const Color(0xFFFFD66A),
+          lockPulse * 0.45,
+        )!,
+    );
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: center - const Offset(0, 13),
+        width: 28,
+        height: 31,
+      ),
+      pi,
+      pi,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 7
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0xFFE8B956),
+    );
+    canvas.drawCircle(
+      center + const Offset(0, 6),
+      4,
+      Paint()..color = const Color(0xFF3B271A),
+    );
+
+    final Paint vine = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 7
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFF416439);
+    final Path leftVine = Path()
+      ..moveTo(center.dx - 104, center.dy + 38)
+      ..cubicTo(
+        center.dx - 146,
+        center.dy - 8,
+        center.dx - 114,
+        center.dy - 106,
+        center.dx - 38,
+        center.dy - 118,
+      );
+    final Path rightVine = Path()
+      ..moveTo(center.dx + 112, center.dy + 46)
+      ..cubicTo(
+        center.dx + 144,
+        center.dy - 18,
+        center.dx + 102,
+        center.dy - 104,
+        center.dx + 28,
+        center.dy - 116,
+      );
+    canvas.drawPath(leftVine, vine);
+    canvas.drawPath(rightVine, vine);
+    for (int i = 0; i < 30; i += 1) {
+      final double angle = -2.75 + i * 0.19;
+      final double radius = 112 + (i % 3) * 7;
+      final Offset bloom =
+          center + Offset(cos(angle) * radius, sin(angle) * radius);
+      final double sway = sin(time * 1.2 + i) * 2.2;
+      canvas.drawCircle(
+        bloom + Offset(sway, 0),
+        5 + (i % 3),
+        Paint()
+          ..color = i.isEven
+              ? const Color(0xFFB477D0)
+              : const Color(0xFF8152A7),
+      );
+      canvas.drawCircle(
+        bloom + Offset(sway - 1, -2),
+        1.8,
+        Paint()..color = const Color(0xFFE6C6F5),
+      );
+    }
+  }
+
+  void _drawLavenderTerrace(Canvas canvas) {
+    if (!_night) {
+      return;
+    }
+    final Paint stem = Paint()
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFF5A8447);
+    for (int i = 0; i < 64; i += 1) {
+      final bool leftRow = i < 38;
+      final int rowIndex = leftRow ? i : i - 38;
+      final double x = leftRow
+          ? 38 + (rowIndex % 10) * 25.0
+          : 260 + (rowIndex % 4) * 22.0;
+      final double y = leftRow
+          ? 760 + (rowIndex ~/ 10) * 58.0 + (rowIndex % 3) * 7
+          : 790 + (rowIndex ~/ 4) * 37.0;
+      final double height = 25 + (i % 5) * 4;
+      final double sway = sin(time * 1.5 + i * 0.47) * 3.2;
+      final Offset base = Offset(x, y);
+      final Offset top = Offset(x + sway, y - height);
+      canvas.drawLine(base, top, stem);
+      for (int bud = 0; bud < 4; bud += 1) {
+        canvas.drawCircle(
+          top + Offset((bud.isEven ? -1 : 1) * 3.2, bud * 5.0),
+          3.1,
+          Paint()
+            ..color = bud.isEven
+                ? const Color(0xFFB987DB)
+                : const Color(0xFF7650A2),
+        );
+      }
+    }
+  }
+
+  void _drawLanternGarden(Canvas canvas) {
+    if (!_night) {
+      return;
+    }
+    const List<Offset> lanterns = [
+      Offset(420, 566),
+      Offset(364, 684),
+      Offset(426, 830),
+      Offset(472, 996),
+      Offset(544, 1088),
+      Offset(644, 1152),
+      Offset(840, 1088),
+      Offset(304, 1190),
+      Offset(460, 1390),
+    ];
+    for (int i = 0; i < lanterns.length; i += 1) {
+      _drawLantern(canvas, lanterns[i], i);
+    }
+  }
+
+  void _drawLantern(Canvas canvas, Offset anchor, int index) {
+    final double bob = sin(time * 1.55 + index * 0.9) * 2.4;
+    final double pulse = (sin(time * 2.25 + index) + 1) / 2;
+    final Offset center = anchor + Offset(0, bob);
+    final Rect glowRect = Rect.fromCircle(
+      center: center,
+      radius: 46 + pulse * 8,
+    );
+    canvas.drawCircle(
+      center,
+      45 + pulse * 7,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFFFFE58A).withValues(alpha: 0.34 + pulse * 0.12),
+            const Color(0xFFFFB63E).withValues(alpha: 0),
+          ],
+        ).createShader(glowRect),
+    );
+    canvas.drawLine(
+      center + const Offset(0, 17),
+      center + const Offset(0, 39),
+      Paint()
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0xFF3C3029),
+    );
+    final Rect body = Rect.fromCenter(center: center, width: 24, height: 32);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(body, const Radius.circular(5)),
+      Paint()..color = const Color(0xFF5A3825),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(body.deflate(4), const Radius.circular(3)),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFFFFF0A5),
+            Color.lerp(
+              const Color(0xFFF0A535),
+              const Color(0xFFFFD85E),
+              pulse,
+            )!,
+          ],
+        ).createShader(body),
+    );
+    canvas.drawLine(
+      body.topLeft + const Offset(-2, 0),
+      body.topRight + const Offset(2, 0),
+      Paint()
+        ..strokeWidth = 4
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0xFF443027),
+    );
   }
 
   void _drawNaturalTownhouse(Canvas canvas) {
@@ -12410,6 +12746,8 @@ class _BuilderBackyardPainter extends CustomPainter {
   }
 
   void _drawIsometricPond(Canvas canvas) {
+    canvas.save();
+    canvas.translate(520, 0);
     final Path rim = Path()
       ..moveTo(46, 660)
       ..lineTo(222, 604)
@@ -12432,10 +12770,12 @@ class _BuilderBackyardPainter extends CustomPainter {
     canvas.drawPath(
       water,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF77D4E6), Color(0xFF2D8DAC)],
+          colors: _night
+              ? const [Color(0xFF2A7187), Color(0xFF123F64)]
+              : const [Color(0xFF77D4E6), Color(0xFF2D8DAC)],
         ).createShader(water.getBounds()),
     );
     canvas.drawPath(
@@ -12445,6 +12785,24 @@ class _BuilderBackyardPainter extends CustomPainter {
         ..strokeWidth = 7
         ..color = const Color(0xFFB8B092),
     );
+
+    canvas.save();
+    canvas.clipPath(water);
+    for (int i = 0; i < 4; i += 1) {
+      final double phase = time * (0.42 + i * 0.035) + i * pi * 0.57;
+      final Offset fish = Offset(
+        188 + cos(phase) * (57 - i * 4),
+        674 + sin(phase * 1.18) * (22 + i * 2),
+      );
+      _drawKoiFish(
+        canvas,
+        fish,
+        phase + pi / 2,
+        i.isEven ? const Color(0xFFF27B37) : const Color(0xFFF4E8C7),
+        i,
+      );
+    }
+    canvas.restore();
 
     for (int i = 0; i < 5; i += 1) {
       final double phase = (time * 0.28 + i * 0.19) % 1;
@@ -12486,6 +12844,44 @@ class _BuilderBackyardPainter extends CustomPainter {
         canvas.drawCircle(drop, 2.6, Paint()..color = const Color(0xFFD6FAFF));
       }
     }
+    canvas.restore();
+  }
+
+  void _drawKoiFish(
+    Canvas canvas,
+    Offset center,
+    double angle,
+    Color bodyColor,
+    int index,
+  ) {
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(angle);
+    final double tailWag = sin(time * 5.2 + index) * 4;
+    final Path tail = Path()
+      ..moveTo(-12, 0)
+      ..lineTo(-25, -8 + tailWag)
+      ..lineTo(-22, 8 + tailWag)
+      ..close();
+    canvas.drawPath(tail, Paint()..color = bodyColor.withValues(alpha: 0.9));
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset.zero, width: 31, height: 14),
+      Paint()..color = bodyColor,
+    );
+    canvas.drawCircle(
+      const Offset(7, -3),
+      3.5,
+      Paint()
+        ..color = index.isEven
+            ? const Color(0xFFF5E8C7)
+            : const Color(0xFFE06A32),
+    );
+    canvas.drawCircle(
+      const Offset(12, -2),
+      1.2,
+      Paint()..color = const Color(0xFF20241E),
+    );
+    canvas.restore();
   }
 
   // ignore: unused_element
@@ -12673,6 +13069,10 @@ class _BuilderBackyardPainter extends CustomPainter {
   }
 
   void _drawMarket(Canvas canvas) {
+    if (_night) {
+      _drawNightMarket(canvas);
+      return;
+    }
     const Rect counter = Rect.fromLTWH(726, 678, 164, 92);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -12785,6 +13185,253 @@ class _BuilderBackyardPainter extends CustomPainter {
         sign.center.dy - signText.height / 2,
       ),
     );
+  }
+
+  void _drawNightMarket(Canvas canvas) {
+    const Rect building = Rect.fromLTWH(578, 1110, 322, 204);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        building.shift(const Offset(10, 14)),
+        const Radius.circular(12),
+      ),
+      Paint()
+        ..color = const Color(0x77100B12)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(building, const Radius.circular(10)),
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF6D472E), Color(0xFF35251F)],
+        ).createShader(building),
+    );
+
+    final Path roof = Path()
+      ..moveTo(552, 1123)
+      ..lineTo(607, 1063)
+      ..lineTo(914, 1063)
+      ..lineTo(930, 1123)
+      ..close();
+    canvas.drawPath(roof, Paint()..color = const Color(0xFF171F33));
+    for (int row = 0; row < 4; row += 1) {
+      final double y = 1072 + row * 13;
+      canvas.drawLine(
+        Offset(591 - row * 8, y),
+        Offset(920 - row * 2, y),
+        Paint()
+          ..strokeWidth = 4
+          ..strokeCap = StrokeCap.round
+          ..color = row.isEven
+              ? const Color(0xFF34425B)
+              : const Color(0xFF26334A),
+      );
+    }
+
+    const List<Color> bayColors = [
+      Color(0xFF5E3A68),
+      Color(0xFF744C31),
+      Color(0xFF315A49),
+    ];
+    for (int bay = 0; bay < 3; bay += 1) {
+      final Rect opening = Rect.fromLTWH(593 + bay * 101, 1130, 88, 92);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(opening, const Radius.circular(5)),
+        Paint()..color = const Color(0xFF18151B),
+      );
+      canvas.drawRect(
+        Rect.fromLTWH(
+          opening.left - 3,
+          opening.bottom - 12,
+          opening.width + 6,
+          39,
+        ),
+        Paint()..color = bayColors[bay],
+      );
+      canvas.drawLine(
+        Offset(opening.left - 5, opening.bottom + 27),
+        Offset(opening.right + 5, opening.bottom + 27),
+        Paint()
+          ..strokeWidth = 7
+          ..color = const Color(0xFFB27A42),
+      );
+
+      final Offset signCenter = Offset(opening.center.dx, opening.top - 3);
+      final Rect sign = Rect.fromCenter(
+        center: signCenter,
+        width: 54,
+        height: 44,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(sign, const Radius.circular(8)),
+        Paint()..color = const Color(0xFF60452F),
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(sign.deflate(3), const Radius.circular(6)),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = const Color(0xFFD8AD5D),
+      );
+      _drawMarketBayIcon(canvas, signCenter, bay);
+
+      for (int item = 0; item < 6; item += 1) {
+        final double bounce = marketReady
+            ? sin(time * 2.1 + bay * 3 + item) * 1.8
+            : 0;
+        final Offset produce = Offset(
+          opening.left + 15 + (item % 3) * 27,
+          opening.bottom + 4 + (item ~/ 3) * 15 + bounce,
+        );
+        canvas.drawCircle(
+          produce,
+          7,
+          Paint()
+            ..color = bay == 0
+                ? (item.isEven
+                      ? const Color(0xFFD48BC7)
+                      : const Color(0xFF9B67C6))
+                : bay == 1
+                ? (item.isEven
+                      ? const Color(0xFFF0B54A)
+                      : const Color(0xFFE56542))
+                : (item.isEven
+                      ? const Color(0xFF77B654)
+                      : const Color(0xFF4D8E46)),
+        );
+      }
+    }
+
+    final Rect marketSign = Rect.fromCenter(
+      center: const Offset(752, 1083),
+      width: 174,
+      height: 34,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(marketSign, const Radius.circular(8)),
+      Paint()..color = const Color(0xFF3A2945),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(marketSign.deflate(3), const Radius.circular(6)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = const Color(0xFFE1B963),
+    );
+    final TextPainter title = TextPainter(
+      text: const TextSpan(
+        text: 'MOON MARKET',
+        style: TextStyle(
+          color: Color(0xFFFFE6A3),
+          fontSize: 14,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    title.paint(
+      canvas,
+      Offset(
+        marketSign.center.dx - title.width / 2,
+        marketSign.center.dy - title.height / 2,
+      ),
+    );
+
+    for (int index = 0; index < 4; index += 1) {
+      final Offset lantern = Offset(595 + index * 98, 1125);
+      _drawLantern(canvas, lantern, index + 20);
+    }
+    _drawMarketVisitors(canvas);
+  }
+
+  void _drawMarketBayIcon(Canvas canvas, Offset center, int bay) {
+    if (bay == 0) {
+      for (int petal = 0; petal < 5; petal += 1) {
+        final double angle = petal * pi * 2 / 5;
+        canvas.drawCircle(
+          center + Offset(cos(angle) * 9, sin(angle) * 9),
+          5,
+          Paint()..color = const Color(0xFFD991CF),
+        );
+      }
+      canvas.drawCircle(center, 4, Paint()..color = const Color(0xFFFFD65D));
+      return;
+    }
+    if (bay == 1) {
+      final Rect cup = Rect.fromCenter(center: center, width: 20, height: 23);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(cup, const Radius.circular(5)),
+        Paint()..color = const Color(0xFFE99055),
+      );
+      canvas.drawLine(
+        cup.topCenter - const Offset(0, 9),
+        cup.topCenter + const Offset(7, 2),
+        Paint()
+          ..strokeWidth = 3
+          ..color = const Color(0xFFA6D16B),
+      );
+      return;
+    }
+    canvas.drawLine(
+      center + const Offset(-10, 13),
+      center - const Offset(-7, 13),
+      Paint()
+        ..strokeWidth = 3
+        ..color = const Color(0xFF8BC36B),
+    );
+    for (int leaf = 0; leaf < 3; leaf += 1) {
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: center + Offset(leaf.isEven ? -6 : 6, 7 - leaf * 8),
+          width: 13,
+          height: 8,
+        ),
+        Paint()..color = const Color(0xFF78B55D),
+      );
+    }
+  }
+
+  void _drawMarketVisitors(Canvas canvas) {
+    const List<Offset> visitors = [
+      Offset(548, 1204),
+      Offset(518, 1250),
+      Offset(558, 1284),
+    ];
+    const List<Color> coats = [
+      Color(0xFF466A85),
+      Color(0xFF8D594B),
+      Color(0xFF5C7651),
+    ];
+    for (int i = 0; i < visitors.length; i += 1) {
+      final double bob = sin(time * 2 + i * 1.4) * 2.5;
+      final Offset center = visitors[i] + Offset(0, bob);
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: center + const Offset(0, 28),
+          width: 42,
+          height: 15,
+        ),
+        Paint()..color = const Color(0x44110D12),
+      );
+      canvas.drawCircle(
+        center - const Offset(0, 19),
+        16,
+        Paint()..color = const Color(0xFFE3B985),
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: center + const Offset(0, 10),
+            width: 35,
+            height: 48,
+          ),
+          const Radius.circular(12),
+        ),
+        Paint()..color = coats[i],
+      );
+    }
   }
 
   void _drawCompost(Canvas canvas) {
@@ -15260,15 +15907,15 @@ class _GardenStatChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 39,
-      padding: const EdgeInsets.symmetric(horizontal: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xEE304A43), Color(0xEE1A2F2B)],
+          colors: [Color(0xF249354F), Color(0xF21D1A29)],
         ),
         borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: const Color(0xAA9FC485), width: 1.3),
+        border: Border.all(color: const Color(0xCCD2AD63), width: 1.3),
         boxShadow: const [
           BoxShadow(
             color: Color(0x66000000),
@@ -15281,10 +15928,10 @@ class _GardenStatChip extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (asset != null)
-            Image.asset(asset!, width: 25, height: 25)
+            Image.asset(asset!, width: 21, height: 21)
           else
-            Icon(icon, color: const Color(0xFFC8F783), size: 24),
-          const SizedBox(width: 4),
+            Icon(icon, color: const Color(0xFFFFD56F), size: 20),
+          const SizedBox(width: 2),
           Flexible(
             child: FittedBox(
               fit: BoxFit.scaleDown,
@@ -15293,7 +15940,7 @@ class _GardenStatChip extends StatelessWidget {
                 maxLines: 1,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 18,
+                  fontSize: 15,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -15323,11 +15970,12 @@ class _GardenToolButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color iconColor = switch (label) {
-      'Move' => const Color(0xFF3C77B9),
-      'Water' => const Color(0xFF2F86C1),
-      'Build' => const Color(0xFF795027),
-      _ => const Color(0xFF5A942F),
+    final (Color, Color) buttonColors = switch (label) {
+      'CUT' => (const Color(0xFF6C477B), const Color(0xFF3A294A)),
+      'PLANT' => (const Color(0xFF79A84B), const Color(0xFF426A31)),
+      'LIGHT' => (const Color(0xFFC28A3C), const Color(0xFF785128)),
+      'BUILD' => (const Color(0xFF527DA6), const Color(0xFF31516F)),
+      _ => (const Color(0xFF668D43), const Color(0xFF365A31)),
     };
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -15344,14 +15992,17 @@ class _GardenToolButton extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: selected
-                  ? const [Color(0xFFFFFFDC), Color(0xFFFFE69A)]
-                  : const [Color(0xFFFFF7DE), Color(0xFFEAD7A8)],
+                  ? [
+                      Color.lerp(buttonColors.$1, Colors.white, 0.14)!,
+                      buttonColors.$2,
+                    ]
+                  : [buttonColors.$1, buttonColors.$2],
             ),
             borderRadius: BorderRadius.circular(9),
             border: Border.all(
               color: selected
-                  ? const Color(0xFF79A93C)
-                  : const Color(0xFFAD8951),
+                  ? const Color(0xFFFFE28A)
+                  : const Color(0xFFC9A663),
               width: selected ? 3 : 2,
             ),
             boxShadow: const [
@@ -15369,7 +16020,7 @@ class _GardenToolButton extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(icon, color: iconColor, size: 34),
+                    Icon(icon, color: const Color(0xFFFFF5D7), size: 34),
                     const SizedBox(height: 4),
                     FittedBox(
                       fit: BoxFit.scaleDown,
@@ -15377,7 +16028,7 @@ class _GardenToolButton extends StatelessWidget {
                         label,
                         maxLines: 1,
                         style: const TextStyle(
-                          color: Color(0xFF3F382B),
+                          color: Color(0xFFFFF8E5),
                           fontSize: 15,
                           fontWeight: FontWeight.w900,
                         ),
