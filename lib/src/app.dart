@@ -387,7 +387,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     GardenPlantOption(
       name: 'Blue Bell',
-      asset: 'assets/images/sprites/blue_bell_bloom.png',
+      asset: 'assets/images/sprites/painted_blue_bell.png',
       seedCost: 55,
       points: 110,
       seedReward: 62,
@@ -414,7 +414,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     GardenPlantOption(
       name: 'Blossom Bush',
-      asset: 'assets/images/sprites/pink_blossom_bush.png',
+      asset: 'assets/images/sprites/painted_blossom_bush.png',
       seedCost: 120,
       points: 260,
       seedReward: 135,
@@ -432,7 +432,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     GardenPlantOption(
       name: 'Apple Tree',
-      asset: 'assets/images/sprites/tree_apple.png',
+      asset: 'assets/images/sprites/painted_tree_apple.png',
       seedCost: 180,
       points: 420,
       seedReward: 190,
@@ -632,9 +632,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   final List<PlayerGardenPlot> _playerGardenPlots = [
     PlayerGardenPlot(
       id: 0,
-      position: const Offset(486, 650),
+      position: const Offset(553, 535),
       unlockLevel: 1,
-      asset: 'assets/images/sprites/tree_apple.png',
+      asset: 'assets/images/sprites/painted_tree_apple.png',
       plantIndex: 6,
       growth: 0.7,
       watered: true,
@@ -642,9 +642,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     PlayerGardenPlot(
       id: 1,
-      position: const Offset(182, 908),
+      position: const Offset(240, 824),
       unlockLevel: 1,
-      asset: 'assets/images/sprites/pink_blossom_bush.png',
+      asset: 'assets/images/sprites/painted_blossom_bush.png',
       plantIndex: 4,
       growth: 1,
       mature: true,
@@ -653,20 +653,20 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     ),
     PlayerGardenPlot(
       id: 2,
-      position: const Offset(690, 875),
+      position: const Offset(287, 1043),
       unlockLevel: 1,
-      asset: 'assets/images/sprites/blue_bell_bloom.png',
+      asset: 'assets/images/sprites/painted_blue_bell.png',
       plantIndex: 1,
       growth: 0.74,
       grassCut: true,
     ),
     PlayerGardenPlot(
       id: 3,
-      position: const Offset(452, 1030),
+      position: const Offset(650, 970),
       unlockLevel: 1,
       grassCut: true,
     ),
-    PlayerGardenPlot(id: 4, position: const Offset(156, 684), unlockLevel: 2),
+    PlayerGardenPlot(id: 4, position: const Offset(351, 1346), unlockLevel: 2),
     PlayerGardenPlot(id: 5, position: const Offset(376, 792), unlockLevel: 3),
     PlayerGardenPlot(id: 6, position: const Offset(164, 1125), unlockLevel: 4),
     PlayerGardenPlot(id: 7, position: const Offset(430, 1260), unlockLevel: 5),
@@ -1824,7 +1824,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       final double growth = _gardenLawnGrowth;
       if (growth < 0.28) {
         _gardenMessage =
-            'Side lawn is still short - ${_gardenLawnStatusText()}';
+            'Lavender is still regrowing - ${_gardenLawnStatusText()}';
         _gardenMessageLife = 2.1;
         return;
       }
@@ -1835,7 +1835,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _seeds += coinReward;
       _completeDailyEcosystemTask(GardenEcosystemTask.tidy, moodBoost: 5);
       _gardenMessage =
-          'Lawn mowed: +$compostReward compost, +$coinReward coins';
+          'Lavender cut: +$compostReward compost, +$coinReward coins';
       _gardenMessageLife = 2.7;
       _playSfx(_sfxBambooBlade, volume: 0.54);
     });
@@ -6080,6 +6080,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   Widget _buildScrollableGardenMap() {
     final GardenWorld world = _currentGardenWorld;
+    final bool usesPaintedNightMarket = world.name == 'Secret Garden Market';
     return ClipRect(
       child: InteractiveViewer(
         transformationController: _gardenMapController,
@@ -6093,27 +6094,52 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              CustomPaint(
-                key: ValueKey('backyard-${world.name}'),
-                painter: _BuilderBackyardPainter(
-                  world: world,
-                  house: _currentGardenHouse,
-                  plots: _playerGardenPlots,
-                  gardenLevel: _gardenLevel,
-                  mood: _gardenMood,
-                  dailyComplete: _dailyGardenTasksComplete,
-                  houseActive: _showGardenHousePanel,
-                  lawnGrowth: _gardenLawnGrowth,
-                  pondWater: _gardenPondWater,
-                  marketReady: _gardenProduceTotal > 0,
-                  heartLevel: _gardenHeartLevel,
-                  heartPulse: _gardenHeartPulse,
-                  tool: _gardenTool,
-                  movingPlotId: _gardenMovingPlotId,
-                  time: _motionTime,
+              if (usesPaintedNightMarket)
+                Positioned.fill(
+                  child: Image.asset(
+                    'assets/images/backgrounds/secret_night_market_world.png',
+                    key: ValueKey('backyard-${world.name}'),
+                    fit: BoxFit.fill,
+                    filterQuality: FilterQuality.high,
+                    gaplessPlayback: true,
+                  ),
+                )
+              else
+                CustomPaint(
+                  key: ValueKey('backyard-${world.name}'),
+                  painter: _BuilderBackyardPainter(
+                    world: world,
+                    house: _currentGardenHouse,
+                    plots: _playerGardenPlots,
+                    gardenLevel: _gardenLevel,
+                    mood: _gardenMood,
+                    dailyComplete: _dailyGardenTasksComplete,
+                    houseActive: _showGardenHousePanel,
+                    lawnGrowth: _gardenLawnGrowth,
+                    pondWater: _gardenPondWater,
+                    marketReady: _gardenProduceTotal > 0,
+                    heartLevel: _gardenHeartLevel,
+                    heartPulse: _gardenHeartPulse,
+                    tool: _gardenTool,
+                    movingPlotId: _gardenMovingPlotId,
+                    time: _motionTime,
+                  ),
+                  willChange: true,
                 ),
-                willChange: true,
-              ),
+              if (usesPaintedNightMarket)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      painter: _SecretNightMarketMotionPainter(
+                        time: _motionTime,
+                        lawnGrowth: _gardenLawnGrowth,
+                        pondWater: _gardenPondWater,
+                        marketReady: _gardenProduceTotal > 0,
+                      ),
+                      willChange: true,
+                    ),
+                  ),
+                ),
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -6154,7 +6180,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               if (_gardenTool == GardenTool.build)
                 _buildGardenStation(
                   key: const ValueKey('garden-station-journal'),
-                  position: const Offset(350, 524),
+                  position: const Offset(386, 590),
                   icon: Icons.menu_book_rounded,
                   title: 'Garden journal',
                   status: _gardenHabitatDay == _dayKey(_gardenNow)
@@ -6163,13 +6189,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   color: const Color(0xFF78A544),
                   ready: _gardenHabitatDay != _dayKey(_gardenNow),
                   onTap: () {
-                    _guideGardenCaretaker(const Offset(348, 590));
+                    _guideGardenCaretaker(const Offset(390, 620));
                     _visitGardenJournal();
                   },
                 ),
               _buildGardenStation(
                 key: const ValueKey('garden-station-water'),
-                position: const Offset(438, 526),
+                position: const Offset(170, 558),
                 icon: Icons.water_drop_rounded,
                 title: 'Rain barrel',
                 status: _gardenWaterBarrelDay == _dayKey(_gardenNow)
@@ -6178,14 +6204,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 color: const Color(0xFF328EC1),
                 ready: _gardenWaterBarrelDay != _dayKey(_gardenNow),
                 onTap: () {
-                  _guideGardenCaretaker(const Offset(565, 592));
+                  _guideGardenCaretaker(const Offset(205, 610));
                   _collectGardenWaterBarrel();
                 },
               ),
               if (_gardenTool == GardenTool.build)
                 _buildGardenStation(
                   key: const ValueKey('garden-station-compost'),
-                  position: const Offset(342, 1050),
+                  position: const Offset(470, 1325),
                   icon: Icons.recycling_rounded,
                   title: 'Compost mixer',
                   status: _gardenCompost > 0
@@ -6194,7 +6220,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   color: const Color(0xFF9A6B35),
                   ready: _gardenCompost > 0,
                   onTap: () {
-                    _guideGardenCaretaker(const Offset(342, 1058));
+                    _guideGardenCaretaker(const Offset(500, 1360));
                     _collectGardenCompost();
                   },
                 ),
@@ -6210,7 +6236,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 ready: _gardenCustomerAvailable,
                 onTap: _openGardenMarket,
               ),
-              _buildGardenCustomerScene(),
+              if (usesPaintedNightMarket)
+                _buildSecretMarketQueue()
+              else
+                _buildGardenCustomerScene(),
               if (_gardenGiftPlot != null) _buildGardenGift(_gardenGiftPlot!),
               _buildGardenCaretaker(),
             ],
@@ -6415,8 +6444,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             _avatarAssets.length];
 
     return Positioned(
-      left: 634,
-      top: 1002,
+      left: 528,
+      top: 1136,
       width: 182,
       height: 238,
       child: GestureDetector(
@@ -6512,6 +6541,133 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 }),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSecretMarketQueue() {
+    final GardenCustomerOrder order = _gardenCustomerOrder;
+    final bool available = _gardenCustomerAvailable;
+    final bool canServe = _canServeGardenCustomer;
+    final double bob = sin(_motionTime * 1.7) * 3;
+    final double celebrate = _gardenCustomerCelebration.clamp(0.0, 1.0);
+    final List<(IconData, Color)> wishes = [
+      (_gardenProduceIcon(order.produce), _gardenProduceColor(order.produce)),
+      (Icons.local_florist_rounded, const Color(0xFFE786B0)),
+      (Icons.eco_rounded, const Color(0xFF87C968)),
+    ];
+
+    return Positioned(
+      left: 344,
+      top: 1190,
+      width: 470,
+      height: 430,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 220),
+                opacity: available ? 1 : 0.64,
+                child: Transform.translate(
+                  offset: Offset(0, bob - celebrate * 8),
+                  child: Transform.scale(
+                    scale: 1 + celebrate * 0.045,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned.fill(
+                          child: Image.asset(
+                            'assets/images/sprites/painted_market_queue.png',
+                            fit: BoxFit.contain,
+                            alignment: Alignment.bottomCenter,
+                            filterQuality: FilterQuality.high,
+                            gaplessPlayback: true,
+                          ),
+                        ),
+                        _buildSecretMarketWish(
+                          left: 55,
+                          top: 132,
+                          icon: wishes[0].$1,
+                          color: wishes[0].$2,
+                          phase: 0,
+                          highlighted: canServe,
+                        ),
+                        _buildSecretMarketWish(
+                          left: 162,
+                          top: 83,
+                          icon: wishes[1].$1,
+                          color: wishes[1].$2,
+                          phase: 1.4,
+                        ),
+                        _buildSecretMarketWish(
+                          left: 268,
+                          top: 37,
+                          icon: wishes[2].$1,
+                          color: wishes[2].$2,
+                          phase: 2.8,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            top: 120,
+            width: 210,
+            height: 260,
+            child: GestureDetector(
+              key: const ValueKey('garden-customer-scene'),
+              behavior: HitTestBehavior.translucent,
+              onTap: _handleGardenCustomerAction,
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSecretMarketWish({
+    required double left,
+    required double top,
+    required IconData icon,
+    required Color color,
+    required double phase,
+    bool highlighted = false,
+  }) {
+    final double pulse = (sin(_motionTime * 2.2 + phase) + 1) / 2;
+    return Positioned(
+      left: left,
+      top: top - pulse * 4,
+      child: Transform.scale(
+        scale: 0.96 + pulse * 0.06,
+        child: Container(
+          width: 48,
+          height: 43,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8EED2),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: highlighted
+                  ? const Color(0xFFFFD75D)
+                  : const Color(0xFF8D6A3F),
+              width: highlighted ? 3 : 2,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x66000000),
+                blurRadius: 7,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Icon(icon, color: color, size: 25),
         ),
       ),
     );
@@ -6760,16 +6916,118 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final bool ready = _gardenLawnGrowth >= 0.28;
     final bool buildMode = _gardenTool == GardenTool.build;
     final double pulse = (sin(_motionTime * 3.1) + 1) / 2;
+    if (_currentGardenWorld.name == 'Secret Garden Market') {
+      return Positioned(
+        left: 0,
+        top: 770,
+        width: 300,
+        height: 320,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Transform.translate(
+                  offset: Offset(0, sin(_motionTime * 2.1) * 2.5),
+                  child: Transform.rotate(
+                    angle: -0.015 + sin(_motionTime * 1.45) * 0.018,
+                    child: Transform.scale(
+                      scale: ready ? 0.96 + pulse * 0.025 : 0.94,
+                      child: Opacity(
+                        opacity: ready ? 1 : 0.68,
+                        child: Image.asset(
+                          'assets/images/sprites/painted_lavender_ninja.png',
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.high,
+                          gaplessPlayback: true,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 13,
+              top: 18,
+              child: IgnorePointer(
+                child: Transform.scale(
+                  scale: ready ? 1 + pulse * 0.045 : 1,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: ready
+                          ? const Color(0xEE4B7D26)
+                          : const Color(0xE62D4B2C),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: ready
+                            ? const Color(0xFFFFE579)
+                            : const Color(0xFF9DC889),
+                        width: 2,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x66000000),
+                          blurRadius: 7,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          ready
+                              ? Icons.content_cut_rounded
+                              : Icons.schedule_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          ready ? 'CUT' : _gardenLawnStatusText(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              top: 54,
+              width: 190,
+              height: 250,
+              child: GestureDetector(
+                key: const ValueKey('garden-lawn-mower'),
+                behavior: HitTestBehavior.translucent,
+                onTap: _mowGardenLawn,
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Positioned(
-      left: 54,
-      top: 986,
-      width: 224,
-      height: 164,
+      left: 0,
+      top: 770,
+      width: 180,
+      height: 280,
       child: GestureDetector(
         key: const ValueKey('garden-lawn-mower'),
         behavior: HitTestBehavior.opaque,
         onTap: () {
-          _guideGardenCaretaker(const Offset(166, 1072));
+          _guideGardenCaretaker(const Offset(160, 930));
           _mowGardenLawn();
         },
         child: AnimatedContainer(
@@ -6824,12 +7082,18 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                       size: 18,
                     ),
                     const SizedBox(width: 5),
-                    Text(
-                      ready ? 'MOW LAWN' : _gardenLawnStatusText(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w900,
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          ready ? 'CUT LAVENDER' : _gardenLawnStatusText(),
+                          maxLines: 1,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -8249,8 +8513,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   Widget _buildGardenMarketOverlay() {
     const Map<String, String> fruitAssets = {
-      'Bouquet': 'assets/images/sprites/pink_blossom_bush.png',
-      'Apple': 'assets/images/sprites/tree_apple.png',
+      'Bouquet': 'assets/images/sprites/painted_blossom_bush.png',
+      'Apple': 'assets/images/sprites/painted_tree_apple.png',
       'Lemon': 'assets/images/sprites/tree_lemon.png',
       'Orange': 'assets/images/sprites/tree_orange.png',
     };
@@ -15783,6 +16047,197 @@ class _BackyardGardenPainter extends CustomPainter {
         oldDelegate.heartLevel != heartLevel ||
         oldDelegate.heartPulse != heartPulse ||
         oldDelegate.plots != plots;
+  }
+}
+
+class _SecretNightMarketMotionPainter extends CustomPainter {
+  const _SecretNightMarketMotionPainter({
+    required this.time,
+    required this.lawnGrowth,
+    required this.pondWater,
+    required this.marketReady,
+  });
+
+  final double time;
+  final double lawnGrowth;
+  final int pondWater;
+  final bool marketReady;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    _paintLanternBreathing(canvas);
+    _paintLivingPond(canvas);
+    _paintLavenderBreeze(canvas);
+    _paintMarketSparkles(canvas);
+  }
+
+  void _paintLanternBreathing(Canvas canvas) {
+    const List<Offset> lanterns = [
+      Offset(635, 272),
+      Offset(823, 322),
+      Offset(341, 430),
+      Offset(252, 510),
+      Offset(610, 589),
+      Offset(505, 1134),
+      Offset(622, 1214),
+      Offset(755, 1268),
+      Offset(825, 1336),
+      Offset(485, 1508),
+      Offset(626, 1542),
+    ];
+    for (int i = 0; i < lanterns.length; i += 1) {
+      final double pulse = (sin(time * 1.9 + i * 0.72) + 1) / 2;
+      final Offset center = lanterns[i] + Offset(0, sin(time + i) * 1.5);
+      final double radius = 27 + pulse * 13;
+      final Rect glowBounds = Rect.fromCircle(center: center, radius: radius);
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [
+              const Color(0xFFFFDE72).withValues(alpha: 0.12 + pulse * 0.1),
+              const Color(0xFFFFB13B).withValues(alpha: 0),
+            ],
+          ).createShader(glowBounds),
+      );
+      canvas.drawCircle(
+        center,
+        2.2 + pulse * 1.4,
+        Paint()
+          ..color = const Color(
+            0xFFFFEBA0,
+          ).withValues(alpha: 0.54 + pulse * 0.34),
+      );
+    }
+  }
+
+  void _paintLivingPond(Canvas canvas) {
+    const Offset pondCenter = Offset(688, 727);
+    for (int i = 0; i < 4; i += 1) {
+      final double phase = (time * 0.22 + i * 0.24) % 1;
+      final Offset center = pondCenter + Offset((i - 1.5) * 24, (i % 2) * 18);
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: center,
+          width: 34 + phase * 96,
+          height: 12 + phase * 34,
+        ),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.2
+          ..color = const Color(
+            0xFFB8EDFF,
+          ).withValues(alpha: (1 - phase) * 0.38),
+      );
+    }
+
+    for (int i = 0; i < 3; i += 1) {
+      final double angle = time * (0.48 + i * 0.05) + i * 2.1;
+      final Offset fish = pondCenter + Offset(cos(angle) * 72, sin(angle) * 34);
+      _paintKoi(canvas, fish, angle + pi / 2, i);
+    }
+
+    final int streams = max(2, pondWater + 1);
+    for (int i = 0; i < streams; i += 1) {
+      final double phase = (time * 0.95 + i / streams) % 1;
+      final Offset drop = Offset(
+        579 + (i - streams / 2) * 4.5,
+        635 + phase * 50,
+      );
+      canvas.drawCircle(
+        drop,
+        2 + (1 - phase) * 1.5,
+        Paint()
+          ..color = const Color(
+            0xFFD6F7FF,
+          ).withValues(alpha: 0.35 + (1 - phase) * 0.45),
+      );
+    }
+  }
+
+  void _paintKoi(Canvas canvas, Offset center, double angle, int index) {
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(angle);
+    final Color body = index.isEven
+        ? const Color(0xFFF48A3E)
+        : const Color(0xFFF7E6C5);
+    final double tailWag = sin(time * 6 + index) * 4;
+    final Path tail = Path()
+      ..moveTo(-10, 0)
+      ..lineTo(-21, -7 + tailWag)
+      ..lineTo(-19, 7 + tailWag)
+      ..close();
+    canvas.drawPath(tail, Paint()..color = body.withValues(alpha: 0.88));
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset.zero, width: 27, height: 11),
+      Paint()..color = body.withValues(alpha: 0.94),
+    );
+    canvas.drawCircle(
+      const Offset(7, -2),
+      2.7,
+      Paint()
+        ..color = index.isEven
+            ? const Color(0xFFFFF0D0)
+            : const Color(0xFFE66F34),
+    );
+    canvas.restore();
+  }
+
+  void _paintLavenderBreeze(Canvas canvas) {
+    final double growth = lawnGrowth.clamp(0.08, 1.0);
+    final int stemCount = 18 + (growth * 34).round();
+    final Paint stemPaint = Paint()
+      ..strokeWidth = 1.7
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFF779759).withValues(alpha: 0.62);
+    for (int i = 0; i < stemCount; i += 1) {
+      final double x = 14 + ((i * 53) % 205);
+      final double y = 770 + ((i * 89) % 390);
+      final double height = 19 + growth * (16 + (i % 5) * 3);
+      final double sway = sin(time * 1.8 + i * 0.46) * (2 + growth * 3.5);
+      final Offset top = Offset(x + sway, y - height);
+      canvas.drawLine(Offset(x, y), top, stemPaint);
+      for (int bud = 0; bud < 3; bud += 1) {
+        canvas.drawCircle(
+          top + Offset(bud.isEven ? -2.5 : 2.5, bud * 4.5),
+          2.5,
+          Paint()
+            ..color =
+                (i.isEven ? const Color(0xFFB687DC) : const Color(0xFF7550AA))
+                    .withValues(alpha: 0.68),
+        );
+      }
+    }
+  }
+
+  void _paintMarketSparkles(Canvas canvas) {
+    if (!marketReady) {
+      return;
+    }
+    for (int i = 0; i < 12; i += 1) {
+      final double phase = (time * 0.42 + i * 0.11) % 1;
+      final Offset sparkle = Offset(
+        505 + ((i * 67) % 345),
+        1130 + ((i * 43) % 330) - phase * 18,
+      );
+      final double alpha = sin(phase * pi).clamp(0.0, 1.0);
+      canvas.drawCircle(
+        sparkle,
+        1.5 + alpha * 2.5,
+        Paint()
+          ..color = const Color(0xFFFFDF72).withValues(alpha: alpha * 0.72),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SecretNightMarketMotionPainter oldDelegate) {
+    return oldDelegate.time != time ||
+        oldDelegate.lawnGrowth != lawnGrowth ||
+        oldDelegate.pondWater != pondWater ||
+        oldDelegate.marketReady != marketReady;
   }
 }
 
