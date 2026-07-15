@@ -851,7 +851,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('garden-build-mow')));
     await tester.pump(const Duration(milliseconds: 160));
 
-    expect(find.textContaining('Lawn mowed:'), findsOneWidget);
+    expect(find.textContaining('Lavender cut:'), findsOneWidget);
     expect(find.textContaining('Regrowing'), findsWidgets);
 
     await tester.tap(find.byKey(const ValueKey('garden-pond-reservoir')));
@@ -868,7 +868,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('garden-lawn-mower')));
     await tester.pump(const Duration(milliseconds: 160));
 
-    expect(find.textContaining('Lawn mowed:'), findsOneWidget);
+    expect(find.textContaining('Lavender cut:'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('garden-tool-build')));
     await tester.pump(const Duration(milliseconds: 120));
