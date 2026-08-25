@@ -46,3 +46,9 @@ Create the Google Play app before the first deploy:
 In Play Console, enable Play App Signing and upload the first signed app bundle if required by the account. Then create a Google Cloud service account, grant it access to the app in Play Console, and store the service account JSON in `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
 
 The workflow deploys to `internal` by default. Change `PLAY_TRACK` in `.github/workflows/deploy-google-play.yml` to `production` only after the listing, app-content forms, testing requirements, and review process are complete.
+
+## LevelPlay Ads
+
+Garden Ninja release builds read Unity LevelPlay IDs from GitHub repository
+variables. See `docs/levelplay-ad-setup.md` for the dashboard setup, required
+network checks, test device ID, and `app-ads.txt` notes.

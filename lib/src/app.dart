@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' hide Priority;
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:garden_ninja/src/ads/ad_service.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -782,6 +783,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   bool _audioReady = false;
   bool _musicStartQueued = false;
   bool _forceUpdateCheckInFlight = false;
+  bool _rewardedAdLoading = false;
+  bool _rewardedAdShowing = false;
+  bool _rewardedAdClaimedForRun = false;
   bool _tutorialMode = false;
   bool _tutorialMistake = false;
   bool _gardenSaveLoaded = false;
@@ -3286,6 +3290,84 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _slashes.clear();
     _bursts.clear();
     _phase = GamePhase.results;
+    _rewardedAdClaimedForRun = false;
+    if (!_tutorialMode) {
+      unawaited(
+        AdService.showInterstitial(placementName: 'level_${_level}_complete'),
+      );
+    }
+  }
+
+  Future<void> _watchRewardedSeedAd() async {
+    if (_rewardedAdLoading ||
+        _rewardedAdShowing ||
+        _rewardedAdClaimedForRun ||
+        !AdService.hasRewardedAds) {
+      return;
+    }
+
+    setState(() {
+      _rewardedAdLoading = true;
+    });
+
+    AdService.loadRewarded(
+      onLoaded: (ad) {
+        if (!mounted) {
+          unawaited(ad.dispose());
+          return;
+        }
+        setState(() {
+          _rewardedAdLoading = false;
+          _rewardedAdShowing = true;
+        });
+        unawaited(
+          ad.show(
+            onRewarded: () async {
+              if (!mounted || _rewardedAdClaimedForRun) {
+                return;
+              }
+              setState(() {
+                _rewardedAdClaimedForRun = true;
+                _seeds += 180;
+                _waterCharges = min(9, _waterCharges + 1);
+                _gardenMessage = 'Ad gift: +180 seeds and +1 water';
+                _gardenMessageLife = 2.2;
+              });
+              _playSfx(_sfxComboSpark, volume: 0.64);
+            },
+            onClosed: () {
+              if (!mounted) {
+                return;
+              }
+              setState(() {
+                _rewardedAdShowing = false;
+              });
+            },
+            onFailedToShow: (error) {
+              if (!mounted) {
+                return;
+              }
+              setState(() {
+                _rewardedAdShowing = false;
+                _gardenMessage = 'Ad is not ready yet. Try again soon.';
+                _gardenMessageLife = 2.2;
+              });
+            },
+          ),
+        );
+      },
+      onFailed: (error) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _rewardedAdLoading = false;
+          _rewardedAdShowing = false;
+          _gardenMessage = 'Ad is not ready yet. Try again soon.';
+          _gardenMessageLife = 2.2;
+        });
+      },
+    );
   }
 
   void _pause() {
@@ -4844,6 +4926,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         resizeToAvoidBottomInset: false,
         extendBody: true,
         extendBodyBehindAppBar: true,
+        bottomNavigationBar: _buildBottomAdBar(),
         body: LayoutBuilder(
           builder: (context, constraints) {
             final Size viewport = constraints.biggest;
@@ -4937,6 +5020,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       onTapDown: (details) => _handleSlash(details.localPosition, size),
       child: surface,
     );
+  }
+
+  Widget? _buildBottomAdBar() {
+    if (!AdService.hasBannerAds ||
+        _forceUpdateVisible ||
+        _phase == GamePhase.playing ||
+        _phase == GamePhase.paused ||
+        _tutorialMode) {
+      return null;
+    }
+    return const SafeArea(top: false, child: GardenNinjaBannerAd());
   }
 
   Widget _buildGardenHealthBed() {
@@ -9513,6 +9607,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             ],
           ),
           const SizedBox(height: 18),
+          if (AdService.hasRewardedAds && !_rewardedAdClaimedForRun) ...[
+            _SecondaryButton(
+              label: _rewardedAdLoading || _rewardedAdShowing
+                  ? 'AD LOADING'
+                  : 'WATCH AD  +180 SEEDS',
+              icon: Icons.ondemand_video_rounded,
+              onPressed: _watchRewardedSeedAd,
+            ),
+            const SizedBox(height: 10),
+          ],
           _PrimaryButton(
             label: 'NEXT LEVEL',
             icon: Icons.arrow_forward_rounded,
@@ -9658,6 +9762,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 ),
                 const SizedBox(height: 10),
                 _buildAudioPanel(),
+                if (AdService.hasRewardedAds) ...[
+                  const SizedBox(height: 10),
+                  _buildRewardedAdGiftPanel(),
+                ],
                 const SizedBox(height: 18),
                 Container(
                   padding: const EdgeInsets.all(14),
@@ -9771,6 +9879,83 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   onTap: () => _selectMusicTrack(index),
                 ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRewardedAdGiftPanel() {
+    final bool busy = _rewardedAdLoading || _rewardedAdShowing;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xEEF7E9BC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF4C7E26), width: 2),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: const Color(0xFF7B4F24),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE7C466), width: 2),
+            ),
+            child: const Icon(
+              Icons.ondemand_video_rounded,
+              color: Colors.white,
+              size: 31,
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Seed Gift',
+                  style: TextStyle(
+                    color: Color(0xFF234B18),
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  '+180 seeds and +1 water',
+                  style: TextStyle(
+                    color: Color(0xFF365D27),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 88,
+            height: 44,
+            child: OutlinedButton(
+              onPressed: busy ? null : _watchRewardedSeedAd,
+              style: OutlinedButton.styleFrom(
+                backgroundColor: busy
+                    ? const Color(0xFFD5D2BF)
+                    : const Color(0xFF4EA62D),
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Color(0xFFFFE27D), width: 2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  busy ? 'WAIT' : 'WATCH',
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ),
           ),
         ],
       ),

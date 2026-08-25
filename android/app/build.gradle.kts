@@ -72,6 +72,15 @@ dependencies {
     // see the flutter_local_notifications README.
     implementation("androidx.window:window:1.0.0")
     implementation("androidx.window:window-java:1.0.0")
+    implementation("com.google.android.gms:play-services-appset:16.0.2")
+    implementation("com.google.android.gms:play-services-ads-identifier:18.0.1")
+    implementation("com.google.android.gms:play-services-basement:18.3.0")
+    implementation("com.unity3d.ads-mediation:unityads-adapter:5.5.0")
+    implementation("com.unity3d.ads:unity-ads:4.16.6")
+    implementation("com.unity3d.ads-mediation:vungle-adapter:5.5.0")
+    implementation("com.vungle:vungle-ads:7.7.0")
+    implementation("com.unity3d.ads-mediation:inmobi-adapter:5.4.0")
+    implementation("com.inmobi.monetization:inmobi-ads-kotlin:11.1.1")
 }
 
 flutter {
