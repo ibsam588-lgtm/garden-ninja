@@ -1,7 +1,7 @@
 {
   "android": {
-    "minimumBuild": 10037,
-    "latestBuild": 10037,
+    "minimumBuild": 10038,
+    "latestBuild": 10038,
     "force": true,
     "updateUrl": "https://play.google.com/store/apps/details?id=com.gardenninja.garden_ninja"
   }
