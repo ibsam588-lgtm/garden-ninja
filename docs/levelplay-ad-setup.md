@@ -6,8 +6,9 @@ CI, and screenshot builds remain safe.
 
 ## Dashboard Setup
 
-Create the Android app in Unity/LevelPlay with the real Google Play URL once
-the public Play listing is reachable:
+Garden Ninja was created in Unity/LevelPlay while the public Play listing was
+not reachable yet. Update the app to the real Play URL after Google Play exposes
+the listing publicly:
 
 ```text
 https://play.google.com/store/apps/details?id=com.gardenninja.garden_ninja
@@ -45,10 +46,32 @@ Current instance status:
 
 ```text
 ironSource Bidding: active for Banner, Interstitial, Rewarded.
-UnityAds: requires Unity Ads Game ID before instances can be added.
-Liftoff Monetize: requires Liftoff App ID and Reporting API ID.
-InMobi: requires InMobi placement IDs for Banner, Interstitial, Rewarded.
+UnityAds: active for Banner, Interstitial, Rewarded.
+Liftoff Monetize: active for Banner, Interstitial, Rewarded.
+InMobi: blocked. Garden Ninja inventory could not be created while the InMobi
+account is pending verification and the inventory create flow resets before
+submission.
 ```
+
+Configured network dashboard IDs:
+
+```text
+Unity Ads
+Game ID: 800362179
+Banner placement: Banner_Android
+Interstitial placement: Interstitial_Android
+Rewarded placement: Rewarded_Android
+
+Liftoff Monetize / Vungle
+Android app ID: 6a8dc9ccf5afadb097fee57b
+Reporting API ID: 6a8dc9ccf5afadb097fee57b
+Banner placement: GARDENNINJA_BANNER-3632752
+Interstitial placement: GARDENNINJA_INTERSTITIAL-8383039
+Rewarded placement: GARDENNINJA_REWARDED-1686088
+```
+
+An accidental Liftoff iOS app was created during dashboard setup, but it is not
+wired into LevelPlay and should not be used for Garden Ninja Android mediation.
 
 ## GitHub Repository Variables
 
@@ -105,9 +128,9 @@ reset, or ad ID settings are disabled/reset.
 Before pushing a production or closed-track ad build, confirm:
 
 ```text
-Unity Ads: app exists and placements are active.
-Liftoff/Vungle: app is active, 3 placements are active, in-app bidding is enabled.
-InMobi: app/inventory is connected and app-ads.txt is verified.
+Unity Ads: app exists and 3 placements remain active.
+Liftoff/Vungle: Android app is active, 3 placements remain active, in-app bidding is enabled.
+InMobi: account is verified, app/inventory is connected, and app-ads.txt is verified.
 ironSource/iSX: app and instances are active in LevelPlay.
 ```
 
