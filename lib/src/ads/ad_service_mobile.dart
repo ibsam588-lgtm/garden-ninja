@@ -76,11 +76,33 @@ class AdService {
       final LevelPlayInitRequest initRequest = LevelPlayInitRequest.builder(
         _appKey,
       ).build();
+      final Completer<bool> initResult = Completer<bool>();
       await LevelPlay.init(
         initRequest: initRequest,
-        initListener: const _LevelPlayInitLogger(),
+        initListener: _LevelPlayInitLogger(
+          onSuccess: () {
+            if (!initResult.isCompleted) {
+              initResult.complete(true);
+            }
+          },
+          onFailed: (error) {
+            if (!initResult.isCompleted) {
+              initResult.complete(false);
+            }
+          },
+        ),
       );
-      _runtimeEnabled = true;
+      final bool initialized = await initResult.future.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          _log('LevelPlay init callback timed out; ads disabled.');
+          return false;
+        },
+      );
+      _runtimeEnabled = initialized;
+      if (!initialized) {
+        return;
+      }
       if (levelPlayTestSuite) {
         unawaited(LevelPlay.validateIntegration());
       }
@@ -224,6 +246,9 @@ class _LevelPlayInterstitialAdHandle
   final VoidCallback onFinished;
   bool _loaded = false;
   bool _disposed = false;
+  bool _showing = false;
+  bool _finishNotified = false;
+  Completer<bool>? _showCompleter;
 
   Future<void> load() async {
     if (_disposed) {
@@ -237,23 +262,56 @@ class _LevelPlayInterstitialAdHandle
   }
 
   Future<bool> show({required String placementName}) async {
-    if (_disposed) {
+    if (_disposed || _showing) {
       return false;
     }
     try {
-      final bool ready = _loaded && await _ad.isAdReady();
+      bool ready = _loaded && await _ad.isAdReady();
       if (!ready) {
         await load();
+        ready = _loaded && await _ad.isAdReady();
+      }
+      if (!ready) {
         return false;
       }
+      _showing = true;
+      final Completer<bool> completion = Completer<bool>();
+      _showCompleter = completion;
       await _ad.showAd(placementName: placementName);
-      return true;
+      return await completion.future.timeout(
+        const Duration(minutes: 2),
+        onTimeout: () {
+          AdService._log('Interstitial close callback timed out.');
+          _completeShow(false);
+          unawaited(dispose());
+          _notifyFinished();
+          return false;
+        },
+      );
     } catch (error) {
       AdService._log('Interstitial show failed: $error');
+      _completeShow(false);
       await dispose();
-      onFinished();
+      _notifyFinished();
       return false;
     }
+  }
+
+  void _completeShow(bool shown) {
+    _showing = false;
+    final Completer<bool>? completer = _showCompleter;
+    _showCompleter = null;
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(shown);
+    }
+  }
+
+  void _notifyFinished() {
+    if (_finishNotified) {
+      return;
+    }
+    _finishNotified = true;
+    onFinished();
   }
 
   Future<void> dispose() async {
@@ -279,15 +337,17 @@ class _LevelPlayInterstitialAdHandle
 
   @override
   void onAdClosed(LevelPlayAdInfo adInfo) {
+    _completeShow(true);
     unawaited(dispose());
-    onFinished();
+    _notifyFinished();
   }
 
   @override
   void onAdDisplayFailed(LevelPlayAdError error, LevelPlayAdInfo adInfo) {
     AdService._log('Interstitial display failed: $error');
+    _completeShow(false);
     unawaited(dispose());
-    onFinished();
+    _notifyFinished();
   }
 
   @override
@@ -442,15 +502,20 @@ class _LevelPlayBannerListener implements LevelPlayBannerAdViewListener {
 }
 
 class _LevelPlayInitLogger implements LevelPlayInitListener {
-  const _LevelPlayInitLogger();
+  const _LevelPlayInitLogger({required this.onSuccess, required this.onFailed});
+
+  final VoidCallback onSuccess;
+  final void Function(LevelPlayInitError error) onFailed;
 
   @override
   void onInitFailed(LevelPlayInitError error) {
     AdService._log('LevelPlay init callback failed: $error');
+    onFailed(error);
   }
 
   @override
   void onInitSuccess(LevelPlayConfiguration configuration) {
     AdService._log('LevelPlay init succeeded.');
+    onSuccess();
   }
 }
