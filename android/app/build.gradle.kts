@@ -72,6 +72,10 @@ dependencies {
     // see the flutter_local_notifications README.
     implementation("androidx.window:window:1.0.0")
     implementation("androidx.window:window-java:1.0.0")
+    // Unity Ads currently pulls WorkManager 2.7.x transitively. That version
+    // crashes during AndroidX Startup on Android target/API 36 before Flutter
+    // can render. Keep the startup stack on the current stable WorkManager.
+    implementation("androidx.work:work-runtime-ktx:2.11.2")
     implementation("com.google.android.gms:play-services-appset:16.0.2")
     implementation("com.google.android.gms:play-services-ads-identifier:18.0.1")
     implementation("com.google.android.gms:play-services-basement:18.3.0")
