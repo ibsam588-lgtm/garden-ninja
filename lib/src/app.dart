@@ -40,11 +40,15 @@ enum TutorialStep { slashWeed, avoidFlowers, toughWeed, useIce, frozenSlash }
 
 enum GardenTutorialStep {
   welcome,
+  clearWeed,
   plantTool,
   emptyPlot,
   nursery,
   waterTool,
   waterPlant,
+  harvestTool,
+  harvestPlant,
+  sellProduce,
   harvestAndSell,
   buildTool,
   complete,
@@ -340,6 +344,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const double _gardenInitialScale = 0.445;
   static const double _gardenInitialTranslateX = -9;
   static const double _gardenInitialTranslateY = 66;
+  static const double _gardenBottomControlClearance = 190;
   static const double _gardenDamageLineY = _worldHeight - 106;
   static const double _minSlashSegment = 7;
   static const int _maxSlashTrails = 22;
@@ -347,7 +352,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const Duration _minSfxGap = Duration(milliseconds: 42);
   static const Duration _sameSfxGap = Duration(milliseconds: 82);
   static const String _gardenSaveKey = 'garden_ninja_garden_v4';
-  static const String _gardenTutorialKey = 'garden_ninja_garden_tutorial_v1';
+  static const String _gardenTutorialKey = 'garden_ninja_garden_tutorial_v2';
   static const int _dailyWaterGrant = 3;
   static const int _dailySunGrant = 1;
   static const int _gardenCalmMusicTrack = 4;
@@ -815,6 +820,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   List<String> _dailySummaryLines = [];
   TutorialStep _tutorialStep = TutorialStep.slashWeed;
   GardenTutorialStep? _gardenTutorialStep;
+  GardenTutorialStep? _gardenTutorialResumeStep;
   int? _gardenTutorialPlotId;
   double _spawnTimer = 0;
   double _timeLeft = 60;
@@ -1685,6 +1691,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _gardenMessage =
           '${order.customer} bought ${_gardenProduceLabel(order.produce, order.quantity)}: +${order.coinReward} coins';
       _gardenMessageLife = 3.0;
+      if (_gardenTutorialStep == GardenTutorialStep.sellProduce) {
+        _gardenTutorialPlotId = null;
+        _gardenTutorialStep = GardenTutorialStep.buildTool;
+      }
       _playSfx(_sfxComboSpark, volume: 0.62);
     });
     _queueGardenSave();
@@ -3527,6 +3537,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void _startGardenTutorial() {
     setState(() {
       _gardenTutorialStep = GardenTutorialStep.welcome;
+      _gardenTutorialResumeStep = null;
       _gardenTutorialPlotId = null;
       _gardenNurseryPlotId = null;
       _gardenMovingPlotId = null;
@@ -3554,6 +3565,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void _finishGardenTutorial() {
     setState(() {
       _gardenTutorialStep = null;
+      _gardenTutorialResumeStep = null;
       _gardenTutorialPlotId = null;
       _gardenTutorialSeen = true;
       _gardenMessage = 'Your garden is ready. Follow the glowing actions.';
@@ -3566,13 +3578,31 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   void _beginGardenTutorialActions() {
+    setState(() => _chooseGardenTutorialAction(includeWeeds: true));
+    _queueGardenSave();
+  }
+
+  void _chooseGardenTutorialAction({required bool includeWeeds}) {
+    if (includeWeeds) {
+      final PlayerGardenPlot? weedPlot = _playerGardenPlots
+          .where((plot) => _isGardenPlotUnlocked(plot) && plot.weed)
+          .firstOrNull;
+      if (weedPlot != null) {
+        _startGardenTutorialWeedStep(weedPlot);
+        return;
+      }
+    }
+
     final PlayerGardenPlot? emptyPlot = _playerGardenPlots
         .where(
           (plot) => _isGardenPlotUnlocked(plot) && !plot.planted && !plot.weed,
         )
         .firstOrNull;
     if (emptyPlot != null) {
-      _advanceGardenTutorial(GardenTutorialStep.plantTool);
+      _ensureGardenTutorialPlantingSupplies();
+      _gardenTutorialPlotId = emptyPlot.id;
+      _gardenTutorialStep = GardenTutorialStep.plantTool;
+      _focusGardenTutorialPlot(emptyPlot);
       return;
     }
 
@@ -3581,17 +3611,156 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           (plot) =>
               _isGardenPlotUnlocked(plot) &&
               plot.planted &&
+              !plot.weed &&
               !plot.ready &&
               !_isWateredToday(plot, _gardenNow),
         )
         .firstOrNull;
     if (thirstyPlant != null) {
+      _ensureGardenTutorialWaterSupply();
       _gardenTutorialPlotId = thirstyPlant.id;
-      _advanceGardenTutorial(GardenTutorialStep.waterTool);
+      _gardenTutorialStep = GardenTutorialStep.waterTool;
+      _focusGardenTutorialPlot(thirstyPlant);
       return;
     }
 
-    _advanceGardenTutorial(GardenTutorialStep.harvestAndSell);
+    if (_chooseGardenTutorialHarvestStep()) {
+      return;
+    }
+
+    final PlayerGardenPlot? remainingWeed = _playerGardenPlots
+        .where((plot) => _isGardenPlotUnlocked(plot) && plot.weed)
+        .firstOrNull;
+    if (remainingWeed != null) {
+      _startGardenTutorialWeedStep(remainingWeed);
+      return;
+    }
+
+    _gardenTutorialPlotId = null;
+    _gardenTutorialStep = GardenTutorialStep.harvestAndSell;
+  }
+
+  void _ensureGardenTutorialPlantingSupplies() {
+    final int minimumCost = _gardenPlantOptions.first.seedCost;
+    if (_seeds < minimumCost) {
+      _seeds = minimumCost;
+    }
+    if (_seeds < _selectedGardenPlantOption.seedCost) {
+      _selectedGardenPlant = _gardenPlantOptions.indexWhere(
+        (option) => option.seedCost <= _seeds,
+      );
+      if (_selectedGardenPlant < 0) {
+        _selectedGardenPlant = 0;
+      }
+    }
+  }
+
+  void _ensureGardenTutorialWaterSupply() {
+    if (_waterCharges <= 0 && _seeds < 20) {
+      _waterCharges = 1;
+    }
+  }
+
+  void _startGardenTutorialWeedStep(
+    PlayerGardenPlot plot, {
+    GardenTutorialStep? resumeStep,
+  }) {
+    _gardenTutorialPlotId = plot.id;
+    _gardenTutorialResumeStep = resumeStep;
+    _gardenTutorialStep = GardenTutorialStep.clearWeed;
+    _gardenTool = GardenTool.harvest;
+    plot.sparkle = 1;
+    _focusGardenTutorialPlot(plot);
+  }
+
+  void _resumeGardenTutorialAfterWeed(PlayerGardenPlot plot) {
+    final GardenTutorialStep? resumeStep = _gardenTutorialResumeStep;
+    _gardenTutorialResumeStep = null;
+
+    if (resumeStep == GardenTutorialStep.waterPlant && plot.planted) {
+      _ensureGardenTutorialWaterSupply();
+      _gardenTutorialPlotId = plot.id;
+      _gardenTutorialStep = GardenTutorialStep.waterTool;
+      _focusGardenTutorialPlot(plot);
+      return;
+    }
+    if ((resumeStep == GardenTutorialStep.harvestPlant ||
+            resumeStep == GardenTutorialStep.harvestTool) &&
+        plot.ready) {
+      _gardenTutorialPlotId = plot.id;
+      _gardenTutorialStep = GardenTutorialStep.harvestTool;
+      _focusGardenTutorialPlot(plot);
+      return;
+    }
+    if ((resumeStep == GardenTutorialStep.emptyPlot ||
+            resumeStep == GardenTutorialStep.plantTool ||
+            resumeStep == GardenTutorialStep.nursery) &&
+        !plot.planted) {
+      _ensureGardenTutorialPlantingSupplies();
+      _gardenTutorialPlotId = plot.id;
+      _gardenTutorialStep = GardenTutorialStep.plantTool;
+      _focusGardenTutorialPlot(plot);
+      return;
+    }
+
+    _chooseGardenTutorialAction(includeWeeds: false);
+  }
+
+  bool _chooseGardenTutorialHarvestStep() {
+    if (_canServeGardenCustomer) {
+      _gardenTutorialPlotId = null;
+      _gardenTutorialStep = GardenTutorialStep.sellProduce;
+      return true;
+    }
+    if (!_gardenCustomerAvailable) {
+      return false;
+    }
+
+    final GardenCustomerOrder order = _gardenCustomerOrder;
+    final PlayerGardenPlot? readyPlot = _playerGardenPlots
+        .where(
+          (plot) =>
+              _isGardenPlotUnlocked(plot) &&
+              plot.ready &&
+              !plot.weed &&
+              _gardenProduceForOption(_plantOptionForPlot(plot)) ==
+                  order.produce,
+        )
+        .firstOrNull;
+    if (readyPlot == null) {
+      return false;
+    }
+
+    _gardenTutorialPlotId = readyPlot.id;
+    _gardenTutorialStep = GardenTutorialStep.harvestTool;
+    _focusGardenTutorialPlot(readyPlot);
+    return true;
+  }
+
+  void _focusGardenTutorialPlot(PlayerGardenPlot plot) {
+    final double currentScale = _gardenMapController.value.storage[0].abs();
+    final double scale = max(
+      0.62,
+      currentScale,
+    ).clamp(_gardenMinScale, _gardenMaxScale).toDouble();
+    final double minX = min(0, _worldWidth - _playerGardenWidth * scale);
+    final double minY = min(
+      0,
+      _worldHeight -
+          _playerGardenHeight * scale -
+          _gardenBottomControlClearance,
+    );
+    final double translateX = (_worldWidth / 2 - plot.position.dx * scale)
+        .clamp(minX, 0)
+        .toDouble();
+    final double translateY = (420 - plot.position.dy * scale)
+        .clamp(minY, _gardenInitialTranslateY)
+        .toDouble();
+    _gardenMapController.value = _gardenMatrix(
+      scale: scale,
+      translateX: translateX,
+      translateY: translateY,
+    );
   }
 
   Widget _buildGardenTutorialOverlay() {
@@ -3606,10 +3775,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       case GardenTutorialStep.welcome:
         title = 'Care. Grow. Sell. Expand.';
         message =
-            'Your daily loop is simple: plant a bed, water it, gather produce, serve customers, then improve the yard.';
+            'Plant, water, gather, serve customers, and improve the yard. If supplies run out, the guide provides one starter action.';
         icon = Icons.local_florist_rounded;
         primaryLabel = 'SHOW ME';
         onPrimary = _beginGardenTutorialActions;
+      case GardenTutorialStep.clearWeed:
+        title = 'Rescue this garden bed';
+        message =
+            'CUT is selected. Tap the glowing weed to remove it. The flower or tree underneath stays safely planted.';
+        icon = Icons.content_cut_rounded;
       case GardenTutorialStep.plantTool:
         title = '1  Choose Plant';
         message =
@@ -3632,10 +3806,24 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         title = 'Tap your new plant';
         message = 'The marked plant is thirsty. Tap it once to water it.';
         icon = Icons.water_drop_rounded;
-      case GardenTutorialStep.harvestAndSell:
-        title = '4  Gather and serve';
+      case GardenTutorialStep.harvestTool:
+        title = '4  Gather ripe produce';
+        message = 'Tap CUT below. A READY plant will glow for harvesting.';
+        icon = Icons.content_cut_rounded;
+      case GardenTutorialStep.harvestPlant:
+        title = 'Cut the READY plant';
         message =
-            'When READY appears, choose CUT and tap the plant. Produce enters your basket; tap the customer order to sell it.';
+            'Tap the glowing ripe plant. It stays planted and starts its next growth cycle.';
+        icon = Icons.local_florist_rounded;
+      case GardenTutorialStep.sellProduce:
+        title = 'Serve your customer';
+        message =
+            'Your harvest is in the basket. Tap the glowing customer order above the toolbar to earn coins and points.';
+        icon = Icons.storefront_rounded;
+      case GardenTutorialStep.harvestAndSell:
+        title = '4  Gather and serve later';
+        message =
+            'Nothing matching this order is ripe yet. When READY appears, use CUT; then tap the customer order to sell your basket.';
         icon = Icons.storefront_rounded;
         primaryLabel = 'NEXT';
         onPrimary = () => _advanceGardenTutorial(GardenTutorialStep.buildTool);
@@ -3654,14 +3842,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
 
     PlayerGardenPlot? targetPlot;
-    if (step == GardenTutorialStep.emptyPlot) {
-      targetPlot = _playerGardenPlots
-          .where(
-            (plot) =>
-                _isGardenPlotUnlocked(plot) && !plot.planted && !plot.weed,
-          )
-          .firstOrNull;
-    } else if (step == GardenTutorialStep.waterPlant) {
+    if (step == GardenTutorialStep.clearWeed ||
+        step == GardenTutorialStep.emptyPlot ||
+        step == GardenTutorialStep.waterPlant ||
+        step == GardenTutorialStep.harvestPlant) {
       targetPlot = _playerGardenPlots
           .where((plot) => plot.id == _gardenTutorialPlotId)
           .firstOrNull;
@@ -3705,6 +3889,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 child: _GardenTutorialToolGlow(pulse: pulse),
               ),
             ),
+          if (step == GardenTutorialStep.clearWeed ||
+              step == GardenTutorialStep.harvestTool)
+            Positioned(
+              left: 7,
+              bottom: 5,
+              child: IgnorePointer(
+                child: _GardenTutorialToolGlow(pulse: pulse),
+              ),
+            ),
           if (step == GardenTutorialStep.waterTool)
             Positioned(
               left: 153,
@@ -3719,6 +3912,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               bottom: 5,
               child: IgnorePointer(
                 child: _GardenTutorialToolGlow(pulse: pulse),
+              ),
+            ),
+          if (step == GardenTutorialStep.sellProduce)
+            Positioned(
+              left: 7,
+              right: 7,
+              bottom: 103,
+              child: IgnorePointer(
+                child: _GardenTutorialCustomerGlow(pulse: pulse),
               ),
             ),
           Positioned(
@@ -4167,7 +4369,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (_gardenCutBurst <= 0) {
       _gardenCutPlotId = null;
     }
-    _gardenWeedTimer -= dt;
+    if (_gardenTutorialStep == null) {
+      _gardenWeedTimer -= dt;
+    }
 
     for (final plot in _playerGardenPlots) {
       plot.sparkle = max(0, plot.sparkle - dt * 1.8);
@@ -4184,7 +4388,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _queueGardenSave();
     }
 
-    if (_gardenWeedTimer <= 0) {
+    if (_gardenTutorialStep == null && _gardenWeedTimer <= 0) {
       if (_activeGardenWeeds < 1 && _gardenSessionWeedSpawns < 1) {
         _spawnPlayerGardenWeed(showMessage: false);
         _gardenSessionWeedSpawns += 1;
@@ -4221,6 +4425,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   void _spawnPlayerGardenWeed({bool showMessage = true}) {
+    if (_gardenTutorialStep != null) {
+      return;
+    }
     if (_activeGardenWeeds >= _maxGardenWeeds) {
       return;
     }
@@ -4258,6 +4465,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       } else if (_gardenTutorialStep == GardenTutorialStep.waterTool &&
           tool == GardenTool.water) {
         _gardenTutorialStep = GardenTutorialStep.waterPlant;
+      } else if (_gardenTutorialStep == GardenTutorialStep.harvestTool &&
+          tool == GardenTool.harvest) {
+        _gardenTutorialStep = GardenTutorialStep.harvestPlant;
       } else if (_gardenTutorialStep == GardenTutorialStep.buildTool &&
           tool == GardenTool.build) {
         _gardenTutorialStep = GardenTutorialStep.complete;
@@ -4297,9 +4507,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void _selectGardenPlant(int index) {
     _playSfx(_sfxComboSpark, volume: 0.44);
     setState(() {
-      _selectedGardenPlant = index
+      final int selected = index
           .clamp(0, _gardenPlantOptions.length - 1)
           .toInt();
+      final GardenPlantOption candidate = _gardenPlantOptionAt(selected);
+      if (_gardenTutorialStep == GardenTutorialStep.nursery &&
+          _seeds < candidate.seedCost) {
+        _gardenMessage = 'Choose a green plant card for this lesson';
+        _gardenMessageLife = 2.2;
+        return;
+      }
+      _selectedGardenPlant = selected;
       _gardenTool = GardenTool.plant;
       final GardenPlantOption option = _selectedGardenPlantOption;
       _gardenMessage = _gardenNurseryPlotId == null
@@ -4349,6 +4567,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       }
       if (_plantGardenPlot(plot)) {
         if (_gardenTutorialStep == GardenTutorialStep.nursery) {
+          _ensureGardenTutorialWaterSupply();
           _gardenTutorialPlotId = plot.id;
           _gardenTutorialStep = GardenTutorialStep.waterTool;
         }
@@ -4367,11 +4586,22 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       }
 
       if (plot.weed) {
-        if (_gardenTool == GardenTool.harvest ||
-            _gardenTool == GardenTool.build) {
+        final GardenTutorialStep? interruptedStep = _gardenTutorialStep;
+        final bool isTutorialWeed =
+            interruptedStep == GardenTutorialStep.clearWeed &&
+            plot.id == _gardenTutorialPlotId;
+        if (_gardenTool == GardenTool.harvest) {
           _clearGardenWeed(plot);
+          if (isTutorialWeed) {
+            _resumeGardenTutorialAfterWeed(plot);
+          }
         } else {
-          _gardenMessage = 'Choose Cut to clear this weed';
+          if (interruptedStep != null) {
+            _startGardenTutorialWeedStep(plot, resumeStep: interruptedStep);
+          }
+          _gardenMessage = interruptedStep == null
+              ? 'Choose Cut to clear this weed'
+              : 'Cut selected - tap the glowing weed again';
           _gardenMessageLife = 2.1;
         }
         return;
@@ -4389,6 +4619,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         return;
       }
       if (plot.ready) {
+        if (_gardenTool != GardenTool.harvest) {
+          _gardenMessage = 'Choose Cut to gather this ripe plant';
+          _gardenMessageLife = 2.1;
+          return;
+        }
+        if (_gardenTutorialStep == GardenTutorialStep.harvestTool &&
+            plot.id == _gardenTutorialPlotId) {
+          _gardenTutorialStep = GardenTutorialStep.harvestPlant;
+        }
         _collectGardenBlooms(plot);
         return;
       }
@@ -4412,7 +4651,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       if (_gardenTutorialStep == GardenTutorialStep.waterPlant &&
           plot.id == _gardenTutorialPlotId &&
           _isWateredToday(plot, _gardenNow)) {
-        _gardenTutorialStep = GardenTutorialStep.harvestAndSell;
+        if (!_chooseGardenTutorialHarvestStep()) {
+          _gardenTutorialPlotId = null;
+          _gardenTutorialStep = GardenTutorialStep.harvestAndSell;
+        }
       }
     });
     _queueGardenSave();
@@ -4602,7 +4844,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final double scaledHeight = _playerGardenHeight * scale;
     final double minX = min(0, _worldWidth - scaledWidth).toDouble();
     const double maxX = 0;
-    final double minY = min(0, _worldHeight - scaledHeight).toDouble();
+    final double minY = min(
+      0,
+      _worldHeight - scaledHeight - _gardenBottomControlClearance,
+    ).toDouble();
     const double maxY = _gardenInitialTranslateY;
     final double translateX = current.storage[12].clamp(minX, maxX).toDouble();
     final double translateY = current.storage[13].clamp(minY, maxY).toDouble();
@@ -4923,6 +5168,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     plot.sparkle = 1;
     _gardenCutPlotId = plot.id;
     _gardenCutBurst = 1;
+    if (_gardenTutorialStep == GardenTutorialStep.harvestPlant &&
+        plot.id == _gardenTutorialPlotId) {
+      _gardenTutorialPlotId = null;
+      _gardenTutorialStep = GardenTutorialStep.sellProduce;
+    }
     _nurtureGardenHeart(2, plot: plot, plantCare: 2);
     final String harvestLabel = _gardenHarvestLabel(option);
     if (fruit != null) {
@@ -6492,7 +6742,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         constrained: false,
         minScale: _gardenMinScale,
         maxScale: _gardenMaxScale,
-        boundaryMargin: EdgeInsets.zero,
+        boundaryMargin: const EdgeInsets.only(
+          bottom: _gardenBottomControlClearance,
+        ),
         child: SizedBox(
           width: _playerGardenWidth,
           height: _playerGardenHeight,
@@ -7846,6 +8098,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                         scale: plantScale * plantSpec.scale * plantBreath,
                         child: Image.asset(
                           plot.asset!,
+                          key: ValueKey('garden-plant-${plot.id}'),
                           width: plantSpec.width,
                           height: plantSpec.height,
                           cacheWidth: 512,
@@ -7862,6 +8115,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   right: 42,
                   child: Image.asset(
                     weedAsset,
+                    key: ValueKey('garden-weed-${plot.id}'),
                     width: 64,
                     height: 70,
                     fit: BoxFit.contain,
@@ -8046,11 +8300,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                         filterQuality: FilterQuality.medium,
                       ),
                       const SizedBox(width: 8),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            FittedBox(
+                            const FittedBox(
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.centerLeft,
                               child: Text(
@@ -8064,7 +8318,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                               ),
                             ),
                             Text(
-                              'Tap a card, then press Plant.',
+                              _gardenTutorialStep == GardenTutorialStep.nursery
+                                  ? 'Choose a green card, then press Plant.'
+                                  : 'Tap a card, then press Plant.',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -9685,6 +9941,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             icon: Icons.content_cut_rounded,
             label: 'CUT',
             selected: _gardenTool == GardenTool.harvest,
+            badge: _activeGardenWeeds,
             onTap: () => _selectGardenTool(GardenTool.harvest),
           ),
         ),
@@ -17106,6 +17363,35 @@ class _GardenTutorialToolGlow extends StatelessWidget {
               ).withValues(alpha: 0.42 + pulse * 0.35),
               blurRadius: 16 + pulse * 8,
               spreadRadius: 3,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GardenTutorialCustomerGlow extends StatelessWidget {
+  const _GardenTutorialCustomerGlow({required this.pulse});
+
+  final double pulse;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.scale(
+      scale: 1 + pulse * 0.018,
+      child: Container(
+        height: 82,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFFFF18A), width: 4),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(
+                0xFFFFE45B,
+              ).withValues(alpha: 0.38 + pulse * 0.34),
+              blurRadius: 16 + pulse * 8,
+              spreadRadius: 2,
             ),
           ],
         ),
