@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:garden_ninja/src/ads/ad_service.dart';
@@ -15,6 +17,6 @@ Future<void> main() async {
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
-  await AdService.initialize();
   runApp(const GardenNinjaApp());
+  unawaited(AdService.initialize());
 }

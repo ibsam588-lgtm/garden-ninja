@@ -11,7 +11,10 @@ Future<void> pumpGardenNinja(
   WidgetTester tester, {
   Map<String, Object> prefs = const {},
 }) async {
-  SharedPreferences.setMockInitialValues(prefs);
+  SharedPreferences.setMockInitialValues({
+    'garden_ninja_garden_tutorial_v1': true,
+    ...prefs,
+  });
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(390, 844);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -349,6 +352,77 @@ void main() {
     await tester.pump(const Duration(milliseconds: 160));
 
     expect(find.textContaining('Watered Pink Bloom. Ready in'), findsOneWidget);
+  });
+
+  testWidgets('new gardeners get a guided care and selling tutorial', (
+    tester,
+  ) async {
+    await pumpGardenNinja(
+      tester,
+      prefs: {'garden_ninja_garden_tutorial_v1': false},
+    );
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(
+      find.byKey(const ValueKey('garden-tutorial-welcome')),
+      findsOneWidget,
+    );
+    expect(find.text('Care. Grow. Sell. Expand.'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-tutorial-next')));
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(
+      find.byKey(const ValueKey('garden-tutorial-plantTool')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('garden-tool-plant')));
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(
+      find.byKey(const ValueKey('garden-tutorial-emptyPlot')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-3')));
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(find.byKey(const ValueKey('garden-nursery-sheet')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('garden-confirm-plant')));
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(
+      find.byKey(const ValueKey('garden-tutorial-waterTool')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('garden-tool-water')));
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(
+      find.byKey(const ValueKey('garden-tutorial-waterPlant')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-3')));
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(
+      find.byKey(const ValueKey('garden-tutorial-harvestAndSell')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('garden-tutorial-next')));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byKey(const ValueKey('garden-tool-build')));
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(
+      find.byKey(const ValueKey('garden-tutorial-complete')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('garden-tutorial-next')));
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(find.byKey(const ValueKey('garden-tutorial-overlay')), findsNothing);
+    expect(find.byKey(const ValueKey('garden-tutorial-help')), findsOneWidget);
   });
 
   testWidgets('garden shows compact progress and only the next meadow plot', (

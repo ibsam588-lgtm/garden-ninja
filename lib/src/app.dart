@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' hide Priority;
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:garden_ninja/src/ads/ad_break_policy.dart';
 import 'package:garden_ninja/src/ads/ad_service.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -36,6 +37,18 @@ enum GamePhase { home, playing, paused, results, upgrades, garden }
 enum TargetType { weed, flower, bonus, reward }
 
 enum TutorialStep { slashWeed, avoidFlowers, toughWeed, useIce, frozenSlash }
+
+enum GardenTutorialStep {
+  welcome,
+  plantTool,
+  emptyPlot,
+  nursery,
+  waterTool,
+  waterPlant,
+  harvestAndSell,
+  buildTool,
+  complete,
+}
 
 enum GardenTool { harvest, plant, water, build, move, sun }
 
@@ -334,6 +347,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const Duration _minSfxGap = Duration(milliseconds: 42);
   static const Duration _sameSfxGap = Duration(milliseconds: 82);
   static const String _gardenSaveKey = 'garden_ninja_garden_v4';
+  static const String _gardenTutorialKey = 'garden_ninja_garden_tutorial_v1';
   static const int _dailyWaterGrant = 3;
   static const int _dailySunGrant = 1;
   static const int _gardenCalmMusicTrack = 4;
@@ -626,6 +640,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   ];
 
   final Random _random = Random();
+  final AdBreakPolicy _adBreakPolicy = AdBreakPolicy();
   final List<GardenTarget> _targets = [];
   final List<SliceShard> _shards = [];
   final List<SlashTrail> _slashes = [];
@@ -783,12 +798,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   bool _audioReady = false;
   bool _musicStartQueued = false;
   bool _forceUpdateCheckInFlight = false;
+  bool _interstitialAdShowing = false;
   bool _rewardedAdLoading = false;
   bool _rewardedAdShowing = false;
   bool _rewardedAdClaimedForRun = false;
   bool _tutorialMode = false;
   bool _tutorialMistake = false;
   bool _gardenSaveLoaded = false;
+  bool _gardenTutorialSeen = false;
   bool _showGardenWelcome = false;
   bool _showGardenHousePanel = false;
   bool _showGardenMarketPanel = false;
@@ -797,6 +814,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   List<String> _gardenWelcomeLines = const [];
   List<String> _dailySummaryLines = [];
   TutorialStep _tutorialStep = TutorialStep.slashWeed;
+  GardenTutorialStep? _gardenTutorialStep;
+  int? _gardenTutorialPlotId;
   double _spawnTimer = 0;
   double _timeLeft = 60;
   double _iceTime = 0;
@@ -810,6 +829,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   double _gardenCustomerCelebration = 0;
   double _gardenCutBurst = 0;
   double _motionTime = 0;
+  double _ambientFrameAccumulator = 0;
   int? _gardenCutPlotId;
   Offset? _lastSlashPoint;
   Offset _gardenCaretakerPosition = const Offset(360, 760);
@@ -914,6 +934,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
     setState(() {
       _prefs = prefs;
+      _gardenTutorialSeen = prefs.getBool(_gardenTutorialKey) ?? false;
       if (raw != null) {
         try {
           final Object? decoded = jsonDecode(raw);
@@ -2517,10 +2538,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
 
     if (_phase == GamePhase.home || _phase == GamePhase.garden) {
+      _ambientFrameAccumulator += dt;
+      if (_ambientFrameAccumulator < 1 / 30) {
+        return;
+      }
+      final double ambientDt = _ambientFrameAccumulator.clamp(0.0, 0.1);
+      _ambientFrameAccumulator = 0;
       setState(() {
-        _motionTime += dt;
+        _motionTime += ambientDt;
         if (_phase == GamePhase.garden) {
-          _stepPlayerGarden(dt);
+          _stepPlayerGarden(ambientDt);
         }
       });
     }
@@ -3292,10 +3319,42 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _phase = GamePhase.results;
     _rewardedAdClaimedForRun = false;
     if (!_tutorialMode) {
-      unawaited(
-        AdService.showInterstitial(placementName: 'level_${_level}_complete'),
-      );
+      _adBreakPolicy.recordRunCompleted();
     }
+  }
+
+  Future<void> _continueToNextLevel() async {
+    if (_interstitialAdShowing) {
+      return;
+    }
+
+    final bool shouldShowInterstitial =
+        !_rewardedAdClaimedForRun && _adBreakPolicy.isInterstitialDue;
+    if (shouldShowInterstitial) {
+      setState(() {
+        _interstitialAdShowing = true;
+      });
+      final bool shown = await AdService.showInterstitial(
+        placementName: 'after_level_$_level',
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _interstitialAdShowing = false;
+      });
+      if (shown) {
+        _adBreakPolicy.recordAdExperience();
+      }
+    }
+
+    if (!mounted || _phase != GamePhase.results) {
+      return;
+    }
+    setState(() {
+      _level += 1;
+    });
+    _startRun(restartLevel: true);
   }
 
   Future<void> _watchRewardedSeedAd() async {
@@ -3328,6 +3387,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               }
               setState(() {
                 _rewardedAdClaimedForRun = true;
+                _adBreakPolicy.recordAdExperience();
                 _seeds += 180;
                 _waterCharges = min(9, _waterCharges + 1);
                 _gardenMessage = 'Ad gift: +180 seeds and +1 water';
@@ -3448,6 +3508,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _showGardenWelcome = _gardenWelcomeLines.isNotEmpty;
         _dailySummaryLines = [];
       }
+      if (!_gardenTutorialSeen) {
+        _gardenTutorialStep ??= GardenTutorialStep.welcome;
+        _showGardenWelcome = false;
+      }
       _gardenLastVisitMs = now.millisecondsSinceEpoch;
 
       if (_musicEnabled && _selectedMusicTrack != _gardenCalmMusicTrack) {
@@ -3458,6 +3522,222 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     });
     _queueGardenSave();
     unawaited(_musicPlayer.setVolume(0.3));
+  }
+
+  void _startGardenTutorial() {
+    setState(() {
+      _gardenTutorialStep = GardenTutorialStep.welcome;
+      _gardenTutorialPlotId = null;
+      _gardenNurseryPlotId = null;
+      _gardenMovingPlotId = null;
+      _showGardenWelcome = false;
+      _showGardenHousePanel = false;
+      _showGardenMarketPanel = false;
+      _showGardenHeartPanel = false;
+      _gardenTool = GardenTool.harvest;
+      _gardenMessageLife = 0;
+    });
+    _gardenMapController.value = _gardenMatrix(
+      scale: _gardenInitialScale,
+      translateX: _gardenInitialTranslateX,
+      translateY: _gardenInitialTranslateY,
+    );
+  }
+
+  void _advanceGardenTutorial(GardenTutorialStep step) {
+    setState(() {
+      _gardenTutorialStep = step;
+      _gardenMessageLife = 0;
+    });
+  }
+
+  void _finishGardenTutorial() {
+    setState(() {
+      _gardenTutorialStep = null;
+      _gardenTutorialPlotId = null;
+      _gardenTutorialSeen = true;
+      _gardenMessage = 'Your garden is ready. Follow the glowing actions.';
+      _gardenMessageLife = 2.8;
+    });
+    final SharedPreferences? prefs = _prefs;
+    if (prefs != null) {
+      unawaited(prefs.setBool(_gardenTutorialKey, true));
+    }
+  }
+
+  void _beginGardenTutorialActions() {
+    final PlayerGardenPlot? emptyPlot = _playerGardenPlots
+        .where(
+          (plot) => _isGardenPlotUnlocked(plot) && !plot.planted && !plot.weed,
+        )
+        .firstOrNull;
+    if (emptyPlot != null) {
+      _advanceGardenTutorial(GardenTutorialStep.plantTool);
+      return;
+    }
+
+    final PlayerGardenPlot? thirstyPlant = _playerGardenPlots
+        .where(
+          (plot) =>
+              _isGardenPlotUnlocked(plot) &&
+              plot.planted &&
+              !plot.ready &&
+              !_isWateredToday(plot, _gardenNow),
+        )
+        .firstOrNull;
+    if (thirstyPlant != null) {
+      _gardenTutorialPlotId = thirstyPlant.id;
+      _advanceGardenTutorial(GardenTutorialStep.waterTool);
+      return;
+    }
+
+    _advanceGardenTutorial(GardenTutorialStep.harvestAndSell);
+  }
+
+  Widget _buildGardenTutorialOverlay() {
+    final GardenTutorialStep step = _gardenTutorialStep!;
+    late final String title;
+    late final String message;
+    late final IconData icon;
+    String? primaryLabel;
+    VoidCallback? onPrimary;
+
+    switch (step) {
+      case GardenTutorialStep.welcome:
+        title = 'Care. Grow. Sell. Expand.';
+        message =
+            'Your daily loop is simple: plant a bed, water it, gather produce, serve customers, then improve the yard.';
+        icon = Icons.local_florist_rounded;
+        primaryLabel = 'SHOW ME';
+        onPrimary = _beginGardenTutorialActions;
+      case GardenTutorialStep.plantTool:
+        title = '1  Choose Plant';
+        message =
+            'Tap PLANT below. Empty beds will glow so you know where to go.';
+        icon = Icons.spa_rounded;
+      case GardenTutorialStep.emptyPlot:
+        title = '2  Pick a glowing bed';
+        message = 'Tap any glowing empty bed to open the nursery.';
+        icon = Icons.touch_app_rounded;
+      case GardenTutorialStep.nursery:
+        title = 'Choose a plant';
+        message = 'Pick a large nursery card, then confirm Plant Here.';
+        icon = Icons.local_florist_rounded;
+      case GardenTutorialStep.waterTool:
+        title = '3  Water every day';
+        message =
+            'Tap WATER below. Watering shortens growth time and builds your garden bond.';
+        icon = Icons.water_drop_rounded;
+      case GardenTutorialStep.waterPlant:
+        title = 'Tap your new plant';
+        message = 'The marked plant is thirsty. Tap it once to water it.';
+        icon = Icons.water_drop_rounded;
+      case GardenTutorialStep.harvestAndSell:
+        title = '4  Gather and serve';
+        message =
+            'When READY appears, choose CUT and tap the plant. Produce enters your basket; tap the customer order to sell it.';
+        icon = Icons.storefront_rounded;
+        primaryLabel = 'NEXT';
+        onPrimary = () => _advanceGardenTutorial(GardenTutorialStep.buildTool);
+      case GardenTutorialStep.buildTool:
+        title = '5  Grow the whole yard';
+        message =
+            'Tap BUILD to mow land, add beds, move plants, and upgrade the house after each yard is complete.';
+        icon = Icons.handyman_rounded;
+      case GardenTutorialStep.complete:
+        title = 'Your garden is ready';
+        message =
+            'Come back daily for water, weeds, ripe produce, customer orders, and house progress. Glowing actions are ready now.';
+        icon = Icons.celebration_rounded;
+        primaryLabel = 'START CARING';
+        onPrimary = _finishGardenTutorial;
+    }
+
+    PlayerGardenPlot? targetPlot;
+    if (step == GardenTutorialStep.emptyPlot) {
+      targetPlot = _playerGardenPlots
+          .where(
+            (plot) =>
+                _isGardenPlotUnlocked(plot) && !plot.planted && !plot.weed,
+          )
+          .firstOrNull;
+    } else if (step == GardenTutorialStep.waterPlant) {
+      targetPlot = _playerGardenPlots
+          .where((plot) => plot.id == _gardenTutorialPlotId)
+          .firstOrNull;
+    }
+
+    Offset? targetPosition;
+    if (targetPlot != null) {
+      targetPosition = MatrixUtils.transformPoint(
+        _gardenMapController.value,
+        targetPlot.position,
+      );
+    }
+    final double pulse = (sin(_motionTime * 4.2) + 1) / 2;
+    final bool centered =
+        step == GardenTutorialStep.welcome ||
+        step == GardenTutorialStep.complete;
+
+    return Positioned.fill(
+      key: const ValueKey('garden-tutorial-overlay'),
+      child: Stack(
+        children: [
+          if (centered)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ColoredBox(color: Colors.black.withValues(alpha: 0.48)),
+              ),
+            ),
+          if (targetPosition != null)
+            Positioned(
+              left: targetPosition.dx - 48,
+              top: targetPosition.dy - 48,
+              child: IgnorePointer(
+                child: _GardenTutorialTargetRing(pulse: pulse),
+              ),
+            ),
+          if (step == GardenTutorialStep.plantTool)
+            Positioned(
+              left: 78,
+              bottom: 5,
+              child: IgnorePointer(
+                child: _GardenTutorialToolGlow(pulse: pulse),
+              ),
+            ),
+          if (step == GardenTutorialStep.waterTool)
+            Positioned(
+              left: 153,
+              bottom: 5,
+              child: IgnorePointer(
+                child: _GardenTutorialToolGlow(pulse: pulse),
+              ),
+            ),
+          if (step == GardenTutorialStep.buildTool)
+            Positioned(
+              right: 7,
+              bottom: 5,
+              child: IgnorePointer(
+                child: _GardenTutorialToolGlow(pulse: pulse),
+              ),
+            ),
+          Positioned(
+            left: 16,
+            right: 16,
+            top: centered ? 210 : 92,
+            child: _GardenTutorialCard(
+              stepKey: ValueKey('garden-tutorial-${step.name}'),
+              title: title,
+              message: message,
+              icon: icon,
+              primaryLabel: primaryLabel,
+              onPrimary: onPrimary,
+              onSkip: _finishGardenTutorial,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _closeGardenWelcome() {
@@ -3972,6 +4252,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _playSfx(_sfxCrispLeaf, volume: 0.42);
     setState(() {
       _gardenTool = tool;
+      if (_gardenTutorialStep == GardenTutorialStep.plantTool &&
+          tool == GardenTool.plant) {
+        _gardenTutorialStep = GardenTutorialStep.emptyPlot;
+      } else if (_gardenTutorialStep == GardenTutorialStep.waterTool &&
+          tool == GardenTool.water) {
+        _gardenTutorialStep = GardenTutorialStep.waterPlant;
+      } else if (_gardenTutorialStep == GardenTutorialStep.buildTool &&
+          tool == GardenTool.build) {
+        _gardenTutorialStep = GardenTutorialStep.complete;
+      }
       if (tool != GardenTool.move) {
         _gardenMovingPlotId = null;
       }
@@ -4025,6 +4315,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _showGardenMarketPanel = false;
     _showGardenHeartPanel = false;
     _gardenNurseryPlotId = plot.id;
+    if (_gardenTutorialStep == GardenTutorialStep.emptyPlot) {
+      _gardenTutorialStep = GardenTutorialStep.nursery;
+    }
     _gardenMovingPlotId = null;
     _gardenTool = GardenTool.plant;
     final GardenPlantOption option = _selectedGardenPlantOption;
@@ -4039,6 +4332,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void _closeGardenNursery() {
     setState(() {
       _gardenNurseryPlotId = null;
+      if (_gardenTutorialStep == GardenTutorialStep.nursery) {
+        _gardenTutorialStep = GardenTutorialStep.emptyPlot;
+      }
       _gardenMessage = 'Tap an empty plot to plant';
       _gardenMessageLife = 1.8;
     });
@@ -4052,6 +4348,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         return;
       }
       if (_plantGardenPlot(plot)) {
+        if (_gardenTutorialStep == GardenTutorialStep.nursery) {
+          _gardenTutorialPlotId = plot.id;
+          _gardenTutorialStep = GardenTutorialStep.waterTool;
+        }
         _gardenNurseryPlotId = null;
       }
     });
@@ -4109,6 +4409,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         return;
       }
       _waterGardenPlot(plot);
+      if (_gardenTutorialStep == GardenTutorialStep.waterPlant &&
+          plot.id == _gardenTutorialPlotId &&
+          _isWateredToday(plot, _gardenNow)) {
+        _gardenTutorialStep = GardenTutorialStep.harvestAndSell;
+      }
     });
     _queueGardenSave();
   }
@@ -5025,8 +5330,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   Widget? _buildBottomAdBar() {
     if (!AdService.hasBannerAds ||
         _forceUpdateVisible ||
-        _phase == GamePhase.playing ||
-        _phase == GamePhase.paused ||
+        _phase != GamePhase.home ||
         _tutorialMode) {
       return null;
     }
@@ -6125,6 +6429,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             ),
             Positioned.fill(child: _buildScrollableGardenMap()),
             _buildGardenTopHud(),
+            Positioned(
+              right: 9,
+              top: 65,
+              child: _GardenHelpButton(onTap: _startGardenTutorial),
+            ),
             if (_gardenMessageLife > 0)
               Positioned(
                 left: 42,
@@ -6166,6 +6475,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 lines: _gardenWelcomeLines,
                 onClose: _closeGardenWelcome,
               ),
+            if (_gardenTutorialStep != null && _gardenNurseryPlot == null)
+              _buildGardenTutorialOverlay(),
           ],
         ),
       ),
@@ -6389,7 +6700,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         child: Row(
           children: [
             Container(
-              width: 51,
+              width: 47,
               height: 56,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
@@ -6398,10 +6709,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 border: Border.all(color: const Color(0xFFD2AD63), width: 2),
               ),
               child: Transform.translate(
-                offset: const Offset(0, 7),
+                offset: const Offset(0, 4),
                 child: Image.asset(
                   customerAsset,
-                  fit: BoxFit.cover,
+                  cacheWidth: 256,
+                  fit: BoxFit.contain,
                   alignment: Alignment.topCenter,
                   filterQuality: FilterQuality.medium,
                 ),
@@ -6610,8 +6922,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   angle: sin(_motionTime * 1.5) * 0.02,
                   child: Image.asset(
                     customerAsset,
-                    width: 104,
-                    height: 142,
+                    width: 82,
+                    height: 112,
+                    cacheWidth: 256,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.medium,
                   ),
@@ -6674,6 +6987,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                         Positioned.fill(
                           child: Image.asset(
                             'assets/images/sprites/painted_market_queue.png',
+                            cacheWidth: 900,
                             fit: BoxFit.contain,
                             alignment: Alignment.bottomCenter,
                             filterQuality: FilterQuality.high,
@@ -7031,6 +7345,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                         opacity: ready ? 1 : 0.68,
                         child: Image.asset(
                           'assets/images/sprites/painted_lavender_ninja.png',
+                          cacheWidth: 720,
                           fit: BoxFit.contain,
                           filterQuality: FilterQuality.high,
                           gaplessPlayback: true,
@@ -7210,10 +7525,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         ? sin(_motionTime * 5.5) * 0.045
         : 0;
     return Positioned(
-      left: _gardenCaretakerPosition.dx - 45,
-      top: _gardenCaretakerPosition.dy - 104 + bob,
-      width: 90,
-      height: 112,
+      left: _gardenCaretakerPosition.dx - 36,
+      top: _gardenCaretakerPosition.dy - 88 + bob,
+      width: 72,
+      height: 96,
       child: IgnorePointer(
         child: Stack(
           key: const ValueKey('garden-caretaker'),
@@ -7239,8 +7554,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   flipX: faceLeft,
                   child: Image.asset(
                     _currentAvatar,
-                    width: 78,
-                    height: 102,
+                    width: 62,
+                    height: 84,
+                    cacheWidth: 256,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.medium,
                   ),
@@ -7532,6 +7848,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                           plot.asset!,
                           width: plantSpec.width,
                           height: plantSpec.height,
+                          cacheWidth: 512,
                           fit: BoxFit.contain,
                           filterQuality: FilterQuality.medium,
                         ),
@@ -9371,7 +9688,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             onTap: () => _selectGardenTool(GardenTool.harvest),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 5),
         Expanded(
           child: _GardenToolButton(
             key: const ValueKey('garden-tool-plant'),
@@ -9381,7 +9698,18 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             onTap: () => _selectGardenTool(GardenTool.plant),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 5),
+        Expanded(
+          child: _GardenToolButton(
+            key: const ValueKey('garden-tool-water'),
+            icon: Icons.water_drop_rounded,
+            label: 'WATER',
+            selected: _gardenTool == GardenTool.water,
+            badge: _waterCharges,
+            onTap: () => _selectGardenTool(GardenTool.water),
+          ),
+        ),
+        const SizedBox(width: 5),
         Expanded(
           child: _GardenToolButton(
             key: const ValueKey('garden-tool-sun'),
@@ -9392,7 +9720,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             onTap: () => _selectGardenTool(GardenTool.sun),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 5),
         Expanded(
           child: _GardenToolButton(
             key: const ValueKey('garden-tool-build'),
@@ -9618,14 +9946,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             const SizedBox(height: 10),
           ],
           _PrimaryButton(
-            label: 'NEXT LEVEL',
+            label: _interstitialAdShowing ? 'AD BREAK' : 'NEXT LEVEL',
             icon: Icons.arrow_forward_rounded,
-            onPressed: () {
-              setState(() {
-                _level += 1;
-              });
-              _startRun(restartLevel: true);
-            },
+            onPressed: _continueToNextLevel,
           ),
           const SizedBox(height: 10),
           _SecondaryButton(
@@ -16592,6 +16915,235 @@ class _GardenStatChip extends StatelessWidget {
   }
 }
 
+class _GardenHelpButton extends StatelessWidget {
+  const _GardenHelpButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Garden guide',
+      child: GestureDetector(
+        key: const ValueKey('garden-tutorial-help'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: const Color(0xF23A2946),
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFFFD86A), width: 2),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x66000000),
+                blurRadius: 7,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.question_mark_rounded,
+            color: Colors.white,
+            size: 21,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GardenTutorialCard extends StatelessWidget {
+  const _GardenTutorialCard({
+    required this.stepKey,
+    required this.title,
+    required this.message,
+    required this.icon,
+    required this.onSkip,
+    this.primaryLabel,
+    this.onPrimary,
+  });
+
+  final Key stepKey;
+  final String title;
+  final String message;
+  final IconData icon;
+  final String? primaryLabel;
+  final VoidCallback? onPrimary;
+  final VoidCallback onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: stepKey,
+      padding: const EdgeInsets.fromLTRB(14, 11, 12, 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xF9FFF6D9), Color(0xF9E9F6C8)],
+        ),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFFFD667), width: 2.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x88000000),
+            blurRadius: 14,
+            offset: Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF4F8B2C),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: Colors.white, size: 23),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'GARDEN GUIDE',
+                      style: TextStyle(
+                        color: Color(0xFF8C6425),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      title,
+                      maxLines: 2,
+                      style: const TextStyle(
+                        color: Color(0xFF315C24),
+                        fontSize: 18,
+                        height: 1.02,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                key: const ValueKey('garden-tutorial-skip'),
+                tooltip: 'Skip garden guide',
+                onPressed: onSkip,
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.close_rounded, color: Color(0xFF6C744F)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: const TextStyle(
+              color: Color(0xFF405C34),
+              fontSize: 13,
+              height: 1.25,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (primaryLabel != null && onPrimary != null) ...[
+            const SizedBox(height: 11),
+            SizedBox(
+              width: double.infinity,
+              height: 42,
+              child: FilledButton.icon(
+                key: const ValueKey('garden-tutorial-next'),
+                onPressed: onPrimary,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF68A832),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(7),
+                    side: const BorderSide(color: Color(0xFFFFE17A), width: 2),
+                  ),
+                ),
+                icon: const Icon(Icons.arrow_forward_rounded, size: 20),
+                label: Text(
+                  primaryLabel!,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _GardenTutorialToolGlow extends StatelessWidget {
+  const _GardenTutorialToolGlow({required this.pulse});
+
+  final double pulse;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.scale(
+      scale: 1 + pulse * 0.055,
+      child: Container(
+        width: 72,
+        height: 94,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: const Color(0xFFFFF18A), width: 4),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(
+                0xFFFFE45B,
+              ).withValues(alpha: 0.42 + pulse * 0.35),
+              blurRadius: 16 + pulse * 8,
+              spreadRadius: 3,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GardenTutorialTargetRing extends StatelessWidget {
+  const _GardenTutorialTargetRing({required this.pulse});
+
+  final double pulse;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.scale(
+      scale: 0.94 + pulse * 0.12,
+      child: Container(
+        width: 96,
+        height: 96,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFFFFF18A), width: 5),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(
+                0xFFFFE45B,
+              ).withValues(alpha: 0.38 + pulse * 0.38),
+              blurRadius: 18 + pulse * 10,
+              spreadRadius: 4,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _GardenToolButton extends StatelessWidget {
   const _GardenToolButton({
     super.key,
@@ -16613,6 +17165,7 @@ class _GardenToolButton extends StatelessWidget {
     final (Color, Color) buttonColors = switch (label) {
       'CUT' => (const Color(0xFF6C477B), const Color(0xFF3A294A)),
       'PLANT' => (const Color(0xFF79A84B), const Color(0xFF426A31)),
+      'WATER' => (const Color(0xFF438FBE), const Color(0xFF285A82)),
       'LIGHT' => (const Color(0xFFC28A3C), const Color(0xFF785128)),
       'BUILD' => (const Color(0xFF527DA6), const Color(0xFF31516F)),
       _ => (const Color(0xFF668D43), const Color(0xFF365A31)),
@@ -16660,7 +17213,7 @@ class _GardenToolButton extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(icon, color: const Color(0xFFFFF5D7), size: 34),
+                    Icon(icon, color: const Color(0xFFFFF5D7), size: 31),
                     const SizedBox(height: 4),
                     FittedBox(
                       fit: BoxFit.scaleDown,
@@ -16669,7 +17222,7 @@ class _GardenToolButton extends StatelessWidget {
                         maxLines: 1,
                         style: const TextStyle(
                           color: Color(0xFFFFF8E5),
-                          fontSize: 15,
+                          fontSize: 13,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
