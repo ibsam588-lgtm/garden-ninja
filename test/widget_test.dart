@@ -12,7 +12,7 @@ Future<void> pumpGardenNinja(
   Map<String, Object> prefs = const {},
 }) async {
   SharedPreferences.setMockInitialValues({
-    'garden_ninja_garden_tutorial_v1': true,
+    'garden_ninja_garden_tutorial_v2': true,
     ...prefs,
   });
   tester.view.devicePixelRatio = 1;
@@ -359,7 +359,7 @@ void main() {
   ) async {
     await pumpGardenNinja(
       tester,
-      prefs: {'garden_ninja_garden_tutorial_v1': false},
+      prefs: {'garden_ninja_garden_tutorial_v2': false},
     );
 
     await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
@@ -406,12 +406,31 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('player-garden-plot-3')));
     await tester.pump(const Duration(milliseconds: 120));
     expect(
-      find.byKey(const ValueKey('garden-tutorial-harvestAndSell')),
+      find.byKey(const ValueKey('garden-tutorial-harvestTool')),
       findsOneWidget,
     );
 
-    await tester.tap(find.byKey(const ValueKey('garden-tutorial-next')));
+    await tester.tap(find.byKey(const ValueKey('garden-tool-harvest')));
     await tester.pump(const Duration(milliseconds: 80));
+    expect(
+      find.byKey(const ValueKey('garden-tutorial-harvestPlant')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-1')));
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(
+      find.byKey(const ValueKey('garden-tutorial-sellProduce')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('garden-customer-order-bar')));
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(
+      find.byKey(const ValueKey('garden-tutorial-buildTool')),
+      findsOneWidget,
+    );
+
     await tester.tap(find.byKey(const ValueKey('garden-tool-build')));
     await tester.pump(const Duration(milliseconds: 80));
     expect(
@@ -423,6 +442,133 @@ void main() {
     await tester.pump(const Duration(milliseconds: 80));
     expect(find.byKey(const ValueKey('garden-tutorial-overlay')), findsNothing);
     expect(find.byKey(const ValueKey('garden-tutorial-help')), findsOneWidget);
+  });
+
+  testWidgets(
+    'garden tutorial clears a weeded plant and resumes without removing it',
+    (tester) async {
+      await pumpGardenNinja(
+        tester,
+        prefs: {
+          'garden_ninja_garden_tutorial_v2': false,
+          'garden_ninja_garden_v4': jsonEncode({
+            'version': 7,
+            'plots': [
+              {
+                'id': 2,
+                'plantIndex': 1,
+                'growth': 0.55,
+                'grassCut': true,
+                'watered': false,
+                'weed': true,
+              },
+            ],
+          }),
+        },
+      );
+
+      await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+      await tester.pump(const Duration(milliseconds: 160));
+      await tester.tap(find.byKey(const ValueKey('garden-tutorial-next')));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(
+        find.byKey(const ValueKey('garden-tutorial-clearWeed')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('garden-weed-2')), findsOneWidget);
+      expect(find.byKey(const ValueKey('garden-plant-2')), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('player-garden-plot-2')));
+      await tester.pump(const Duration(milliseconds: 160));
+
+      expect(find.byKey(const ValueKey('garden-weed-2')), findsNothing);
+      expect(find.byKey(const ValueKey('garden-plant-2')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('garden-tutorial-plantTool')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('+1 compost'), findsOneWidget);
+    },
+  );
+
+  testWidgets('garden tutorial cannot deadlock with no seeds or water', (
+    tester,
+  ) async {
+    await pumpGardenNinja(
+      tester,
+      prefs: {
+        'garden_ninja_garden_tutorial_v2': false,
+        'garden_ninja_garden_v4': jsonEncode({
+          'version': 7,
+          'seeds': 0,
+          'waterCharges': 0,
+          'gardenLastLoginDay': gardenDayKey(DateTime.now()),
+        }),
+      },
+    );
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+    await tester.tap(find.byKey(const ValueKey('garden-tutorial-next')));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byKey(const ValueKey('garden-tool-plant')));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-3')));
+    await tester.pump(const Duration(milliseconds: 120));
+
+    expect(find.text('PLANT DAISY HERE'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('garden-confirm-plant')));
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.tap(find.byKey(const ValueKey('garden-tool-water')));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byKey(const ValueKey('player-garden-plot-3')));
+    await tester.pump(const Duration(milliseconds: 120));
+
+    expect(find.text('Need water'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('garden-tutorial-harvestTool')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('garden tutorial keeps an advanced weed target above controls', (
+    tester,
+  ) async {
+    await pumpGardenNinja(
+      tester,
+      prefs: {
+        'garden_ninja_garden_tutorial_v2': false,
+        'garden_ninja_garden_v4': jsonEncode({
+          'version': 7,
+          'gardenLevel': 15,
+          'gardenHouseTier': 4,
+          'plots': [
+            {
+              'id': 17,
+              'growth': 0,
+              'grassCut': true,
+              'watered': false,
+              'weed': true,
+            },
+          ],
+        }),
+      },
+    );
+
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+    await tester.pump(const Duration(milliseconds: 160));
+    await tester.tap(find.byKey(const ValueKey('garden-tutorial-next')));
+    await tester.pump(const Duration(milliseconds: 120));
+
+    final Finder target = find.byKey(const ValueKey('player-garden-plot-17'));
+    final Offset targetCenter = tester.getCenter(target);
+    expect(targetCenter.dx, inInclusiveRange(0, 390));
+    expect(targetCenter.dy, inInclusiveRange(120, 660));
+
+    await tester.tap(target);
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(find.byKey(const ValueKey('garden-weed-17')), findsNothing);
   });
 
   testWidgets('garden shows compact progress and only the next meadow plot', (
