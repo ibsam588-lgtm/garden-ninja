@@ -50,7 +50,6 @@ enum GardenTutorialStep {
   harvestPlant,
   sellProduce,
   harvestAndSell,
-  buildTool,
   complete,
 }
 
@@ -352,7 +351,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const Duration _minSfxGap = Duration(milliseconds: 42);
   static const Duration _sameSfxGap = Duration(milliseconds: 82);
   static const String _gardenSaveKey = 'garden_ninja_garden_v4';
-  static const String _gardenTutorialKey = 'garden_ninja_garden_tutorial_v2';
+  static const String _gardenTutorialKey = 'garden_ninja_garden_tutorial_v3';
   static const int _dailyWaterGrant = 3;
   static const int _dailySunGrant = 1;
   static const int _gardenCalmMusicTrack = 4;
@@ -841,7 +840,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   Offset _gardenCaretakerPosition = const Offset(360, 760);
   Offset _gardenCaretakerTarget = const Offset(360, 760);
   bool _gardenCaretakerMoving = false;
-  String _gardenMessage = 'Tap empty plot to open nursery';
+  String _gardenMessage = 'Start: tap Plant, then tap an empty bed';
   String? _gardenLastLoginDay;
   String? _gardenStreakGraceDay;
   String? _gardenLastTendedDay;
@@ -1401,19 +1400,19 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   String? _gardenNextDailyAction() {
     if (!_gardenDailyPlantDone) {
-      return 'Daily goal: plant one open bed';
+      return 'Next: tap PLANT, then tap an empty bed';
     }
     if (!_gardenDailyWaterDone) {
-      return 'Daily goal: water a plant or tap the rain barrel';
+      return 'Next: tap WATER, then tap a thirsty plant';
     }
     if (!_gardenDailyCollectDone) {
-      return 'Daily goal: gather one ready bloom';
+      return 'Next: wait for READY, tap CUT, then tap the plant';
     }
     if (!_gardenDailyTidyDone) {
-      return 'Daily goal: clear weeds or mow a new meadow';
+      return 'Next: CUT a weed, or use BUILD to mow grass';
     }
     if (!_gardenDailyRewardClaimed) {
-      return 'Daily care complete - claim your reward basket';
+      return 'All done today - tap the heart to claim your gift';
     }
     return null;
   }
@@ -1693,7 +1692,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _gardenMessageLife = 3.0;
       if (_gardenTutorialStep == GardenTutorialStep.sellProduce) {
         _gardenTutorialPlotId = null;
-        _gardenTutorialStep = GardenTutorialStep.buildTool;
+        _gardenTutorialStep = GardenTutorialStep.complete;
       }
       _playSfx(_sfxComboSpark, volume: 0.62);
     });
@@ -3493,7 +3492,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _phase = GamePhase.garden;
       _gardenTool = GardenTool.harvest;
       _gardenMovingPlotId = null;
-      _gardenMessageLife = 0;
+      _gardenMessage =
+          _gardenNextDailyAction() ??
+          'Daily loop: Plant, Water, wait for READY, Cut, then Sell';
+      _gardenMessageLife = 4.5;
       _gardenSessionWeedSpawns = 0;
       _showGardenHousePanel = false;
       _showGardenMarketPanel = false;
@@ -3645,14 +3647,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (_seeds < minimumCost) {
       _seeds = minimumCost;
     }
-    if (_seeds < _selectedGardenPlantOption.seedCost) {
-      _selectedGardenPlant = _gardenPlantOptions.indexWhere(
-        (option) => option.seedCost <= _seeds,
-      );
-      if (_selectedGardenPlant < 0) {
-        _selectedGardenPlant = 0;
-      }
-    }
+    _selectedGardenPlant = 0;
   }
 
   void _ensureGardenTutorialWaterSupply() {
@@ -3768,76 +3763,82 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     late final String title;
     late final String message;
     late final IconData icon;
+    late final String stepLabel;
     String? primaryLabel;
     VoidCallback? onPrimary;
 
     switch (step) {
       case GardenTutorialStep.welcome:
-        title = 'Care. Grow. Sell. Expand.';
+        stepLabel = 'QUICK START';
+        title = 'Let\'s plant one flower';
         message =
-            'Plant, water, gather, serve customers, and improve the yard. If supplies run out, the guide provides one starter action.';
+            'I will glow one thing at a time. Just tap the glowing button or garden bed.';
         icon = Icons.local_florist_rounded;
-        primaryLabel = 'SHOW ME';
+        primaryLabel = 'START';
         onPrimary = _beginGardenTutorialActions;
       case GardenTutorialStep.clearWeed:
-        title = 'Rescue this garden bed';
+        stepLabel = 'FIRST, CLEAR THE BED';
+        title = 'Tap this weed';
         message =
-            'CUT is selected. Tap the glowing weed to remove it. The flower or tree underneath stays safely planted.';
+            'Cut is already selected. Tap the glowing weed. The plant underneath will stay safe.';
         icon = Icons.content_cut_rounded;
       case GardenTutorialStep.plantTool:
-        title = '1  Choose Plant';
-        message =
-            'Tap PLANT below. Empty beds will glow so you know where to go.';
+        stepLabel = 'STEP 1 OF 4';
+        title = 'Tap Plant';
+        message = 'Tap the glowing PLANT button at the bottom.';
         icon = Icons.spa_rounded;
       case GardenTutorialStep.emptyPlot:
-        title = '2  Pick a glowing bed';
-        message = 'Tap any glowing empty bed to open the nursery.';
+        stepLabel = 'STEP 1 OF 4';
+        title = 'Tap this empty bed';
+        message = 'Tap the glowing empty garden bed.';
         icon = Icons.touch_app_rounded;
       case GardenTutorialStep.nursery:
-        title = 'Choose a plant';
-        message = 'Pick a large nursery card, then confirm Plant Here.';
+        stepLabel = 'STEP 1 OF 4';
+        title = 'Choose Daisy';
+        message = 'Tap Daisy, then tap the green Plant button.';
         icon = Icons.local_florist_rounded;
       case GardenTutorialStep.waterTool:
-        title = '3  Water every day';
-        message =
-            'Tap WATER below. Watering shortens growth time and builds your garden bond.';
+        stepLabel = 'STEP 2 OF 4';
+        title = 'Tap Water';
+        message = 'Tap the glowing WATER button at the bottom.';
         icon = Icons.water_drop_rounded;
       case GardenTutorialStep.waterPlant:
-        title = 'Tap your new plant';
-        message = 'The marked plant is thirsty. Tap it once to water it.';
+        stepLabel = 'STEP 2 OF 4';
+        title = 'Tap your Daisy';
+        message = 'Tap the glowing Daisy to water it.';
         icon = Icons.water_drop_rounded;
       case GardenTutorialStep.harvestTool:
-        title = '4  Gather ripe produce';
-        message = 'Tap CUT below. A READY plant will glow for harvesting.';
+        stepLabel = 'STEP 3 OF 4';
+        title = 'Tap Cut';
+        message = 'This plant says READY. Tap the glowing CUT button.';
         icon = Icons.content_cut_rounded;
       case GardenTutorialStep.harvestPlant:
-        title = 'Cut the READY plant';
+        stepLabel = 'STEP 3 OF 4';
+        title = 'Tap the READY plant';
         message =
-            'Tap the glowing ripe plant. It stays planted and starts its next growth cycle.';
+            'Its flowers go into your basket. The plant stays in its bed.';
         icon = Icons.local_florist_rounded;
       case GardenTutorialStep.sellProduce:
-        title = 'Serve your customer';
+        stepLabel = 'STEP 4 OF 4';
+        title = 'Tap the customer order';
         message =
-            'Your harvest is in the basket. Tap the glowing customer order above the toolbar to earn coins and points.';
+            'Tap the glowing purple order box above the buttons to sell your flowers.';
         icon = Icons.storefront_rounded;
       case GardenTutorialStep.harvestAndSell:
-        title = '4  Gather and serve later';
+        stepLabel = 'STEP 3 OF 4';
+        title = 'Wait for READY';
         message =
-            'Nothing matching this order is ripe yet. When READY appears, use CUT; then tap the customer order to sell your basket.';
+            'You are done for now. Later: tap CUT, tap the READY plant, then tap the customer order.';
         icon = Icons.storefront_rounded;
-        primaryLabel = 'NEXT';
-        onPrimary = () => _advanceGardenTutorial(GardenTutorialStep.buildTool);
-      case GardenTutorialStep.buildTool:
-        title = '5  Grow the whole yard';
-        message =
-            'Tap BUILD to mow land, add beds, move plants, and upgrade the house after each yard is complete.';
-        icon = Icons.handyman_rounded;
+        primaryLabel = 'GOT IT';
+        onPrimary = () => _advanceGardenTutorial(GardenTutorialStep.complete);
       case GardenTutorialStep.complete:
-        title = 'Your garden is ready';
+        stepLabel = 'THAT\'S IT';
+        title = 'Plant, Water, Cut, Sell';
         message =
-            'Come back daily for water, weeds, ripe produce, customer orders, and house progress. Glowing actions are ready now.';
+            'Plant -> Water -> wait for READY -> Cut -> Sell. Use Build later when you want more garden beds.';
         icon = Icons.celebration_rounded;
-        primaryLabel = 'START CARING';
+        primaryLabel = 'LET ME PLAY';
         onPrimary = _finishGardenTutorial;
     }
 
@@ -3906,14 +3907,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 child: _GardenTutorialToolGlow(pulse: pulse),
               ),
             ),
-          if (step == GardenTutorialStep.buildTool)
-            Positioned(
-              right: 7,
-              bottom: 5,
-              child: IgnorePointer(
-                child: _GardenTutorialToolGlow(pulse: pulse),
-              ),
-            ),
           if (step == GardenTutorialStep.sellProduce)
             Positioned(
               left: 7,
@@ -3929,6 +3922,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             top: centered ? 210 : 92,
             child: _GardenTutorialCard(
               stepKey: ValueKey('garden-tutorial-${step.name}'),
+              stepLabel: stepLabel,
               title: title,
               message: message,
               icon: icon,
@@ -4468,9 +4462,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       } else if (_gardenTutorialStep == GardenTutorialStep.harvestTool &&
           tool == GardenTool.harvest) {
         _gardenTutorialStep = GardenTutorialStep.harvestPlant;
-      } else if (_gardenTutorialStep == GardenTutorialStep.buildTool &&
-          tool == GardenTool.build) {
-        _gardenTutorialStep = GardenTutorialStep.complete;
       }
       if (tool != GardenTool.move) {
         _gardenMovingPlotId = null;
@@ -6915,8 +6906,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final Color produceColor = _gardenProduceColor(order.produce);
     final String actionLabel = available
         ? canServe
-              ? 'SERVE'
-              : 'FIND'
+              ? 'SELL'
+              : 'GROW'
         : _durationLabel(_gardenCustomerWait);
     final String customerAsset =
         _avatarAssets[(_selectedAvatar + 1 + _gardenCustomerOrderIndex) %
@@ -7174,8 +7165,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   angle: sin(_motionTime * 1.5) * 0.02,
                   child: Image.asset(
                     customerAsset,
-                    width: 82,
-                    height: 112,
+                    key: const ValueKey('garden-customer-art'),
+                    width: 64,
+                    height: 88,
                     cacheWidth: 256,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.medium,
@@ -7232,7 +7224,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 child: Transform.translate(
                   offset: Offset(0, bob - celebrate * 8),
                   child: Transform.scale(
-                    scale: 1 + celebrate * 0.045,
+                    key: const ValueKey('garden-market-queue-art'),
+                    scale: 0.72 + celebrate * 0.032,
+                    alignment: Alignment.bottomRight,
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
@@ -7592,7 +7586,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   child: Transform.rotate(
                     angle: -0.015 + sin(_motionTime * 1.45) * 0.018,
                     child: Transform.scale(
-                      scale: ready ? 0.96 + pulse * 0.025 : 0.94,
+                      key: const ValueKey('garden-lavender-ninja-art'),
+                      scale: ready ? 0.7 + pulse * 0.018 : 0.68,
+                      alignment: Alignment.bottomLeft,
                       child: Opacity(
                         opacity: ready ? 1 : 0.68,
                         child: Image.asset(
@@ -7777,10 +7773,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         ? sin(_motionTime * 5.5) * 0.045
         : 0;
     return Positioned(
-      left: _gardenCaretakerPosition.dx - 36,
-      top: _gardenCaretakerPosition.dy - 88 + bob,
-      width: 72,
-      height: 96,
+      left: _gardenCaretakerPosition.dx - 29,
+      top: _gardenCaretakerPosition.dy - 70 + bob,
+      width: 58,
+      height: 78,
       child: IgnorePointer(
         child: Stack(
           key: const ValueKey('garden-caretaker'),
@@ -7789,8 +7785,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             Positioned(
               bottom: 0,
               child: Container(
-                width: 54,
-                height: 13,
+                width: 40,
+                height: 10,
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.28),
                   borderRadius: BorderRadius.circular(999),
@@ -7806,8 +7802,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   flipX: faceLeft,
                   child: Image.asset(
                     _currentAvatar,
-                    width: 62,
-                    height: 84,
+                    key: const ValueKey('garden-caretaker-art'),
+                    width: 46,
+                    height: 64,
                     cacheWidth: 256,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.medium,
@@ -8259,6 +8256,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   Widget _buildGardenNurseryOverlay() {
     final GardenPlantOption selected = _selectedGardenPlantOption;
     final bool affordable = _seeds >= selected.seedCost;
+    final bool tutorialNursery =
+        _gardenTutorialStep == GardenTutorialStep.nursery;
     return Positioned.fill(
       child: Stack(
         children: [
@@ -8304,13 +8303,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const FittedBox(
+                            FittedBox(
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.centerLeft,
                               child: Text(
-                                'Choose plant for this plot',
+                                tutorialNursery
+                                    ? 'Choose Daisy'
+                                    : 'Choose plant for this plot',
                                 maxLines: 1,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: Color(0xFF397F1F),
                                   fontSize: 25,
                                   fontWeight: FontWeight.w900,
@@ -8318,8 +8319,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                               ),
                             ),
                             Text(
-                              _gardenTutorialStep == GardenTutorialStep.nursery
-                                  ? 'Choose a green card, then press Plant.'
+                              tutorialNursery
+                                  ? 'Tap Daisy, then press Plant.'
                                   : 'Tap a card, then press Plant.',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -8345,14 +8346,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                       physics: const BouncingScrollPhysics(
                         parent: AlwaysScrollableScrollPhysics(),
                       ),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 8,
-                            crossAxisSpacing: 8,
-                            childAspectRatio: 1.18,
-                          ),
-                      itemCount: _gardenPlantOptions.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: tutorialNursery ? 1 : 2,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: tutorialNursery ? 2.05 : 1.18,
+                      ),
+                      itemCount: tutorialNursery
+                          ? 1
+                          : _gardenPlantOptions.length,
                       itemBuilder: (context, index) {
                         final GardenPlantOption option =
                             _gardenPlantOptions[index];
@@ -17214,6 +17216,7 @@ class _GardenHelpButton extends StatelessWidget {
 class _GardenTutorialCard extends StatelessWidget {
   const _GardenTutorialCard({
     required this.stepKey,
+    required this.stepLabel,
     required this.title,
     required this.message,
     required this.icon,
@@ -17223,6 +17226,7 @@ class _GardenTutorialCard extends StatelessWidget {
   });
 
   final Key stepKey;
+  final String stepLabel;
   final String title;
   final String message;
   final IconData icon;
@@ -17271,9 +17275,9 @@ class _GardenTutorialCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'GARDEN GUIDE',
-                      style: TextStyle(
+                    Text(
+                      stepLabel,
+                      style: const TextStyle(
                         color: Color(0xFF8C6425),
                         fontSize: 9,
                         fontWeight: FontWeight.w900,

@@ -12,7 +12,7 @@ Future<void> pumpGardenNinja(
   Map<String, Object> prefs = const {},
 }) async {
   SharedPreferences.setMockInitialValues({
-    'garden_ninja_garden_tutorial_v2': true,
+    'garden_ninja_garden_tutorial_v3': true,
     ...prefs,
   });
   tester.view.devicePixelRatio = 1;
@@ -306,6 +306,19 @@ void main() {
     expect(find.byKey(const ValueKey('garden-heart-scene')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-house-scene')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-caretaker')), findsOneWidget);
+    final Transform marketQueue = tester.widget<Transform>(
+      find.byKey(const ValueKey('garden-market-queue-art')),
+    );
+    final Transform lavenderNinja = tester.widget<Transform>(
+      find.byKey(const ValueKey('garden-lavender-ninja-art')),
+    );
+    final Image caretaker = tester.widget<Image>(
+      find.byKey(const ValueKey('garden-caretaker-art')),
+    );
+    expect(marketQueue.transform.storage[0], lessThanOrEqualTo(0.76));
+    expect(lavenderNinja.transform.storage[0], lessThanOrEqualTo(0.72));
+    expect(caretaker.width, 46);
+    expect(caretaker.height, 64);
     expect(find.byKey(const ValueKey('garden-zoom-in')), findsNothing);
     expect(find.byKey(const ValueKey('garden-zoom-out')), findsNothing);
 
@@ -359,7 +372,7 @@ void main() {
   ) async {
     await pumpGardenNinja(
       tester,
-      prefs: {'garden_ninja_garden_tutorial_v2': false},
+      prefs: {'garden_ninja_garden_tutorial_v3': false},
     );
 
     await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
@@ -369,7 +382,8 @@ void main() {
       find.byKey(const ValueKey('garden-tutorial-welcome')),
       findsOneWidget,
     );
-    expect(find.text('Care. Grow. Sell. Expand.'), findsOneWidget);
+    expect(find.text('Let\'s plant one flower'), findsOneWidget);
+    expect(find.text('QUICK START'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('garden-tutorial-next')));
     await tester.pump(const Duration(milliseconds: 80));
@@ -388,6 +402,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('player-garden-plot-3')));
     await tester.pump(const Duration(milliseconds: 120));
     expect(find.byKey(const ValueKey('garden-nursery-sheet')), findsOneWidget);
+    expect(find.text('Choose Daisy'), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-plant-option-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-plant-option-1')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('garden-confirm-plant')));
     await tester.pump(const Duration(milliseconds: 120));
@@ -427,16 +444,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('garden-customer-order-bar')));
     await tester.pump(const Duration(milliseconds: 80));
     expect(
-      find.byKey(const ValueKey('garden-tutorial-buildTool')),
-      findsOneWidget,
-    );
-
-    await tester.tap(find.byKey(const ValueKey('garden-tool-build')));
-    await tester.pump(const Duration(milliseconds: 80));
-    expect(
       find.byKey(const ValueKey('garden-tutorial-complete')),
       findsOneWidget,
     );
+    expect(find.text('Plant, Water, Cut, Sell'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('garden-tutorial-next')));
     await tester.pump(const Duration(milliseconds: 80));
@@ -450,7 +461,7 @@ void main() {
       await pumpGardenNinja(
         tester,
         prefs: {
-          'garden_ninja_garden_tutorial_v2': false,
+          'garden_ninja_garden_tutorial_v3': false,
           'garden_ninja_garden_v4': jsonEncode({
             'version': 7,
             'plots': [
@@ -498,7 +509,7 @@ void main() {
     await pumpGardenNinja(
       tester,
       prefs: {
-        'garden_ninja_garden_tutorial_v2': false,
+        'garden_ninja_garden_tutorial_v3': false,
         'garden_ninja_garden_v4': jsonEncode({
           'version': 7,
           'seeds': 0,
@@ -538,7 +549,7 @@ void main() {
     await pumpGardenNinja(
       tester,
       prefs: {
-        'garden_ninja_garden_tutorial_v2': false,
+        'garden_ninja_garden_tutorial_v3': false,
         'garden_ninja_garden_v4': jsonEncode({
           'version': 7,
           'gardenLevel': 15,
@@ -602,7 +613,7 @@ void main() {
 
     expect(find.text('MAYA WANTS'), findsOneWidget);
     expect(find.text('1 BOUQUET  BASKET 0/1'), findsOneWidget);
-    expect(find.text('FIND'), findsOneWidget);
+    expect(find.text('GROW'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('player-garden-plot-1')));
     await tester.pump(const Duration(milliseconds: 180));
@@ -612,7 +623,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('1 BOUQUET  BASKET 2/1'), findsOneWidget);
-    expect(find.text('SERVE'), findsOneWidget);
+    expect(find.text('SELL'), findsOneWidget);
 
     await tester.tap(
       find.byKey(const ValueKey('garden-customer-order-action')),
