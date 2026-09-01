@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 abstract class AppRewardedAd {
@@ -13,6 +14,10 @@ abstract class AppRewardedAd {
 class AdService {
   AdService._();
 
+  static final ValueNotifier<int> _availability = ValueNotifier<int>(0);
+
+  static ValueListenable<int> get availability => _availability;
+
   static const bool isSuppressedForStoreScreenshots = bool.fromEnvironment(
     'STORE_SCREENSHOTS',
   );
@@ -21,6 +26,8 @@ class AdService {
   static bool get hasBannerAds => false;
   static bool get hasInterstitialAds => false;
   static bool get hasRewardedAds => false;
+  static bool get isInterstitialReady => false;
+  static bool get isRewardedReady => false;
 
   static Future<void> initialize() async {}
   static Future<bool> showInterstitial({String placementName = ''}) async {

@@ -2143,6 +2143,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AdService.availability.addListener(_handleAdAvailabilityChanged);
+    unawaited(AdService.initialize());
     _musicPlayer = AudioPlayer(playerId: 'garden-ninja-music');
     _gardenMapController = TransformationController(
       _gardenMatrix(
@@ -2164,6 +2166,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    AdService.availability.removeListener(_handleAdAvailabilityChanged);
     _ticker.dispose();
     _gardenMapController.removeListener(_clampGardenTransform);
     _gardenMapController.dispose();
@@ -2175,10 +2178,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     super.dispose();
   }
 
+  void _handleAdAvailabilityChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
+        unawaited(AdService.initialize());
         if (_musicEnabled && _phase != GamePhase.paused) {
           unawaited(_musicPlayer.resume());
         }
@@ -10146,6 +10156,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   Widget _buildResultsLayer() {
     final int stars = _lastRunWon ? (_lives >= 3 ? 3 : 2) : 1;
+    final bool rewardedVideoReady = AdService.isRewardedReady;
     return _DimmedPanel(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -10197,8 +10208,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           if (AdService.hasRewardedAds && !_rewardedAdClaimedForRun) ...[
             _SecondaryButton(
               label: _rewardedAdLoading || _rewardedAdShowing
-                  ? 'AD LOADING'
-                  : 'WATCH AD  +180 SEEDS',
+                  ? 'VIDEO LOADING'
+                  : rewardedVideoReady
+                  ? 'WATCH VIDEO  +180 SEEDS'
+                  : 'LOAD VIDEO  +180 SEEDS',
               icon: Icons.ondemand_video_rounded,
               onPressed: _watchRewardedSeedAd,
             ),
@@ -10469,6 +10482,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   Widget _buildRewardedAdGiftPanel() {
     final bool busy = _rewardedAdLoading || _rewardedAdShowing;
+    final bool ready = AdService.isRewardedReady;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -10533,7 +10547,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  busy ? 'WAIT' : 'WATCH',
+                  busy
+                      ? 'WAIT'
+                      : ready
+                      ? 'WATCH'
+                      : 'LOAD',
                   style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
               ),

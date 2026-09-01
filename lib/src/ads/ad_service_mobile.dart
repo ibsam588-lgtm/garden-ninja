@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:garden_ninja/src/ads/ad_load_gate.dart';
 import 'package:unity_levelplay_mediation/unity_levelplay_mediation.dart';
 
 abstract class AppRewardedAd {
@@ -42,6 +43,13 @@ class AdService {
   static bool _runtimeEnabled = false;
   static bool _initStarted = false;
   static _LevelPlayInterstitialAdHandle? _interstitial;
+  static _LevelPlayRewardedAdHandle? _rewarded;
+  static Timer? _initRetryTimer;
+  static Timer? _interstitialRetryTimer;
+  static Timer? _rewardedRetryTimer;
+  static final ValueNotifier<int> _availability = ValueNotifier<int>(0);
+
+  static ValueListenable<int> get availability => _availability;
 
   static bool get _mobileSupported => Platform.isAndroid || Platform.isIOS;
   static bool get shouldShowAds =>
@@ -52,6 +60,10 @@ class AdService {
       shouldShowAds && _interstitialAdUnitId.trim().isNotEmpty;
   static bool get hasRewardedAds =>
       shouldShowAds && _rewardedAdUnitId.trim().isNotEmpty;
+  static bool get isInterstitialReady =>
+      hasInterstitialAds && (_interstitial?.isReady ?? false);
+  static bool get isRewardedReady =>
+      hasRewardedAds && (_rewarded?.isReady ?? false);
 
   static Future<void> initialize() async {
     if (_initStarted || isSuppressedForStoreScreenshots || !_mobileSupported) {
@@ -100,16 +112,23 @@ class AdService {
         },
       );
       _runtimeEnabled = initialized;
+      _notifyAvailability();
       if (!initialized) {
+        _initStarted = false;
+        _scheduleInitRetry();
         return;
       }
+      _initRetryTimer?.cancel();
       if (levelPlayTestSuite) {
         unawaited(LevelPlay.validateIntegration());
       }
-      _preloadInterstitial();
+      _preloadVideoAds();
     } catch (error) {
       _runtimeEnabled = false;
+      _initStarted = false;
+      _notifyAvailability();
       _log('LevelPlay init failed: $error');
+      _scheduleInitRetry();
     }
   }
 
@@ -121,7 +140,11 @@ class AdService {
     }
     final _LevelPlayInterstitialAdHandle ad =
         _interstitial ?? _createInterstitial();
-    return ad.show(placementName: placementName);
+    final bool shown = await ad.show(placementName: placementName);
+    if (!shown) {
+      _preloadInterstitial();
+    }
+    return shown;
   }
 
   static void loadRewarded({
@@ -133,30 +156,114 @@ class AdService {
       return;
     }
 
-    late final _LevelPlayRewardedAdHandle handle;
-    handle = _LevelPlayRewardedAdHandle(
-      adUnitId: _rewardedAdUnitId,
-      onLoaded: () => onLoaded(handle),
-      onLoadFailed: onFailed,
+    final _LevelPlayRewardedAdHandle ad = _rewarded ?? _createRewarded();
+    unawaited(
+      ad.load().then((bool loaded) {
+        _notifyAvailability();
+        if (loaded) {
+          onLoaded(ad);
+          return;
+        }
+        _scheduleRewardedRetry();
+        onFailed(StateError('LevelPlay rewarded video did not load.'));
+      }),
     );
-    unawaited(handle.load());
   }
 
   static _LevelPlayInterstitialAdHandle _createInterstitial() {
-    final _LevelPlayInterstitialAdHandle ad = _LevelPlayInterstitialAdHandle(
+    late final _LevelPlayInterstitialAdHandle ad;
+    ad = _LevelPlayInterstitialAdHandle(
       adUnitId: _interstitialAdUnitId,
-      onFinished: _preloadInterstitial,
+      onStateChanged: _notifyAvailability,
+      onFinished: () {
+        if (identical(_interstitial, ad)) {
+          _interstitial = null;
+        }
+        _notifyAvailability();
+        _preloadInterstitial();
+      },
     );
     _interstitial = ad;
     return ad;
+  }
+
+  static _LevelPlayRewardedAdHandle _createRewarded() {
+    late final _LevelPlayRewardedAdHandle ad;
+    ad = _LevelPlayRewardedAdHandle(
+      adUnitId: _rewardedAdUnitId,
+      onStateChanged: _notifyAvailability,
+      onFinished: () {
+        if (identical(_rewarded, ad)) {
+          _rewarded = null;
+        }
+        _notifyAvailability();
+        _preloadRewarded();
+      },
+    );
+    _rewarded = ad;
+    return ad;
+  }
+
+  static void _preloadVideoAds() {
+    _preloadInterstitial();
+    _preloadRewarded();
   }
 
   static void _preloadInterstitial() {
     if (!hasInterstitialAds) {
       return;
     }
-    final _LevelPlayInterstitialAdHandle ad = _createInterstitial();
-    unawaited(ad.load());
+    _interstitialRetryTimer?.cancel();
+    final _LevelPlayInterstitialAdHandle ad =
+        _interstitial ?? _createInterstitial();
+    unawaited(
+      ad.load().then((bool loaded) {
+        _notifyAvailability();
+        if (!loaded && identical(_interstitial, ad)) {
+          _scheduleInterstitialRetry();
+        }
+      }),
+    );
+  }
+
+  static void _preloadRewarded() {
+    if (!hasRewardedAds) {
+      return;
+    }
+    _rewardedRetryTimer?.cancel();
+    final _LevelPlayRewardedAdHandle ad = _rewarded ?? _createRewarded();
+    unawaited(
+      ad.load().then((bool loaded) {
+        _notifyAvailability();
+        if (!loaded && identical(_rewarded, ad)) {
+          _scheduleRewardedRetry();
+        }
+      }),
+    );
+  }
+
+  static void _scheduleInterstitialRetry() {
+    _interstitialRetryTimer?.cancel();
+    _interstitialRetryTimer = Timer(
+      const Duration(seconds: 20),
+      _preloadInterstitial,
+    );
+  }
+
+  static void _scheduleInitRetry() {
+    _initRetryTimer?.cancel();
+    _initRetryTimer = Timer(const Duration(seconds: 30), () {
+      unawaited(initialize());
+    });
+  }
+
+  static void _scheduleRewardedRetry() {
+    _rewardedRetryTimer?.cancel();
+    _rewardedRetryTimer = Timer(const Duration(seconds: 20), _preloadRewarded);
+  }
+
+  static void _notifyAvailability() {
+    _availability.value += 1;
   }
 
   static void _log(String message) {
@@ -179,35 +286,53 @@ class _GardenNinjaBannerAdState extends State<GardenNinjaBannerAd> {
   final GlobalKey<LevelPlayBannerAdViewState> _bannerKey =
       GlobalKey<LevelPlayBannerAdViewState>();
   late final _LevelPlayBannerListener _listener;
-  bool _failed = false;
+  Timer? _retryTimer;
+  bool _platformReady = false;
 
   @override
   void initState() {
     super.initState();
     _listener = _LevelPlayBannerListener(
       onLoaded: () {
-        if (mounted) {
-          setState(() => _failed = false);
-        }
+        _retryTimer?.cancel();
+        _retryTimer = null;
       },
       onFailed: (error) {
         AdService._log('Banner failed: $error');
-        if (mounted) {
-          setState(() => _failed = true);
-        }
+        _scheduleRetry();
       },
     );
   }
 
+  void _loadBanner() {
+    if (!mounted || !_platformReady) {
+      return;
+    }
+    unawaited(
+      (_bannerKey.currentState?.loadAd() ?? Future<void>.value()).catchError((
+        Object error,
+      ) {
+        AdService._log('Banner load request failed: $error');
+        _scheduleRetry();
+      }),
+    );
+  }
+
+  void _scheduleRetry() {
+    _retryTimer?.cancel();
+    _retryTimer = Timer(const Duration(seconds: 20), _loadBanner);
+  }
+
   @override
   void dispose() {
+    _retryTimer?.cancel();
     unawaited(_bannerKey.currentState?.destroy() ?? Future<void>.value());
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!AdService.hasBannerAds || _failed) {
+    if (!AdService.hasBannerAds) {
       return const SizedBox.shrink();
     }
 
@@ -224,7 +349,8 @@ class _GardenNinjaBannerAdState extends State<GardenNinjaBannerAd> {
             listener: _listener,
             placementName: 'garden_ninja_bottom_banner',
             onPlatformViewCreated: () {
-              unawaited(_bannerKey.currentState?.loadAd());
+              _platformReady = true;
+              _loadBanner();
             },
           ),
         ),
@@ -237,27 +363,51 @@ class _LevelPlayInterstitialAdHandle
     implements LevelPlayInterstitialAdListener {
   _LevelPlayInterstitialAdHandle({
     required String adUnitId,
+    required this.onStateChanged,
     required this.onFinished,
   }) : _ad = LevelPlayInterstitialAd(adUnitId: adUnitId) {
     _ad.setListener(this);
   }
 
   final LevelPlayInterstitialAd _ad;
+  final VoidCallback onStateChanged;
   final VoidCallback onFinished;
-  bool _loaded = false;
+  final AdLoadGate _loadGate = AdLoadGate();
   bool _disposed = false;
   bool _showing = false;
   bool _finishNotified = false;
   Completer<bool>? _showCompleter;
 
-  Future<void> load() async {
+  bool get isReady => !_disposed && _loadGate.isReady;
+
+  Future<bool> load() async {
     if (_disposed) {
-      return;
+      return false;
+    }
+    if (_loadGate.isReady) {
+      try {
+        if (await _ad.isAdReady()) {
+          return true;
+        }
+      } catch (_) {}
+      _loadGate.consume();
+    }
+
+    final bool loaded = await _loadGate.load(_ad.loadAd);
+    if (!loaded || _disposed) {
+      return false;
     }
     try {
-      await _ad.loadAd();
-    } catch (error) {
-      AdService._log('Interstitial load failed: $error');
+      final bool ready = await _ad.isAdReady();
+      if (!ready) {
+        _loadGate.markFailed();
+        onStateChanged();
+      }
+      return ready;
+    } catch (_) {
+      _loadGate.markFailed();
+      onStateChanged();
+      return false;
     }
   }
 
@@ -266,15 +416,13 @@ class _LevelPlayInterstitialAdHandle
       return false;
     }
     try {
-      bool ready = _loaded && await _ad.isAdReady();
-      if (!ready) {
-        await load();
-        ready = _loaded && await _ad.isAdReady();
-      }
+      final bool ready = await load();
       if (!ready) {
         return false;
       }
       _showing = true;
+      _loadGate.consume();
+      onStateChanged();
       final Completer<bool> completion = Completer<bool>();
       _showCompleter = completion;
       await _ad.showAd(placementName: placementName);
@@ -319,6 +467,7 @@ class _LevelPlayInterstitialAdHandle
       return;
     }
     _disposed = true;
+    _loadGate.dispose();
     try {
       await _ad.dispose();
     } catch (_) {}
@@ -326,12 +475,14 @@ class _LevelPlayInterstitialAdHandle
 
   @override
   void onAdLoaded(LevelPlayAdInfo adInfo) {
-    _loaded = true;
+    _loadGate.markLoaded();
+    onStateChanged();
   }
 
   @override
   void onAdLoadFailed(LevelPlayAdError error) {
-    _loaded = false;
+    _loadGate.markFailed();
+    onStateChanged();
     AdService._log('Interstitial load callback failed: $error');
   }
 
@@ -364,22 +515,55 @@ class _LevelPlayRewardedAdHandle
     implements AppRewardedAd, LevelPlayRewardedAdListener {
   _LevelPlayRewardedAdHandle({
     required String adUnitId,
-    required this.onLoaded,
-    required this.onLoadFailed,
+    required this.onStateChanged,
+    required this.onFinished,
   }) : _ad = LevelPlayRewardedAd(adUnitId: adUnitId) {
     _ad.setListener(this);
   }
 
   final LevelPlayRewardedAd _ad;
-  final VoidCallback onLoaded;
-  final void Function(Object error) onLoadFailed;
+  final VoidCallback onStateChanged;
+  final VoidCallback onFinished;
+  final AdLoadGate _loadGate = AdLoadGate();
   Future<void> Function()? _onRewarded;
   VoidCallback? _onClosed;
   void Function(Object error)? _onFailedToShow;
   bool _rewardGranted = false;
   bool _disposed = false;
+  bool _finishNotified = false;
 
-  Future<void> load() => _ad.loadAd();
+  bool get isReady => !_disposed && _loadGate.isReady;
+
+  Future<bool> load() async {
+    if (_disposed) {
+      return false;
+    }
+    if (_loadGate.isReady) {
+      try {
+        if (await _ad.isAdReady()) {
+          return true;
+        }
+      } catch (_) {}
+      _loadGate.consume();
+    }
+
+    final bool loaded = await _loadGate.load(_ad.loadAd);
+    if (!loaded || _disposed) {
+      return false;
+    }
+    try {
+      final bool ready = await _ad.isAdReady();
+      if (!ready) {
+        _loadGate.markFailed();
+        onStateChanged();
+      }
+      return ready;
+    } catch (_) {
+      _loadGate.markFailed();
+      onStateChanged();
+      return false;
+    }
+  }
 
   @override
   Future<void> show({
@@ -394,11 +578,13 @@ class _LevelPlayRewardedAdHandle
     _onClosed = onClosed;
     _onFailedToShow = onFailedToShow;
     try {
-      if (!await _ad.isAdReady()) {
+      if (!await load()) {
         onFailedToShow(StateError('LevelPlay rewarded ad is not ready.'));
         await dispose();
         return;
       }
+      _loadGate.consume();
+      onStateChanged();
       await _ad.showAd(placementName: 'bonus_seed_reward');
     } catch (error) {
       onFailedToShow(error);
@@ -412,23 +598,35 @@ class _LevelPlayRewardedAdHandle
       return;
     }
     _disposed = true;
+    _loadGate.dispose();
     try {
       await _ad.dispose();
     } catch (_) {}
+    _notifyFinished();
+  }
+
+  void _notifyFinished() {
+    if (_finishNotified) {
+      return;
+    }
+    _finishNotified = true;
+    onFinished();
   }
 
   @override
   void onAdLoaded(LevelPlayAdInfo adInfo) {
     if (!_disposed) {
-      onLoaded();
+      _loadGate.markLoaded();
+      onStateChanged();
     }
   }
 
   @override
   void onAdLoadFailed(LevelPlayAdError error) {
     if (!_disposed) {
-      onLoadFailed(error);
-      unawaited(dispose());
+      _loadGate.markFailed();
+      onStateChanged();
+      AdService._log('Rewarded load callback failed: $error');
     }
   }
 
