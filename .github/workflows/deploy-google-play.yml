@@ -90,8 +90,18 @@ jobs:
           [ -n "$LEVELPLAY_REWARDED_AD_UNIT_ID" ] || missing+=("LEVELPLAY_REWARDED_AD_UNIT_ID")
 
           if [ "${#missing[@]}" -gt 0 ]; then
-            echo "::warning::LevelPlay ads disabled for this build. Missing repo variables: ${missing[*]}"
+            echo "::error::Release blocked. Missing LevelPlay variables: ${missing[*]}"
+            exit 1
           fi
+
+          if [ "$LEVELPLAY_BANNER_AD_UNIT_ID" = "$LEVELPLAY_INTERSTITIAL_AD_UNIT_ID" ] || \
+             [ "$LEVELPLAY_BANNER_AD_UNIT_ID" = "$LEVELPLAY_REWARDED_AD_UNIT_ID" ] || \
+             [ "$LEVELPLAY_INTERSTITIAL_AD_UNIT_ID" = "$LEVELPLAY_REWARDED_AD_UNIT_ID" ]; then
+            echo "::error::Release blocked. Banner, interstitial, and rewarded must use three distinct LevelPlay ad-unit IDs."
+            exit 1
+          fi
+
+          echo "All three LevelPlay ad units are configured."
 
       - name: Skip deploy until secrets are configured
         if: steps.deploy_secrets.outputs.configured != 'true'
