@@ -2,11 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_ninja/src/ads/ad_break_policy.dart';
 
 void main() {
-  test('interstitial becomes due after three completed runs', () {
+  test('interstitial is due after the first and every completed run', () {
     final AdBreakPolicy policy = AdBreakPolicy();
 
     policy.recordRunCompleted();
-    policy.recordRunCompleted();
+    expect(policy.isInterstitialDue, isTrue);
+
+    policy.recordAdExperience();
     expect(policy.isInterstitialDue, isFalse);
 
     policy.recordRunCompleted();
@@ -16,9 +18,7 @@ void main() {
   test('any completed ad experience resets the ad break cadence', () {
     final AdBreakPolicy policy = AdBreakPolicy();
 
-    for (int i = 0; i < 3; i += 1) {
-      policy.recordRunCompleted();
-    }
+    policy.recordRunCompleted();
     policy.recordAdExperience();
 
     expect(policy.completedRunsSinceAd, 0);

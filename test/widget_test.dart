@@ -269,6 +269,30 @@ void main() {
     expect(find.text('Quit Garden Ninja?'), findsNothing);
   });
 
+  testWidgets('quitting a run requires confirmation', (tester) async {
+    await pumpGardenNinja(tester);
+
+    await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tap(find.byIcon(Icons.pause_rounded));
+    await tester.pump(const Duration(milliseconds: 80));
+
+    expect(find.text('Paused'), findsOneWidget);
+    expect(find.text('QUIT RUN'), findsOneWidget);
+
+    await tester.tap(find.text('QUIT RUN'));
+    await tester.pump(const Duration(milliseconds: 120));
+
+    expect(find.text('Quit this run?'), findsOneWidget);
+    expect(find.text('Keep playing'), findsOneWidget);
+
+    await tester.tap(find.text('Quit run'));
+    await tester.pump(const Duration(milliseconds: 160));
+
+    expect(find.byKey(const ValueKey('primary-PLAY')), findsOneWidget);
+    expect(find.text('Quit this run?'), findsNothing);
+  });
+
   testWidgets('players can tend the larger garden', (tester) async {
     await pumpGardenNinja(tester);
 

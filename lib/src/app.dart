@@ -9,6 +9,7 @@ import 'package:flutter/scheduler.dart' hide Priority;
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:garden_ninja/src/ads/ad_break_policy.dart';
+import 'package:garden_ninja/src/ads/ad_placement_config.dart';
 import 'package:garden_ninja/src/ads/ad_service.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -3339,7 +3340,56 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _rewardedAdClaimedForRun = false;
     if (!_tutorialMode) {
       _adBreakPolicy.recordRunCompleted();
+      scheduleMicrotask(() {
+        unawaited(_showCompletedRoundInterstitial());
+      });
     }
+  }
+
+  Future<void> _showCompletedRoundInterstitial() async {
+    if (!mounted ||
+        _phase != GamePhase.results ||
+        !_adBreakPolicy.isInterstitialDue) {
+      return;
+    }
+    final bool shown = await _showInterstitialBreak(
+      placementName: 'after_completed_round_$_level',
+    );
+    if (shown) {
+      _adBreakPolicy.recordAdExperience();
+    }
+  }
+
+  Future<bool> _showInterstitialBreak({
+    required String placementName,
+    bool resumeMusicAfter = true,
+  }) async {
+    if (_interstitialAdShowing || !AdService.hasInterstitialAds) {
+      return false;
+    }
+
+    setState(() {
+      _interstitialAdShowing = true;
+    });
+    try {
+      await _musicPlayer.pause();
+    } catch (_) {}
+    bool shown = false;
+    try {
+      shown = await AdService.showInterstitial(placementName: placementName);
+    } catch (_) {
+      shown = false;
+    }
+    if (!mounted) {
+      return shown;
+    }
+    setState(() {
+      _interstitialAdShowing = false;
+    });
+    if (resumeMusicAfter && _musicEnabled) {
+      unawaited(_musicPlayer.resume());
+    }
+    return shown;
   }
 
   Future<void> _continueToNextLevel() async {
@@ -3347,21 +3397,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return;
     }
 
-    final bool shouldShowInterstitial =
-        !_rewardedAdClaimedForRun && _adBreakPolicy.isInterstitialDue;
-    if (shouldShowInterstitial) {
-      setState(() {
-        _interstitialAdShowing = true;
-      });
-      final bool shown = await AdService.showInterstitial(
-        placementName: 'after_level_$_level',
+    if (_adBreakPolicy.isInterstitialDue) {
+      final bool shown = await _showInterstitialBreak(
+        placementName: 'before_next_level_$_level',
       );
       if (!mounted) {
         return;
       }
-      setState(() {
-        _interstitialAdShowing = false;
-      });
       if (shown) {
         _adBreakPolicy.recordAdExperience();
       }
@@ -3376,10 +3418,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _startRun(restartLevel: true);
   }
 
-  Future<void> _watchRewardedSeedAd() async {
+  Future<void> _watchRewardedAd(RewardedAdPlacement placement) async {
     if (_rewardedAdLoading ||
         _rewardedAdShowing ||
-        _rewardedAdClaimedForRun ||
+        _interstitialAdShowing ||
+        (placement == RewardedAdPlacement.levelComplete &&
+            _rewardedAdClaimedForRun) ||
         !AdService.hasRewardedAds) {
       return;
     }
@@ -3399,40 +3443,60 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           _rewardedAdShowing = true;
         });
         unawaited(
-          ad.show(
-            onRewarded: () async {
-              if (!mounted || _rewardedAdClaimedForRun) {
-                return;
-              }
-              setState(() {
-                _rewardedAdClaimedForRun = true;
-                _adBreakPolicy.recordAdExperience();
-                _seeds += 180;
-                _waterCharges = min(9, _waterCharges + 1);
-                _gardenMessage = 'Ad gift: +180 seeds and +1 water';
-                _gardenMessageLife = 2.2;
-              });
-              _playSfx(_sfxComboSpark, volume: 0.64);
-            },
-            onClosed: () {
-              if (!mounted) {
-                return;
-              }
-              setState(() {
-                _rewardedAdShowing = false;
-              });
-            },
-            onFailedToShow: (error) {
-              if (!mounted) {
-                return;
-              }
-              setState(() {
-                _rewardedAdShowing = false;
-                _gardenMessage = 'Ad is not ready yet. Try again soon.';
-                _gardenMessageLife = 2.2;
-              });
-            },
-          ),
+          (() async {
+            try {
+              await _musicPlayer.pause();
+            } catch (_) {}
+            await ad.show(
+              placementName: placement.levelPlayName,
+              onRewarded: () async {
+                if (!mounted ||
+                    (placement == RewardedAdPlacement.levelComplete &&
+                        _rewardedAdClaimedForRun)) {
+                  return;
+                }
+                final int points = placement.pointReward;
+                final int energy = placement.energyReward;
+                setState(() {
+                  if (placement == RewardedAdPlacement.levelComplete) {
+                    _rewardedAdClaimedForRun = true;
+                  }
+                  _seeds += points;
+                  _sunDrops = min(9, _sunDrops + energy);
+                  _gardenMessage = energy > 0
+                      ? 'Video reward: +$points points and +$energy energy'
+                      : 'Video reward: +$points points';
+                  _gardenMessageLife = 2.2;
+                });
+                _showAdRewardNotice(_gardenMessage);
+                _playSfx(_sfxComboSpark, volume: 0.64);
+              },
+              onClosed: () {
+                if (!mounted) {
+                  return;
+                }
+                setState(() {
+                  _rewardedAdShowing = false;
+                });
+                if (_musicEnabled) {
+                  unawaited(_musicPlayer.resume());
+                }
+              },
+              onFailedToShow: (error) {
+                if (!mounted) {
+                  return;
+                }
+                setState(() {
+                  _rewardedAdShowing = false;
+                  _gardenMessage = 'Ad is not ready yet. Try again soon.';
+                  _gardenMessageLife = 2.2;
+                });
+                if (_musicEnabled) {
+                  unawaited(_musicPlayer.resume());
+                }
+              },
+            );
+          })(),
         );
       },
       onFailed: (error) {
@@ -3446,6 +3510,19 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           _gardenMessageLife = 2.2;
         });
       },
+    );
+  }
+
+  void _showAdRewardNotice(String message) {
+    final ScaffoldMessengerState? messenger = ScaffoldMessenger.maybeOf(
+      context,
+    );
+    messenger?.hideCurrentSnackBar();
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(message, textAlign: TextAlign.center),
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 
@@ -5403,13 +5480,79 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     });
   }
 
+  Future<void> _confirmQuitRun() async {
+    if (_phase != GamePhase.playing && _phase != GamePhase.paused) {
+      return;
+    }
+    if (_phase == GamePhase.playing) {
+      _pause();
+    }
+
+    final bool shouldQuit =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF193D16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: const BorderSide(color: Color(0xFF9EDB5A), width: 2),
+              ),
+              title: const Text(
+                'Quit this run?',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              content: const Text(
+                'This round score will be lost. Your garden and saved rewards are safe.',
+                style: TextStyle(
+                  color: Color(0xFFE7FFCC),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFE7FF9A),
+                  ),
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Keep playing'),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF75B843),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Quit run'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    if (!mounted || !shouldQuit) {
+      return;
+    }
+    await _showInterstitialBreak(placementName: 'quit_run_confirmed');
+    if (mounted) {
+      _goHome();
+    }
+  }
+
   Future<void> _handleBackIntent() async {
     if (_phase == GamePhase.playing) {
       _pause();
       return;
     }
-    if (_phase == GamePhase.paused ||
-        _phase == GamePhase.results ||
+    if (_phase == GamePhase.paused) {
+      await _confirmQuitRun();
+      return;
+    }
+    if (_phase == GamePhase.results ||
         _phase == GamePhase.upgrades ||
         _phase == GamePhase.garden) {
       _goHome();
@@ -5463,6 +5606,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         false;
 
     if (shouldQuit) {
+      await _showInterstitialBreak(
+        placementName: 'app_exit_confirmed',
+        resumeMusicAfter: false,
+      );
       await _musicPlayer.stop();
       await SystemNavigator.pop();
     }
@@ -5579,13 +5726,24 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget? _buildBottomAdBar() {
-    if (!AdService.hasBannerAds ||
-        _forceUpdateVisible ||
-        _phase != GamePhase.home ||
-        _tutorialMode) {
+    if (!AdService.hasBannerAds || _forceUpdateVisible || _tutorialMode) {
       return null;
     }
-    return const SafeArea(top: false, child: GardenNinjaBannerAd());
+    final String? placementName = switch (_phase) {
+      GamePhase.home => 'home_bottom_banner',
+      GamePhase.upgrades => 'shop_bottom_banner',
+      _ => null,
+    };
+    if (placementName == null) {
+      return null;
+    }
+    return SafeArea(
+      top: false,
+      child: GardenNinjaBannerAd(
+        key: ValueKey<String>('banner-$placementName'),
+        placementName: placementName,
+      ),
+    );
   }
 
   Widget _buildGardenHealthBed() {
@@ -10145,9 +10303,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           ),
           const SizedBox(height: 10),
           _SecondaryButton(
-            label: 'HOME',
+            label: 'QUIT RUN',
             icon: Icons.home_rounded,
-            onPressed: _goHome,
+            onPressed: () => unawaited(_confirmQuitRun()),
           ),
         ],
       ),
@@ -10207,13 +10365,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           const SizedBox(height: 18),
           if (AdService.hasRewardedAds && !_rewardedAdClaimedForRun) ...[
             _SecondaryButton(
-              label: _rewardedAdLoading || _rewardedAdShowing
+              label: _interstitialAdShowing
+                  ? 'AD IN PROGRESS'
+                  : _rewardedAdLoading || _rewardedAdShowing
                   ? 'VIDEO LOADING'
                   : rewardedVideoReady
-                  ? 'WATCH VIDEO  +180 SEEDS'
-                  : 'LOAD VIDEO  +180 SEEDS',
+                  ? 'WATCH VIDEO  +150 POINTS +1 ENERGY'
+                  : 'LOAD VIDEO  +150 POINTS +1 ENERGY',
               icon: Icons.ondemand_video_rounded,
-              onPressed: _watchRewardedSeedAd,
+              onPressed: () =>
+                  _watchRewardedAd(RewardedAdPlacement.levelComplete),
             ),
             const SizedBox(height: 10),
           ],
@@ -10512,7 +10673,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Seed Gift',
+                  'Shop Video Bonus',
                   style: TextStyle(
                     color: Color(0xFF234B18),
                     fontSize: 19,
@@ -10520,7 +10681,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   ),
                 ),
                 Text(
-                  '+180 seeds and +1 water',
+                  '+300 points',
                   style: TextStyle(
                     color: Color(0xFF365D27),
                     fontWeight: FontWeight.w800,
@@ -10533,7 +10694,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             width: 88,
             height: 44,
             child: OutlinedButton(
-              onPressed: busy ? null : _watchRewardedSeedAd,
+              onPressed: busy
+                  ? null
+                  : () => _watchRewardedAd(RewardedAdPlacement.shop),
               style: OutlinedButton.styleFrom(
                 backgroundColor: busy
                     ? const Color(0xFFD5D2BF)

@@ -8,6 +8,7 @@ import 'package:unity_levelplay_mediation/unity_levelplay_mediation.dart';
 
 abstract class AppRewardedAd {
   Future<void> show({
+    required String placementName,
     required Future<void> Function() onRewarded,
     required VoidCallback onClosed,
     required void Function(Object error) onFailedToShow,
@@ -276,7 +277,9 @@ class AdService {
 }
 
 class GardenNinjaBannerAd extends StatefulWidget {
-  const GardenNinjaBannerAd({super.key});
+  const GardenNinjaBannerAd({required this.placementName, super.key});
+
+  final String placementName;
 
   @override
   State<GardenNinjaBannerAd> createState() => _GardenNinjaBannerAdState();
@@ -347,7 +350,7 @@ class _GardenNinjaBannerAdState extends State<GardenNinjaBannerAd> {
             adUnitId: AdService._bannerAdUnitId,
             adSize: LevelPlayAdSize.BANNER,
             listener: _listener,
-            placementName: 'garden_ninja_bottom_banner',
+            placementName: widget.placementName,
             onPlatformViewCreated: () {
               _platformReady = true;
               _loadBanner();
@@ -567,6 +570,7 @@ class _LevelPlayRewardedAdHandle
 
   @override
   Future<void> show({
+    required String placementName,
     required Future<void> Function() onRewarded,
     required VoidCallback onClosed,
     required void Function(Object error) onFailedToShow,
@@ -585,7 +589,7 @@ class _LevelPlayRewardedAdHandle
       }
       _loadGate.consume();
       onStateChanged();
-      await _ad.showAd(placementName: 'bonus_seed_reward');
+      await _ad.showAd(placementName: placementName);
     } catch (error) {
       onFailedToShow(error);
       await dispose();
