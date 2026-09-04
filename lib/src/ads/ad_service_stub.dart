@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 
 abstract class AppRewardedAd {
   Future<void> show({
+    required String placementName,
     required Future<void> Function() onRewarded,
     required VoidCallback onClosed,
     required void Function(Object error) onFailedToShow,
@@ -41,7 +42,9 @@ class AdService {
 }
 
 class GardenNinjaBannerAd extends StatelessWidget {
-  const GardenNinjaBannerAd({super.key});
+  const GardenNinjaBannerAd({required this.placementName, super.key});
+
+  final String placementName;
 
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();

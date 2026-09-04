@@ -1,5 +1,5 @@
 class AdBreakPolicy {
-  AdBreakPolicy({this.runsPerInterstitial = 3})
+  AdBreakPolicy({this.runsPerInterstitial = 1})
     : assert(runsPerInterstitial > 0);
 
   final int runsPerInterstitial;
