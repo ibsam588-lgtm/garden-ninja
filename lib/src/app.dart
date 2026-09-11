@@ -11,9 +11,10 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:garden_ninja/src/ads/ad_break_policy.dart';
 import 'package:garden_ninja/src/ads/ad_placement_config.dart';
 import 'package:garden_ninja/src/ads/ad_service.dart';
+import 'package:garden_ninja/src/garden/harvest_garden.dart';
+import 'package:garden_ninja/src/garden/harvest_model.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:timezone/timezone.dart' as tz;
 
 class GardenNinjaApp extends StatelessWidget {
   const GardenNinjaApp({super.key});
@@ -357,22 +358,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const int _dailySunGrant = 1;
   static const int _gardenCalmMusicTrack = 4;
   static const int _gardenTendedReward = 25;
-  static const Duration _gardenWelcomeAfter = Duration(hours: 6);
   static const int _notifIdNextBloom = 1;
   static const int _notifIdMorningGift = 2;
   static const int _notifIdComeback = 3;
-  static const NotificationDetails _gardenNotificationDetails =
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          'garden_reminders',
-          'Garden reminders',
-          channelDescription:
-              'Gentle reminders when plants bloom and gifts arrive',
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
-        ),
-        iOS: DarwinNotificationDetails(),
-      );
   static const List<String> _weedAssets = [
     'assets/images/sprites/weed_spike.png',
     'assets/images/sprites/weed_vine.png',
@@ -735,6 +723,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   bool _notificationsReady = false;
   bool _notificationPermissionAsked = false;
   SharedPreferences? _prefs;
+  HarvestProgress _harvestProgress = HarvestProgress();
+  final GlobalKey<HarvestGardenState> _harvestKey =
+      GlobalKey<HarvestGardenState>();
   final Map<String, AudioPool> _sfxPools = {};
   final AudioContext _musicAudioContext = AudioContextConfig(
     focus: AudioContextConfigFocus.gain,
@@ -764,7 +755,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int _gardenDamage = 0;
   int _weedsSlashed = 0;
   int _flowersSaved = 0;
-  int _seeds = 1250;
+  int _seeds = 840;
   int _sunDrops = 3;
   int _waterCharges = 3;
   int _iceCharges = 2;
@@ -810,7 +801,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   bool _tutorialMode = false;
   bool _tutorialMistake = false;
   bool _gardenSaveLoaded = false;
-  bool _gardenTutorialSeen = false;
   bool _showGardenWelcome = false;
   bool _showGardenHousePanel = false;
   bool _showGardenMarketPanel = false;
@@ -940,7 +930,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
     setState(() {
       _prefs = prefs;
-      _gardenTutorialSeen = prefs.getBool(_gardenTutorialKey) ?? false;
       if (raw != null) {
         try {
           final Object? decoded = jsonDecode(raw);
@@ -952,14 +941,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         }
       }
       _gardenSaveLoaded = true;
-      _refreshAllGardenPlots(_gardenNow);
-      _syncDailyGarden(_gardenNow);
+      _harvestProgress.coins = _seeds;
     });
     _queueGardenSave();
   }
 
   void _applyGardenSave(Map<String, dynamic> data) {
     _seeds = (data['seeds'] as num?)?.toInt() ?? _seeds;
+    _harvestProgress = HarvestProgress.fromJson(
+      data['harvestMastery'],
+      coins: _seeds,
+    );
     _waterCharges = (data['waterCharges'] as num?)?.toInt() ?? _waterCharges;
     _sunDrops = (data['sunDrops'] as num?)?.toInt() ?? _sunDrops;
     _gardenPoints = (data['gardenPoints'] as num?)?.toInt() ?? _gardenPoints;
@@ -1119,8 +1111,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   Map<String, dynamic> _gardenSavePayload() {
     return {
-      'version': 7,
+      'version': 8,
       'seeds': _seeds,
+      'harvestMastery': _harvestProgress.toJson(),
       'waterCharges': _waterCharges,
       'sunDrops': _sunDrops,
       'gardenPoints': _gardenPoints,
@@ -2340,6 +2333,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         ),
       );
       _notificationsReady = true;
+      unawaited(_syncGardenNotifications());
     } catch (_) {
       // Notifications are a bonus; the garden works fine without them.
       _notificationsReady = false;
@@ -2367,79 +2361,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Future<void> _syncGardenNotifications() async {
-    if (!_notificationsReady || !_notificationPermissionAsked) {
-      return;
-    }
+    if (!_notificationsReady) return;
+    // The harvest garden has no offline watering chores. Retire reminders
+    // from the previous garden without requesting notification permission.
     try {
-      await _notifications.cancelAll();
-      final DateTime now = _gardenNow;
-
-      PlayerGardenPlot? soonestPlot;
-      DateTime? soonestAt;
-      for (final plot in _playerGardenPlots) {
-        if (!_isGardenPlotUnlocked(plot) || !plot.planted || plot.ready) {
-          continue;
-        }
-        final DateTime? readyAt = plot.readyAt;
-        if (readyAt == null ||
-            readyAt.isBefore(now.add(const Duration(minutes: 5)))) {
-          continue;
-        }
-        if (soonestAt == null || readyAt.isBefore(soonestAt)) {
-          soonestAt = readyAt;
-          soonestPlot = plot;
-        }
-      }
-      if (soonestPlot != null && soonestAt != null) {
-        await _notifications.zonedSchedule(
-          id: _notifIdNextBloom,
-          title: 'Garden Ninja',
-          body:
-              '${_plantOptionForPlot(soonestPlot).name} is ready to gather '
-              'in your garden',
-          scheduledDate: tz.TZDateTime.from(soonestAt, tz.UTC),
-          notificationDetails: _gardenNotificationDetails,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        );
-      }
-
-      if (_gardenLastTendedDay == _dayKey(now)) {
-        final DateTime giftMorning = DateTime(
-          now.year,
-          now.month,
-          now.day,
-          9,
-          30,
-        ).add(const Duration(days: 1));
-        await _notifications.zonedSchedule(
-          id: _notifIdMorningGift,
-          title: 'Garden Ninja',
-          body: 'The ninja left a gift in your garden',
-          scheduledDate: tz.TZDateTime.from(giftMorning, tz.UTC),
-          notificationDetails: _gardenNotificationDetails,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        );
-      }
-
-      final DateTime awhileAway = now.add(const Duration(days: 3));
-      final DateTime comebackEvening = DateTime(
-        awhileAway.year,
-        awhileAway.month,
-        awhileAway.day,
-        18,
-        30,
-      );
-      await _notifications.zonedSchedule(
-        id: _notifIdComeback,
-        title: 'Garden Ninja',
-        body: 'Your garden misses you - the flowers could use some water',
-        scheduledDate: tz.TZDateTime.from(comebackEvening, tz.UTC),
-        notificationDetails: _gardenNotificationDetails,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      );
-    } catch (_) {
-      // Scheduling problems must never disturb gameplay.
-    }
+      await _notifications.cancel(id: _notifIdNextBloom);
+      await _notifications.cancel(id: _notifIdMorningGift);
+      await _notifications.cancel(id: _notifIdComeback);
+    } catch (_) {}
   }
 
   Future<void> _primeAudio() async {
@@ -2548,6 +2477,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             .clamp(0.0, 0.05)
             .toDouble();
     _lastElapsed = elapsed;
+
+    // The new garden owns its animation and lifecycle. Do not tick legacy
+    // growth, weeds or daily rewards while playing harvest challenges.
+    if (_phase == GamePhase.garden) return;
 
     if (_phase == GamePhase.playing) {
       setState(() {
@@ -3571,55 +3504,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void _openGarden() {
     _ensureMusicStarted();
     setState(() {
-      final DateTime now = _gardenNow;
-      final int? lastVisitMs = _gardenLastVisitMs;
-      _syncDailyGarden(now);
-      _refreshGardenPond(now);
-      _refreshAllGardenPlots(now);
+      _harvestProgress.coins = _seeds;
       _phase = GamePhase.garden;
-      _gardenTool = GardenTool.harvest;
-      _gardenMovingPlotId = null;
-      _gardenMessage =
-          _gardenNextDailyAction() ??
-          'Daily loop: Plant, Water, wait for READY, Cut, then Sell';
-      _gardenMessageLife = 4.5;
-      _gardenSessionWeedSpawns = 0;
-      _showGardenHousePanel = false;
-      _showGardenMarketPanel = false;
-      _showGardenHeartPanel = false;
-      _gardenWeedTimer = max(_gardenWeedTimer, 60);
-
-      final bool longAway =
-          lastVisitMs != null &&
-          now.difference(DateTime.fromMillisecondsSinceEpoch(lastVisitMs)) >=
-              _gardenWelcomeAfter;
-      if (longAway) {
-        _gardenWelcomeLines = [
-          for (final plot in _playerGardenPlots.where(
-            (plot) => plot.planted && _isGardenPlotUnlocked(plot),
-          ))
-            plot.ready
-                ? '${_plantOptionForPlot(plot).name} is ready to gather'
-                : '${_plantOptionForPlot(plot).name} is '
-                      '${(plot.growth * 100).round()}% grown',
-          ..._dailySummaryLines,
-        ].take(6).toList();
-        _showGardenWelcome = _gardenWelcomeLines.isNotEmpty;
-        _dailySummaryLines = [];
-      }
-      if (!_gardenTutorialSeen) {
-        _gardenTutorialStep ??= GardenTutorialStep.welcome;
-        _showGardenWelcome = false;
-      }
-      _gardenLastVisitMs = now.millisecondsSinceEpoch;
-
       if (_musicEnabled && _selectedMusicTrack != _gardenCalmMusicTrack) {
         _musicTrackBeforeGarden = _selectedMusicTrack;
         _selectedMusicTrack = _gardenCalmMusicTrack;
         unawaited(_playSelectedMusic());
       }
     });
-    _queueGardenSave();
     unawaited(_musicPlayer.setVolume(0.3));
   }
 
@@ -3656,7 +3548,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _gardenTutorialStep = null;
       _gardenTutorialResumeStep = null;
       _gardenTutorialPlotId = null;
-      _gardenTutorialSeen = true;
       _gardenMessage = 'Your garden is ready. Follow the glowing actions.';
       _gardenMessageLife = 2.8;
     });
@@ -5544,6 +5435,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Future<void> _handleBackIntent() async {
+    if (_phase == GamePhase.garden) {
+      _harvestKey.currentState?.handleBack();
+      return;
+    }
     if (_phase == GamePhase.playing) {
       _pause();
       return;
@@ -5617,6 +5512,39 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_phase == GamePhase.garden) {
+      return PopScope<void>(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) _harvestKey.currentState?.handleBack();
+        },
+        child: Scaffold(
+          backgroundColor: const Color(0xFF273020),
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (_gardenSaveLoaded)
+                HarvestGarden(
+                  key: _harvestKey,
+                  progress: _harvestProgress,
+                  suspended: _forceUpdateVisible,
+                  onExit: _goHome,
+                  onSave: () {
+                    _seeds = _harvestProgress.coins;
+                    _queueGardenSave();
+                  },
+                  onHarvest: () => _playSfx(_sfxComboSpark, volume: .35),
+                )
+              else
+                const Center(
+                  child: CircularProgressIndicator(color: Color(0xFFE2AE70)),
+                ),
+              if (_forceUpdateVisible) _buildForcedUpdateLayer(),
+            ],
+          ),
+        ),
+      );
+    }
     return PopScope<void>(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
