@@ -7,9 +7,11 @@ import 'package:flutter/services.dart';
 import 'harvest_model.dart';
 
 class HarvestArt {
-  HarvestArt(this.courtyard, this.atlas);
+  HarvestArt(this.courtyard, this.atlas, this.cropAtlas, this.buildingAtlas);
   final ui.Image courtyard;
   final ui.Image atlas;
+  final ui.Image cropAtlas;
+  final ui.Image buildingAtlas;
   static Future<HarvestArt>? _cached;
   static Future<HarvestArt> load() =>
       _cached ??= _load().catchError((Object error, StackTrace stack) {
@@ -29,8 +31,16 @@ class HarvestArt {
     final images = await Future.wait([
       _image('assets/images/backgrounds/harvest_courtyard.png'),
       _image('assets/images/sprites/harvest_atlas.png'),
+      _image('assets/images/sprites/harvest_crop_levels.png'),
+      _image('assets/images/sprites/harvest_building_levels.png'),
     ]);
-    final source = images[1];
+    final atlas = await _removeChroma(images[1]);
+    final cropAtlas = await _removeChroma(images[2]);
+    final buildingAtlas = await _removeChroma(images[3]);
+    return HarvestArt(images[0], atlas, cropAtlas, buildingAtlas);
+  }
+
+  static Future<ui.Image> _removeChroma(ui.Image source) async {
     final data = await source.toByteData(format: ui.ImageByteFormat.rawRgba);
     if (data == null) throw StateError('Could not load garden artwork');
     final rgba = Uint8List.fromList(data.buffer.asUint8List());
@@ -56,12 +66,12 @@ class HarvestArt {
       pixelFormat: ui.PixelFormat.rgba8888,
     );
     final codec = await descriptor.instantiateCodec();
-    final atlas = (await codec.getNextFrame()).image;
+    final image = (await codec.getNextFrame()).image;
     codec.dispose();
     descriptor.dispose();
     buffer.dispose();
     source.dispose();
-    return HarvestArt(images[0], atlas);
+    return image;
   }
 
   Rect spriteSource(int sprite) {
@@ -88,6 +98,65 @@ class HarvestArt {
       Paint()
         ..color = Colors.white.withValues(alpha: opacity)
         ..filterQuality = FilterQuality.medium,
+    );
+  }
+
+  Rect _sheetSource(ui.Image sheet, int sprite, int columns, int rows) {
+    final w = sheet.width / columns;
+    final h = sheet.height / rows;
+    return Rect.fromLTWH(
+      (sprite % columns) * w + 8,
+      (sprite ~/ columns) * h + 8,
+      w - 16,
+      h - 16,
+    );
+  }
+
+  void _drawSheetSprite(
+    Canvas canvas,
+    ui.Image sheet,
+    Rect source,
+    Rect destination, {
+    double opacity = 1,
+  }) {
+    canvas.drawImageRect(
+      sheet,
+      source,
+      destination,
+      Paint()
+        ..color = Colors.white.withValues(alpha: opacity)
+        ..filterQuality = FilterQuality.medium,
+    );
+  }
+
+  void cropSprite(
+    Canvas canvas,
+    int index,
+    Rect destination, {
+    double opacity = 1,
+  }) => _drawSheetSprite(
+    canvas,
+    cropAtlas,
+    _sheetSource(cropAtlas, index, 3, 2),
+    destination,
+    opacity: opacity,
+  );
+
+  void buildingSprite(
+    Canvas canvas,
+    GardenUpgrade upgrade,
+    int level,
+    Rect destination, {
+    double opacity = 1,
+  }) {
+    final index =
+        (upgrade == GardenUpgrade.greenhouse ? 0 : 6) + (level.clamp(1, 6) - 1);
+    _drawSheetSprite(
+      canvas,
+      buildingAtlas,
+      _sheetSource(buildingAtlas, index, 3, 4),
+      destination,
+      opacity: opacity,
     );
   }
 }
@@ -143,12 +212,40 @@ class GardenGeometry {
     );
   }
 
+  static Rect plantHitRect(HarvestCrop crop, Size size, int tier) {
+    final art = plantRect(crop, size, tier);
+    final width = max(48.0, art.width * 1.42);
+    return Rect.fromCenter(
+      center: art.center,
+      width: width,
+      height: max(48.0, art.height * 1.32),
+    );
+  }
+
+  static Rect greenhouseRect(Size size, {int level = 1}) {
+    final width = size.width * (.39 + (level - 1).clamp(0, 5) * .018);
+    return Rect.fromCenter(
+      center: Offset(.72 * size.width, .285 * size.height),
+      width: width,
+      height: width,
+    );
+  }
+
+  static Rect terraceRect(Size size, {int level = 1}) {
+    final width = size.width * (.43 + (level - 1).clamp(0, 5) * .012);
+    return Rect.fromCenter(
+      center: Offset(.61 * size.width, .725 * size.height),
+      width: width,
+      height: width,
+    );
+  }
+
   static int? nearestCrop(Offset point, Size size, HarvestRound round) {
     double nearest = double.infinity;
     int? result;
     for (final crop in round.crops) {
       final center = plantRect(crop, size, round.progress.tier).center;
-      final radius = max(13.0, plantWidth(crop, size) * .34);
+      final radius = max(25.0, plantWidth(crop, size) * .62);
       final distance = (center - point).distance;
       if (distance <= radius && distance < nearest) {
         nearest = distance;
@@ -229,24 +326,49 @@ class HarvestScenePainter extends CustomPainter {
       );
     }
 
+    if (!reducedMotion) {
+      for (var i = 0; i < 9; i++) {
+        final phase = motion * (.16 + i * .008) + i * 1.73;
+        final x = ((i * .137 + phase * .025) % 1) * size.width;
+        final y = (.22 + ((i * .091 + phase * .018) % .58)) * size.height;
+        final alpha = .18 + sin(phase * 2.2).abs() * .18;
+        canvas.save();
+        canvas.translate(x, y);
+        canvas.rotate(phase);
+        canvas.drawOval(
+          Rect.fromCenter(center: Offset.zero, width: 5, height: 2.4),
+          Paint()..color = const Color(0xFFFFE6A6).withValues(alpha: alpha),
+        );
+        canvas.restore();
+      }
+    }
+
     if (p.terrace > 0 || preview == GardenUpgrade.terrace) {
-      art.sprite(
+      final level = preview == GardenUpgrade.terrace
+          ? max(1, p.tier)
+          : max(1, p.terrace);
+      final rect = GardenGeometry.terraceRect(size, level: level);
+      canvas.save();
+      if (!reducedMotion) {
+        final pulse = 1 + sin(motion * 1.45) * .006;
+        canvas.translate(rect.bottomCenter.dx, rect.bottomCenter.dy);
+        canvas.scale(pulse);
+        canvas.translate(-rect.bottomCenter.dx, -rect.bottomCenter.dy);
+      }
+      art.buildingSprite(
         canvas,
-        4,
-        Rect.fromCenter(
-          center: Offset(.61 * size.width, .735 * size.height),
-          width: size.width * .40,
-          height: size.width * .40,
-        ),
-        opacity: p.terrace > 0 ? 1 : .75,
+        GardenUpgrade.terrace,
+        level,
+        rect,
+        opacity: p.terrace > 0 ? 1 : .76,
       );
+      canvas.restore();
     }
     if (p.greenhouse > 0 || preview == GardenUpgrade.greenhouse) {
-      final rect = Rect.fromCenter(
-        center: Offset(.73 * size.width, .224 * size.height),
-        width: size.width * .29,
-        height: size.width * .29,
-      );
+      final level = preview == GardenUpgrade.greenhouse
+          ? max(1, p.tier)
+          : max(1, p.greenhouse);
+      final rect = GardenGeometry.greenhouseRect(size, level: level);
       if (preview == GardenUpgrade.greenhouse) {
         canvas.drawOval(
           Rect.fromCenter(
@@ -260,7 +382,32 @@ class HarvestScenePainter extends CustomPainter {
             ..strokeWidth = 2,
         );
       }
-      art.sprite(canvas, 3, rect, opacity: p.greenhouse > 0 ? 1 : .82);
+      canvas.save();
+      if (!reducedMotion) {
+        final pulse = 1 + sin(motion * 1.2 + .7) * .008;
+        canvas.translate(rect.bottomCenter.dx, rect.bottomCenter.dy);
+        canvas.scale(pulse);
+        canvas.translate(-rect.bottomCenter.dx, -rect.bottomCenter.dy);
+      }
+      art.buildingSprite(
+        canvas,
+        GardenUpgrade.greenhouse,
+        level,
+        rect,
+        opacity: p.greenhouse > 0 ? 1 : .82,
+      );
+      canvas.restore();
+      if (!reducedMotion) {
+        final glint = (motion * .22) % 1;
+        final x = rect.left + rect.width * (.25 + glint * .5);
+        canvas.drawLine(
+          Offset(x, rect.top + rect.height * .22),
+          Offset(x + rect.width * .08, rect.top + rect.height * .48),
+          Paint()
+            ..color = Colors.white.withValues(alpha: .20)
+            ..strokeWidth = 2,
+        );
+      }
     }
 
     if (selectedBed != null) {
@@ -297,12 +444,21 @@ class HarvestScenePainter extends CustomPainter {
     for (final crop in crops) {
       final ripe = !round.running || crop.isRipe(round.elapsed);
       final rect = GardenGeometry.plantRect(crop, size, p.tier);
-      final sway = reducedMotion ? 0.0 : sin(motion * 1.3 + crop.id) * .009;
+      final sway = reducedMotion ? 0.0 : sin(motion * 1.9 + crop.id) * .017;
+      final bob = reducedMotion ? 0.0 : sin(motion * 2.3 + crop.id * .7) * 1.6;
       canvas.save();
-      canvas.translate(rect.center.dx, rect.bottom);
+      canvas.translate(rect.center.dx, rect.bottom + bob);
       canvas.rotate(sway);
+      final cropScale = reducedMotion
+          ? 1.0
+          : 1 + sin(motion * 1.4 + crop.id) * .012;
+      canvas.scale(cropScale);
       canvas.translate(-rect.center.dx, -rect.bottom);
-      art.sprite(canvas, ripe ? crop.kind.sprite : 1, rect);
+      if (ripe) {
+        art.cropSprite(canvas, crop.kind.sprite, rect);
+      } else {
+        art.sprite(canvas, 1, rect, opacity: .82);
+      }
       canvas.restore();
       if (round.acceptsInput &&
           ripe &&
@@ -405,34 +561,62 @@ class HarvestScenePainter extends CustomPainter {
   bool shouldRepaint(covariant HarvestScenePainter oldDelegate) => true;
 }
 
+enum HarvestSpriteSheet { legacy, crops, greenhouse, terrace }
+
 class HarvestSprite extends StatelessWidget {
   const HarvestSprite({
     super.key,
     required this.art,
     required this.index,
     this.size = 40,
+    this.sheet = HarvestSpriteSheet.crops,
   });
   final HarvestArt? art;
   final int index;
   final double size;
+  final HarvestSpriteSheet sheet;
   @override
   Widget build(BuildContext context) => SizedBox(
     width: size,
     height: size,
     child: art == null
         ? const SizedBox.shrink()
-        : CustomPaint(painter: _SpritePainter(art!, index)),
+        : CustomPaint(painter: _SpritePainter(art!, index, sheet)),
   );
 }
 
 class _SpritePainter extends CustomPainter {
-  _SpritePainter(this.art, this.index);
+  _SpritePainter(this.art, this.index, this.sheet);
   final HarvestArt art;
   final int index;
+  final HarvestSpriteSheet sheet;
   @override
-  void paint(Canvas canvas, Size size) =>
-      art.sprite(canvas, index, Offset.zero & size);
+  void paint(Canvas canvas, Size size) {
+    switch (sheet) {
+      case HarvestSpriteSheet.legacy:
+        art.sprite(canvas, index, Offset.zero & size);
+      case HarvestSpriteSheet.crops:
+        art.cropSprite(canvas, index, Offset.zero & size);
+      case HarvestSpriteSheet.greenhouse:
+        art.buildingSprite(
+          canvas,
+          GardenUpgrade.greenhouse,
+          index,
+          Offset.zero & size,
+        );
+      case HarvestSpriteSheet.terrace:
+        art.buildingSprite(
+          canvas,
+          GardenUpgrade.terrace,
+          index,
+          Offset.zero & size,
+        );
+    }
+  }
+
   @override
   bool shouldRepaint(covariant _SpritePainter oldDelegate) =>
-      art != oldDelegate.art || index != oldDelegate.index;
+      art != oldDelegate.art ||
+      index != oldDelegate.index ||
+      sheet != oldDelegate.sheet;
 }

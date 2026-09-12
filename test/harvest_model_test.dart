@@ -87,6 +87,26 @@ void main() {
     },
   );
 
+  test('greenhouse levels unlock a changing crop roster', () {
+    final progress = HarvestProgress(coins: 10000);
+    expect(progress.unlockedCrops, [CropKind.strawberry, CropKind.tomato]);
+    expect(progress.plant(0, CropKind.pumpkin), isFalse);
+    expect(progress.buyUpgrade(GardenUpgrade.greenhouse), isTrue);
+    expect(progress.isCropUnlocked(CropKind.blueberry), isTrue);
+    expect(progress.isCropUnlocked(CropKind.pumpkin), isFalse);
+
+    progress.terrace = 1;
+    progress.tierOrders = progress.targetOrders;
+    for (var i = 0; i < 4; i++) {
+      progress.beds[i] = 2;
+    }
+    expect(progress.advanceTier(), isTrue);
+    expect(progress.crops.first, CropKind.blueberry);
+    expect(progress.buyUpgrade(GardenUpgrade.greenhouse), isTrue);
+    expect(progress.isCropUnlocked(CropKind.pumpkin), isTrue);
+    expect(progress.plant(0, CropKind.pumpkin), isTrue);
+  });
+
   test(
     'upgraded beds double yield without inflating the gesture chain count',
     () {

@@ -1,17 +1,30 @@
 import 'dart:math';
 
-enum CropKind { strawberry, tomato, blueberry }
+enum CropKind { strawberry, tomato, blueberry, pumpkin, eggplant, pepper }
 
 extension CropDescription on CropKind {
   String get label => switch (this) {
     CropKind.strawberry => 'Strawberries',
     CropKind.tomato => 'Tomatoes',
     CropKind.blueberry => 'Blueberries',
+    CropKind.pumpkin => 'Pumpkins',
+    CropKind.eggplant => 'Eggplants',
+    CropKind.pepper => 'Golden peppers',
   };
   int get sprite => switch (this) {
     CropKind.strawberry => 0,
-    CropKind.tomato => 5,
+    CropKind.tomato => 1,
     CropKind.blueberry => 2,
+    CropKind.pumpkin => 3,
+    CropKind.eggplant => 4,
+    CropKind.pepper => 5,
+  };
+  int get greenhouseLevel => switch (this) {
+    CropKind.strawberry || CropKind.tomato => 0,
+    CropKind.blueberry => 1,
+    CropKind.pumpkin => 2,
+    CropKind.eggplant => 3,
+    CropKind.pepper => 4,
   };
 }
 
@@ -58,6 +71,9 @@ class HarvestProgress {
   int get bedCost => 120 + (tier - 1) * 60;
   int get advanceCost => 400 + (tier - 1) * 200;
   bool get rareCropsUnlocked => greenhouse > 0;
+  Iterable<CropKind> get unlockedCrops => CropKind.values.where(isCropUnlocked);
+  CropKind get newestCrop => unlockedCrops.last;
+  bool isCropUnlocked(CropKind crop) => greenhouse >= crop.greenhouseLevel;
   int get upgradedBeds => beds.take(4).where((level) => level >= 2).length;
   bool get tierComplete =>
       greenhouse >= tier &&
@@ -87,9 +103,7 @@ class HarvestProgress {
   }
 
   bool plant(int bed, CropKind crop) {
-    if (bed < 0 ||
-        bed >= bedCount ||
-        (crop == CropKind.blueberry && !rareCropsUnlocked)) {
+    if (bed < 0 || bed >= bedCount || !isCropUnlocked(crop)) {
       return false;
     }
     crops[bed] = crop;
@@ -114,7 +128,11 @@ class HarvestProgress {
     // currency, crop unlocks and lifetime records.
     for (var i = 0; i < 6; i++) {
       beds[i] = 1;
-      crops[i] = i == 3 ? CropKind.tomato : CropKind.strawberry;
+      crops[i] = switch (i) {
+        0 => newestCrop,
+        3 => CropKind.tomato,
+        _ => CropKind.strawberry,
+      };
     }
     return true;
   }
@@ -149,8 +167,7 @@ class HarvestProgress {
         final crop = CropKind.values
             .where((c) => c.name == rawCrops[i])
             .firstOrNull;
-        if (crop != null &&
-            (crop != CropKind.blueberry || progress.rareCropsUnlocked)) {
+        if (crop != null && progress.isCropUnlocked(crop)) {
           progress.crops[i] = crop;
         }
       }
@@ -225,9 +242,7 @@ class HarvestRound {
   int get orderReward =>
       180 +
       (progress.tier - 1) * 40 +
-      (orderKind == CropKind.blueberry
-          ? 60 + (progress.greenhouse - 1) * 20
-          : 0);
+      (orderKind.greenhouseLevel > 0 ? 60 + (progress.greenhouse - 1) * 20 : 0);
   double get regrowSeconds => max(2.4, 5.5 - progress.terrace * .4);
   bool get acceptsInput => running && !paused && !finished;
 

@@ -19,7 +19,12 @@ Garden Ninja is a swipe-action Flutter game prototype. Slash hostile weeds, prot
 - Complete market orders for coins; crops regrow during play and every new round
   starts ready to play. Planting and building are untimed.
 - Build a greenhouse for rare crops or a terrace for two additional beds.
-  Improve individual beds for double yield.
+  Improve individual beds for double yield. Both landmarks visibly transform
+  at every garden level and can be tapped directly after they are built.
+- A looping in-game demo shows the harvest gesture, and larger touch targets
+  make the plants easier to collect without changing their natural size.
+- Greenhouse levels expand the crop roster from strawberries and tomatoes to
+  blueberries, pumpkins, eggplants and golden peppers.
 - Progress through six garden tiers. Upgrade both landmarks, improve the four
   main beds, and complete the tier's orders to begin the next garden.
 - A new tier resets bed improvements and planting work while retaining coins,

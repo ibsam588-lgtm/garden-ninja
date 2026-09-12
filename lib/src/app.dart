@@ -5610,6 +5610,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         children: [
           _buildBackdrop(),
           if (_phase == GamePhase.playing || _phase == GamePhase.paused) ...[
+            if (!MediaQuery.disableAnimationsOf(context))
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _GardenAmbientPainter(
+                      world: _currentGardenWorld,
+                      time: _motionTime,
+                    ),
+                  ),
+                ),
+              ),
             _buildGardenHealthBed(),
             ..._targets.map((target) => _buildTarget(target, size)),
             ..._shards.map((shard) => _buildShard(shard, size)),
