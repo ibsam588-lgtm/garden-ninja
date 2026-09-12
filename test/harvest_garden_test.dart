@@ -219,6 +219,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('harvest-plant')));
     await tester.pump();
     await screenshot(tester, '09-crop-roster');
+    await tester.tap(find.byKey(const ValueKey('harvest-bed-2')));
+    await tester.pump();
+    expect(find.text('BED 3 SELECTED'), findsOneWidget);
+    await screenshot(tester, '10-bed-selection');
+    await tester.tap(find.byKey(const ValueKey('harvest-bed-map-0')));
+    await tester.pump();
+    expect(find.text('BED 1 SELECTED'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('harvest-plant-blueberry')));
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('harvest-plant-confirm')));
@@ -257,6 +264,22 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('all six unlocked beds stay visible in the plant map', (
+    tester,
+  ) async {
+    final progress = HarvestProgress(coins: 2000)..terrace = 1;
+    await pumpGarden(tester, progress);
+    await tester.tap(find.byKey(const ValueKey('harvest-plant')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('harvest-bed-5')));
+    await tester.pump();
+    expect(find.text('BED 6 SELECTED'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('harvest-bed-map-4')));
+    await tester.pump();
+    expect(find.text('BED 5 SELECTED'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('compact phone and enlarged text keep controls reachable', (
     tester,

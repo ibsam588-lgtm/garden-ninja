@@ -412,24 +412,52 @@ class HarvestScenePainter extends CustomPainter {
 
     if (selectedBed != null) {
       final center = GardenGeometry.bedCenters[selectedBed!];
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(center.dx * size.width, center.dy * size.height),
-          width: size.width * .29,
-          height: size.height * .075,
-        ),
-        Paint()..color = const Color(0xFFFFC55B).withValues(alpha: .30),
+      final selectedCenter = Offset(
+        center.dx * size.width,
+        center.dy * size.height,
+      );
+      final pulse = reducedMotion ? 0.0 : (sin(motion * 4) + 1) / 2;
+      final highlight = Rect.fromCenter(
+        center: selectedCenter,
+        width: size.width * .31,
+        height: size.height * .082,
       );
       canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(center.dx * size.width, center.dy * size.height),
-          width: size.width * .29,
-          height: size.height * .075,
-        ),
+        highlight.inflate(5 + pulse * 4),
         Paint()
-          ..color = const Color(0xFFFFD88C)
+          ..color = const Color(0xFFFFB42D).withValues(alpha: .20 + pulse * .10)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+      );
+      canvas.drawOval(
+        highlight,
+        Paint()..color = const Color(0xFFFFC55B).withValues(alpha: .42),
+      );
+      canvas.drawOval(
+        highlight,
+        Paint()
+          ..color = const Color(0xFFFFF1B0)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
+          ..strokeWidth = 3.5,
+      );
+      final label = TextPainter(
+        text: TextSpan(
+          text: 'BED ${selectedBed! + 1}',
+          style: const TextStyle(
+            color: Color(0xFF273020),
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .8,
+            backgroundColor: Color(0xFFFFD36E),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      label.paint(
+        canvas,
+        Offset(
+          selectedCenter.dx - label.width / 2,
+          highlight.top - label.height - 5,
+        ),
       );
     }
 
