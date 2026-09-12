@@ -4,6 +4,8 @@ Built-in imagegen was used for the project artwork. Final assets:
 
 - `assets/images/backgrounds/harvest_courtyard.png`
 - `assets/images/sprites/harvest_atlas.png`
+- `assets/images/sprites/harvest_crop_levels.png`
+- `assets/images/sprites/harvest_building_levels.png`
 
 ## Courtyard environment
 
@@ -28,3 +30,35 @@ All six images must be independent isolated cutouts, with generous space between
 Edit this sprite sheet for chroma-key compositing in a game renderer. Replace the entire blurry background with perfectly FLAT PURE MAGENTA #FF00FF, with zero gradients, zero shadows on background, no checkerboard. Preserve all six objects, their natural colors and the exact 3-column 2-row atlas layout. Keep each object within its equal square cell. No objects may touch adjacent cells. Shrink the greenhouse so its roof starts below the exact midline. Give at least 5% margin around each sprite. Use pure magenta in the gaps between leaves, and around all object silhouettes. No text, labels, grid lines or color swatches. Foreground objects must stay crisp and detailed: red strawberry plant, green unripe strawberry plant, blueberry bush, copper greenhouse, stone terrace beds, tomato plant. The single flat magenta background is intentional for runtime shader masking. Make every background pixel exactly #ff00ff.
 
 The renderer converts the chroma key into premultiplied transparency once while loading; the source atlas is not modified at runtime.
+
+## Building evolution atlas
+
+Final asset: `assets/images/sprites/harvest_building_levels.png`
+
+```text
+Use case: stylized-concept
+Asset type: production mobile-game building evolution sprite atlas
+Input images: Image 1 is the greenhouse style and silhouette reference supplied by the user; Image 2 is the current Garden Ninja sprite atlas and establishes the exact art style, camera angle, lighting, stone, timber, copper, and pure-magenta chroma-key background.
+Primary request: create a 3-column by 4-row sprite atlas on a 1536x2048 canvas. The first two rows show six distinct greenhouse upgrade levels, ordered left-to-right then top-to-bottom. The last two rows show six distinct terrace/raised-bed upgrade levels, ordered left-to-right then top-to-bottom.
+Greenhouse progression: level 1 is a small practical copper greenhouse; level 2 is larger with roof vents and more plants; level 3 adds stone foundation and side wing; level 4 becomes an elegant conservatory with taller glass and decorative ironwork; level 5 adds twin wings and mature vines; level 6 is a grand estate glasshouse with ornate copper roof, central cupola, and lush interior. Every level must be visibly different and increasingly impressive while keeping the same isometric camera.
+Terrace progression: level 1 is two simple wooden raised beds on stone; level 2 adds stronger timber and neat borders; level 3 adds irrigation channels and stone steps; level 4 adds carved stone edging and trellises; level 5 adds tiered beds and copper water feature; level 6 is a grand landscaped terrace with premium stone, pergola accents, and six organized growing sections.
+Composition: exactly one complete isolated building per equal cell, centered, 8% margin, no overlap or clipping. Same scale footprint within each family so upgrade growth is clear.
+Background: perfectly flat pure magenta #FF00FF on every background pixel and in all gaps. No gradient or background shadows.
+Style: sophisticated realistic-stylized 2.5D game art, natural materials, upper-left sunlight, about 35-degree downward isometric camera. Suitable for adult and family players.
+Constraints: no text, numbers, labels, grid lines, borders, captions, people, faces, mascots, checkerboard, watermark, or UI. Keep each object entirely inside its cell.
+```
+
+## Expanded crop atlas
+
+Final asset: `assets/images/sprites/harvest_crop_levels.png`
+
+```text
+Use case: stylized-concept
+Asset type: production mobile-game crop sprite atlas
+Input image: the current Garden Ninja atlas establishes the exact plant detail, lighting, isometric camera, and flat-magenta chroma-key background.
+Primary request: create a 3-column by 2-row crop sprite atlas on a 1536x1024 canvas with six mature crop plants, ordered exactly: top row strawberry, tomato, blueberry; bottom row pumpkin vine with one compact orange pumpkin, purple eggplant, golden bell pepper.
+Composition: one low healthy plant per equal cell, centered with 12% margin, complete and uncut, a small natural soil root base, no pot or planter. Produce must be large and immediately recognizable on a phone. Similar overall visual size and silhouette density across all six cells.
+Background: perfectly flat pure magenta #FF00FF on every background pixel and in all gaps between leaves, with no gradient or background shadows.
+Style: sophisticated realistic-stylized 2.5D garden game art matching the reference, crisp natural leaves, upper-left sunlight, about 35-degree downward camera. No childish faces.
+Constraints: no text, numbers, labels, dividers, borders, captions, people, mascots, checkerboard, watermark, or UI. Every crop stays entirely inside its own cell.
+```

@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'harvest_art.dart';
 import 'harvest_model.dart';
 
-enum _Panel { none, plant, build, progress, pause, newTier }
+enum _Panel { none, plant, build, progress, pause, newTier, demo }
 
 const _olive = Color(0xFF273020);
 const _cream = Color(0xFFF4EDDF);
@@ -224,6 +224,14 @@ class HarvestGardenState extends State<HarvestGarden>
     });
   }
 
+  void _openUpgrade(GardenUpgrade upgrade) {
+    if (_round.running) return;
+    setState(() {
+      _upgrade = upgrade;
+      _panel = _Panel.build;
+    });
+  }
+
   void _sample(Offset from, Offset to) {
     final steps = max(1, ((to - from).distance / 5).ceil());
     for (var step = 1; step <= steps; step++) {
@@ -349,7 +357,7 @@ class HarvestGardenState extends State<HarvestGarden>
                   if (_round.acceptsInput)
                     for (final crop in _round.crops)
                       Positioned.fromRect(
-                        rect: GardenGeometry.plantRect(
+                        rect: GardenGeometry.plantHitRect(
                           crop,
                           _fieldSize,
                           _progress.tier,
@@ -363,6 +371,12 @@ class HarvestGardenState extends State<HarvestGarden>
                           child: const IgnorePointer(child: SizedBox.expand()),
                         ),
                       ),
+                  if (!_round.running && _panel == _Panel.none) ...[
+                    if (_progress.greenhouse > 0)
+                      _buildingHotspot(GardenUpgrade.greenhouse),
+                    if (_progress.terrace > 0)
+                      _buildingHotspot(GardenUpgrade.terrace),
+                  ],
                   const IgnorePointer(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
@@ -431,6 +445,7 @@ class HarvestGardenState extends State<HarvestGarden>
                         ),
                       ),
                     ),
+                  if (_panel == _Panel.demo) _demoOverlay(),
                   if (_panel == _Panel.none)
                     SafeArea(
                       top: false,
@@ -618,6 +633,98 @@ class HarvestGardenState extends State<HarvestGarden>
     ),
   );
 
+  Widget _buildingHotspot(GardenUpgrade upgrade) {
+    final greenhouse = upgrade == GardenUpgrade.greenhouse;
+    final level = greenhouse ? _progress.greenhouse : _progress.terrace;
+    final artRect = greenhouse
+        ? GardenGeometry.greenhouseRect(_fieldSize, level: level)
+        : GardenGeometry.terraceRect(_fieldSize, level: level);
+    return Positioned.fromRect(
+      rect: artRect.inflate(10),
+      child: Semantics(
+        key: ValueKey('harvest-building-${upgrade.name}'),
+        button: true,
+        label:
+            '${greenhouse ? 'Greenhouse' : 'Terrace'}, level $level. Tap to upgrade.',
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => _openUpgrade(upgrade),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: _olive.withValues(alpha: .88),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE7BB77)),
+              ),
+              child: Text(
+                '${greenhouse ? 'Greenhouse' : 'Terrace'} · L$level',
+                style: _text(10, weight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _demoOverlay() {
+    final demoCrops = _round.crops.take(4).toList();
+    final points = demoCrops
+        .map(
+          (crop) =>
+              GardenGeometry.plantRect(crop, _fieldSize, _progress.tier).center,
+        )
+        .toList();
+    final cycle = (_motion % 5.5) / 5.5;
+    final progress = ((cycle - .08) / .72).clamp(0.0, 1.0);
+    final scaled = progress * (points.length - 1);
+    final segment = scaled.floor().clamp(0, points.length - 2);
+    final point = Offset.lerp(
+      points[segment],
+      points[segment + 1],
+      scaled - segment,
+    )!;
+    return IgnorePointer(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _DemoTrailPainter(points: points, progress: progress),
+            ),
+          ),
+          Positioned(
+            left: point.dx - 24,
+            top: point.dy - 24,
+            child: Transform.rotate(
+              angle: -.20 + sin(_motion * 4) * .05,
+              child: Container(
+                key: const ValueKey('harvest-demo-hand'),
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _cream.withValues(alpha: .94),
+                  border: Border.all(color: _amber, width: 2),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x66000000), blurRadius: 10),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.touch_app_rounded,
+                  color: _olive,
+                  size: 28,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _bottomControls() {
     if (_round.running) {
       return _darkPanel(
@@ -653,14 +760,44 @@ class HarvestGardenState extends State<HarvestGarden>
       children: [
         _darkPanel(
           padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 12),
-          child: Text(
-            _progress.tierComplete
-                ? (_progress.finalTier
-                      ? 'Grand Estate complete · Keep growing'
-                      : 'Next garden ready to unlock')
-                : 'Next upgrade: ${_number(_progress.upgradeCost)} coins',
-            textAlign: TextAlign.center,
-            style: _text(12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _progress.tierComplete
+                      ? (_progress.finalTier
+                            ? 'Grand Estate complete · Keep growing'
+                            : 'Next garden ready to unlock')
+                      : 'Next upgrade: ${_number(_progress.upgradeCost)} coins',
+                  textAlign: TextAlign.center,
+                  style: _text(12),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                key: const ValueKey('harvest-demo'),
+                onTap: () => _open(_Panel.demo),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 5,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.play_circle_outline,
+                        size: 17,
+                        color: _cream,
+                      ),
+                      const SizedBox(width: 4),
+                      Text('Demo', style: _text(11, weight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 6),
@@ -703,7 +840,10 @@ class HarvestGardenState extends State<HarvestGarden>
     final isPause = _panel == _Panel.pause;
     return Stack(
       children: [
-        if (isPause || _panel == _Panel.progress || _panel == _Panel.newTier)
+        if (isPause ||
+            _panel == _Panel.progress ||
+            _panel == _Panel.newTier ||
+            _panel == _Panel.demo)
           Positioned.fill(
             child: ColoredBox(color: Colors.black.withValues(alpha: .32)),
           ),
@@ -716,6 +856,8 @@ class HarvestGardenState extends State<HarvestGarden>
                   _fieldSize.height *
                   (_panel == _Panel.progress
                       ? .74
+                      : _panel == _Panel.demo
+                      ? .70
                       : isPause
                       ? .52
                       : .61),
@@ -741,6 +883,7 @@ class HarvestGardenState extends State<HarvestGarden>
                   _Panel.progress => _progressSheet(),
                   _Panel.pause => _pauseSheet(),
                   _Panel.newTier => _newTierSheet(),
+                  _Panel.demo => _demoSheet(),
                   _Panel.none => const SizedBox.shrink(),
                 },
               ),
@@ -793,7 +936,7 @@ class HarvestGardenState extends State<HarvestGarden>
         'Choose your next upgrade',
         subtitle: _showResult
             ? 'Earned ${_round.earnings} coins · ${_round.orders} orders completed'
-            : 'Garden ${_progress.tier} · Landmarks stay with you',
+            : 'Garden ${_progress.tier} · Every level changes the building',
       ),
       Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -879,10 +1022,24 @@ class HarvestGardenState extends State<HarvestGarden>
                       ),
                     ),
                     child: Center(
-                      child: HarvestSprite(
-                        art: _art,
-                        index: greenhouse ? 3 : 4,
-                        size: 120,
+                      child: Transform.scale(
+                        scale: _reduceMotion
+                            ? 1
+                            : 1 +
+                                  sin(_motion * 1.5 + (greenhouse ? 0 : 1)) *
+                                      .012,
+                        child: HarvestSprite(
+                          art: _art,
+                          index: owned
+                              ? (greenhouse
+                                    ? _progress.greenhouse
+                                    : _progress.terrace)
+                              : _progress.tier,
+                          sheet: greenhouse
+                              ? HarvestSpriteSheet.greenhouse
+                              : HarvestSpriteSheet.terrace,
+                          size: 120,
+                        ),
                       ),
                     ),
                   ),
@@ -915,9 +1072,7 @@ class HarvestGardenState extends State<HarvestGarden>
                     const SizedBox(height: 3),
                     Text(
                       greenhouse
-                          ? (_progress.tier == 1
-                                ? 'Unlock rare crops'
-                                : 'Bigger rare-crop rewards')
+                          ? _greenhouseBenefit(owned)
                           : (_progress.terrace == 0
                                 ? 'Add 2 planting beds'
                                 : 'Faster crop regrowth'),
@@ -1002,57 +1157,18 @@ class HarvestGardenState extends State<HarvestGarden>
         ],
       ),
       const SizedBox(height: 12),
-      Row(
-        children: [
-          for (final crop in CropKind.values)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: GestureDetector(
-                  key: ValueKey('harvest-plant-${crop.name}'),
-                  onTap: () {
-                    if (crop == CropKind.blueberry &&
-                        !_progress.rareCropsUnlocked) {
-                      return;
-                    }
-                    setState(() => _crop = crop);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 7),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFAF6ED),
-                      borderRadius: BorderRadius.circular(9),
-                      border: Border.all(
-                        color: _crop == crop ? _amber : const Color(0xFFD5CBB7),
-                        width: _crop == crop ? 2 : 1,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        HarvestSprite(art: _art, index: crop.sprite, size: 66),
-                        Text(
-                          crop.label,
-                          style: _text(
-                            11,
-                            color: _olive,
-                            weight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          crop == CropKind.blueberry &&
-                                  !_progress.rareCropsUnlocked
-                              ? 'Build greenhouse'
-                              : 'Free to plant',
-                          style: _text(9, color: const Color(0xFF726B58)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
+      LayoutBuilder(
+        builder: (context, constraints) {
+          final width = (constraints.maxWidth - 12) / 3;
+          return Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final crop in CropKind.values)
+                SizedBox(width: width, child: _cropCard(crop)),
+            ],
+          );
+        },
       ),
       const SizedBox(height: 12),
       _action('Plant ${_crop.label.toLowerCase()}', () {
@@ -1298,7 +1414,7 @@ class HarvestGardenState extends State<HarvestGarden>
       ),
       const SizedBox(height: 10),
       Text(
-        'Fresh planting beds. Bigger orders.\nYour landmarks and unlocked crops carry forward.',
+        'Fresh planting beds. Bigger orders.\n${_progress.newestCrop.label} are ready to plant; your upgraded landmarks carry forward.',
         textAlign: TextAlign.center,
         style: _text(13, color: _olive),
       ),
@@ -1313,6 +1429,113 @@ class HarvestGardenState extends State<HarvestGarden>
         amber: true,
       ),
     ],
+  );
+
+  Widget _demoSheet() => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _sheetTitle(
+        'How harvesting works',
+        subtitle: 'Watch the hand connect nearby matching crops.',
+      ),
+      Row(
+        children: [
+          _demoStep('1', 'Touch a ripe crop'),
+          const Icon(Icons.chevron_right, color: _amber),
+          _demoStep('2', 'Drag through matches'),
+          const Icon(Icons.chevron_right, color: _amber),
+          _demoStep('3', 'Release to collect'),
+        ],
+      ),
+      const SizedBox(height: 14),
+      Text(
+        'Large touch areas make every crop easier to reach. Green fruit and a different crop stop the chain.',
+        textAlign: TextAlign.center,
+        style: _text(12, color: _olive),
+      ),
+      const SizedBox(height: 14),
+      _action(
+        'Try a guided harvest',
+        _start,
+        key: 'harvest-demo-start',
+        amber: true,
+      ),
+    ],
+  );
+
+  Widget _cropCard(CropKind crop) {
+    final unlocked = _progress.isCropUnlocked(crop);
+    return Semantics(
+      button: true,
+      enabled: unlocked,
+      selected: _crop == crop,
+      label: unlocked
+          ? crop.label
+          : '${crop.label}, unlock with greenhouse level ${crop.greenhouseLevel}',
+      child: GestureDetector(
+        key: ValueKey('harvest-plant-${crop.name}'),
+        onTap: unlocked ? () => setState(() => _crop = crop) : null,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 180),
+          opacity: unlocked ? 1 : .45,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFAF6ED),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(
+                color: _crop == crop ? _amber : const Color(0xFFD5CBB7),
+                width: _crop == crop ? 2 : 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Transform.scale(
+                  scale: _reduceMotion
+                      ? 1
+                      : 1 + sin(_motion * 1.7 + crop.index) * .018,
+                  child: HarvestSprite(art: _art, index: crop.sprite, size: 54),
+                ),
+                Text(
+                  crop.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _text(10, color: _olive, weight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  unlocked ? 'Ready' : 'Greenhouse L${crop.greenhouseLevel}',
+                  style: _text(8.5, color: const Color(0xFF726B58)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _demoStep(String number, String label) => Expanded(
+    child: Column(
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: _amber,
+          ),
+          child: Text(number, style: _text(13, weight: FontWeight.w700)),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: _text(10, color: _olive, weight: FontWeight.w600),
+        ),
+      ],
+    ),
   );
 
   Widget _darkPanel({
@@ -1429,6 +1652,15 @@ class HarvestGardenState extends State<HarvestGarden>
     ),
   );
 
+  String _greenhouseBenefit(bool owned) {
+    final level = owned ? _progress.greenhouse : _progress.tier;
+    final unlocked = CropKind.values
+        .where((crop) => crop.greenhouseLevel == level)
+        .firstOrNull;
+    if (unlocked != null) return 'Unlock ${unlocked.label.toLowerCase()}';
+    return 'Bigger rare-crop rewards';
+  }
+
   TextStyle _text(
     double size, {
     Color color = _cream,
@@ -1444,6 +1676,55 @@ class HarvestGardenState extends State<HarvestGarden>
     letterSpacing: spacing,
     shadows: shadows,
   );
+}
+
+class _DemoTrailPainter extends CustomPainter {
+  const _DemoTrailPainter({required this.points, required this.progress});
+  final List<Offset> points;
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.length < 2) return;
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    final scaled = progress * (points.length - 1);
+    final completeSegments = scaled.floor();
+    for (var i = 1; i <= completeSegments && i < points.length; i++) {
+      path.lineTo(points[i].dx, points[i].dy);
+    }
+    if (completeSegments < points.length - 1) {
+      final partial = scaled - completeSegments;
+      final point = Offset.lerp(
+        points[completeSegments],
+        points[completeSegments + 1],
+        partial,
+      )!;
+      path.lineTo(point.dx, point.dy);
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0x66FFB938)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 11
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFFFFE8A7)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _DemoTrailPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.points != points;
 }
 
 class _Coin extends StatelessWidget {

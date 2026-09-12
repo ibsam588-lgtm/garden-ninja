@@ -165,6 +165,44 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'animated demo teaches the gesture and built landmarks are tappable',
+    (tester) async {
+      final progress = HarvestProgress(coins: 3000)..greenhouse = 1;
+      await pumpGarden(tester, progress);
+
+      await tester.tap(
+        find.byKey(const ValueKey('harvest-building-greenhouse')),
+      );
+      await tester.pump();
+      expect(find.text('Choose your next upgrade'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('harvest-upgrade-greenhouse')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('harvest-sheet-close')));
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('harvest-demo')));
+      await tester.pump();
+      expect(find.text('How harvesting works'), findsOneWidget);
+      final start = tester.getCenter(
+        find.byKey(const ValueKey('harvest-demo-hand')),
+      );
+      await tester.pump(const Duration(milliseconds: 800));
+      final moved = tester.getCenter(
+        find.byKey(const ValueKey('harvest-demo-hand')),
+      );
+      expect((moved - start).distance, greaterThan(3));
+      await screenshot(tester, '08-harvest-demo');
+
+      await tester.tap(find.byKey(const ValueKey('harvest-demo-start')));
+      await tester.pump(const Duration(seconds: 8));
+      expect(find.byKey(const ValueKey('harvest-timer')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('planting, upgrade cards and next-tier requirements are usable', (
     tester,
   ) async {
@@ -180,6 +218,7 @@ void main() {
     await screenshot(tester, '04-greenhouse-built');
     await tester.tap(find.byKey(const ValueKey('harvest-plant')));
     await tester.pump();
+    await screenshot(tester, '09-crop-roster');
     await tester.tap(find.byKey(const ValueKey('harvest-plant-blueberry')));
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('harvest-plant-confirm')));
