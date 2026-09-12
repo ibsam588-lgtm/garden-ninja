@@ -107,6 +107,24 @@ The internal-testing workflow passes these into `flutter build appbundle` as
 Current GitHub repository variables are set to the live LevelPlay app/ad-unit
 values above.
 
+## App Ad Flow
+
+The app preloads rewarded and interstitial inventory after LevelPlay finishes
+initializing. Banner, rewarded, and interstitial SDK calls use LevelPlay's
+configured `Default` placement; the descriptive request names in Dart remain
+local diagnostics. Interstitials are opportunistic: a level transition is never
+held while an ad loads, and a ready ad is consumed only after the SDK confirms
+it is available and uncapped. Rewarded videos can load after the player's tap,
+grant the reward only from `onAdRewarded`, and preload their replacement after
+closing or failing.
+
+Building with `LEVELPLAY_TEST_SUITE=true` suppresses the normal app ad widgets
+and opens the official integration test suite after initialization. On
+2026-09-12, the suite identified all three configured ad units, detected
+ironSource, Liftoff Monetize, and Unity Ads for rewarded, interstitial, and
+banner formats, loaded a Unity Ads rewarded creative, and loaded and displayed
+an ironSource test interstitial. Keep the flag `false` for Play builds.
+
 ## Test Device
 
 Use this test device ID in the LevelPlay dashboard test device setup:

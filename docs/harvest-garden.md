@@ -4,7 +4,7 @@ The implementation follows the approved [harvest mockup](mockups/garden_mockup_k
 
 ## Playing
 
-Plant chooses a crop for each bed. Grouping a crop makes it easier to trace long matching chains. Strawberries and tomatoes begin unlocked. Greenhouse levels add blueberries, pumpkins, eggplants and golden peppers. Four beds are available initially and the terrace adds two.
+Plant chooses a crop for each bed. The plant picker includes a live courtyard map, an immediate `BED N SELECTED` label, and a bright selected plot, so all four starting beds and both terrace beds remain identifiable even when the picker covers the courtyard. Grouping a crop makes it easier to trace long matching chains. Strawberries and tomatoes begin unlocked. Greenhouse levels add blueberries, pumpkins, eggplants and golden peppers. Four beds are available initially and the terrace adds two.
 
 Start harvest begins a 60-second challenge. Drag through matching ripe plants, then release. Each selected plant counts once. Green fruit or a different crop stops further selection for that gesture; the valid prefix is still gathered on release. Cancellation or pausing discards the uncommitted gesture. Plants remain rooted and regrow in seconds. Taps and semantic accessibility actions collect individual plants. Crop touch areas are larger than their artwork, and a looping Demo panel animates the exact connect-and-release gesture before the player starts.
 
@@ -42,7 +42,7 @@ The previous garden renderer and data helpers are retained for compatibility, bu
 
 The courtyard, six-crop atlas and twelve-building evolution atlas were created with built-in imagegen. The renderer composites each atlas's flat magenta key once at load time into premultiplied transparency. The source assets stay in the repository. The original approved mockup remains in `docs/mockups`, and the exact artwork prompts are in [harvest-art-prompts.md](harvest-art-prompts.md).
 
-Validation includes 34 passing tests covering rewards, regrowth, invalid targets, pause/expiry, purchases, crop unlocks, save restoration and all six tier transitions; real swipes, the animated demo, direct building taps, planting, upgrade UI, small screens and legacy-wallet compatibility; clean Flutter analysis; a release web build; and a debug Android APK build.
+Validation includes 35 passing tests covering rewards, regrowth, invalid targets, pause/expiry, purchases, crop unlocks, save restoration and all six tier transitions; real swipes, the animated demo, direct building taps, visible selection of all six beds, planting, upgrade UI, small screens and legacy-wallet compatibility; clean Flutter analysis; a release web build; and a debug Android APK build.
 
 To capture rendered screens locally on Windows with system Arial:
 

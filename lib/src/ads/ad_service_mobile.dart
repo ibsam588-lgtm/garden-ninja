@@ -40,6 +40,7 @@ class AdService {
   static const String _rewardedAdUnitId = String.fromEnvironment(
     'LEVELPLAY_REWARDED_AD_UNIT_ID',
   );
+  static const String _defaultPlacement = 'Default';
 
   static bool _runtimeEnabled = false;
   static bool _initStarted = false;
@@ -54,7 +55,10 @@ class AdService {
 
   static bool get _mobileSupported => Platform.isAndroid || Platform.isIOS;
   static bool get shouldShowAds =>
-      !isSuppressedForStoreScreenshots && _mobileSupported && _runtimeEnabled;
+      !isSuppressedForStoreScreenshots &&
+      !levelPlayTestSuite &&
+      _mobileSupported &&
+      _runtimeEnabled;
   static bool get hasBannerAds =>
       shouldShowAds && _bannerAdUnitId.trim().isNotEmpty;
   static bool get hasInterstitialAds =>
@@ -121,7 +125,8 @@ class AdService {
       }
       _initRetryTimer?.cancel();
       if (levelPlayTestSuite) {
-        unawaited(LevelPlay.validateIntegration());
+        await LevelPlay.launchTestSuite();
+        return;
       }
       _preloadVideoAds();
     } catch (error) {
@@ -141,7 +146,12 @@ class AdService {
     }
     final _LevelPlayInterstitialAdHandle ad =
         _interstitial ?? _createInterstitial();
-    final bool shown = await ad.show(placementName: placementName);
+    if (!ad.isReady) {
+      _log('Interstitial "$placementName" skipped while the next ad loads.');
+      _preloadInterstitial();
+      return false;
+    }
+    final bool shown = await ad.show(placementName: _defaultPlacement);
     if (!shown) {
       _preloadInterstitial();
     }
@@ -350,9 +360,12 @@ class _GardenNinjaBannerAdState extends State<GardenNinjaBannerAd> {
             adUnitId: AdService._bannerAdUnitId,
             adSize: LevelPlayAdSize.BANNER,
             listener: _listener,
-            placementName: widget.placementName,
+            placementName: AdService._defaultPlacement,
             onPlatformViewCreated: () {
               _platformReady = true;
+              AdService._log(
+                'Loading banner request "${widget.placementName}".',
+              );
               _loadBanner();
             },
           ),
@@ -419,8 +432,13 @@ class _LevelPlayInterstitialAdHandle
       return false;
     }
     try {
-      final bool ready = await load();
-      if (!ready) {
+      if (!_loadGate.isReady || !await _ad.isAdReady()) {
+        _loadGate.markFailed();
+        onStateChanged();
+        return false;
+      }
+      if (await LevelPlayInterstitialAd.isPlacementCapped(placementName)) {
+        AdService._log('Interstitial placement "$placementName" is capped.');
         return false;
       }
       _showing = true;
@@ -478,15 +496,19 @@ class _LevelPlayInterstitialAdHandle
 
   @override
   void onAdLoaded(LevelPlayAdInfo adInfo) {
-    _loadGate.markLoaded();
-    onStateChanged();
+    if (!_disposed) {
+      _loadGate.markLoaded();
+      onStateChanged();
+    }
   }
 
   @override
   void onAdLoadFailed(LevelPlayAdError error) {
-    _loadGate.markFailed();
-    onStateChanged();
-    AdService._log('Interstitial load callback failed: $error');
+    if (!_disposed) {
+      _loadGate.markFailed();
+      onStateChanged();
+      AdService._log('Interstitial load callback failed: $error');
+    }
   }
 
   @override
@@ -587,9 +609,17 @@ class _LevelPlayRewardedAdHandle
         await dispose();
         return;
       }
+      if (await LevelPlayRewardedAd.isPlacementCapped(
+        AdService._defaultPlacement,
+      )) {
+        onFailedToShow(StateError('LevelPlay rewarded placement is capped.'));
+        await dispose();
+        return;
+      }
       _loadGate.consume();
       onStateChanged();
-      await _ad.showAd(placementName: placementName);
+      AdService._log('Showing rewarded request "$placementName".');
+      await _ad.showAd(placementName: AdService._defaultPlacement);
     } catch (error) {
       onFailedToShow(error);
       await dispose();

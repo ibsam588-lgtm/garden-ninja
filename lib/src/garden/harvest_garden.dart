@@ -211,6 +211,14 @@ class HarvestGardenState extends State<HarvestGarden>
     });
   }
 
+  void _selectBed(int bed) {
+    if (bed < 0 || bed >= _progress.bedCount) return;
+    setState(() {
+      _bed = bed;
+      _crop = _progress.crops[bed];
+    });
+  }
+
   void _open(_Panel panel) {
     if (_round.running) return;
     setState(() {
@@ -858,6 +866,8 @@ class HarvestGardenState extends State<HarvestGarden>
                       ? .74
                       : _panel == _Panel.demo
                       ? .70
+                      : _panel == _Panel.plant
+                      ? .70
                       : isPause
                       ? .52
                       : .61),
@@ -1135,10 +1145,7 @@ class HarvestGardenState extends State<HarvestGarden>
                 child: InkWell(
                   key: ValueKey('harvest-bed-$bed'),
                   borderRadius: BorderRadius.circular(6),
-                  onTap: () => setState(() {
-                    _bed = bed;
-                    _crop = _progress.crops[bed];
-                  }),
+                  onTap: () => _selectBed(bed),
                   child: Container(
                     height: 38,
                     alignment: Alignment.center,
@@ -1156,6 +1163,8 @@ class HarvestGardenState extends State<HarvestGarden>
             ),
         ],
       ),
+      const SizedBox(height: 10),
+      _bedMap(),
       const SizedBox(height: 12),
       LayoutBuilder(
         builder: (context, constraints) {
@@ -1221,6 +1230,124 @@ class HarvestGardenState extends State<HarvestGarden>
       ),
     ],
   );
+
+  Widget _bedMap() {
+    const positions = <Offset>[
+      Offset(.38, .18),
+      Offset(.13, .50),
+      Offset(.47, .58),
+      Offset(.76, .48),
+      Offset(.37, .85),
+      Offset(.70, .84),
+    ];
+    return Semantics(
+      label: 'Bed ${_bed + 1} selected',
+      liveRegion: true,
+      child: Container(
+        key: const ValueKey('harvest-bed-map'),
+        height: 116,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE4E4C9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF89935F), width: 1.5),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x18000000),
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  left: 10,
+                  top: 7,
+                  child: Text(
+                    'BED ${_bed + 1} SELECTED',
+                    key: ValueKey('harvest-bed-selected-$_bed'),
+                    style: _text(
+                      11,
+                      color: _olive,
+                      weight: FontWeight.w800,
+                      spacing: .7,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 10,
+                  top: 7,
+                  child: Text(
+                    _progress.crops[_bed].label,
+                    style: _text(
+                      10,
+                      color: const Color(0xFF616844),
+                      weight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                for (var bed = 0; bed < _progress.bedCount; bed++)
+                  Positioned(
+                    left: (positions[bed].dx * constraints.maxWidth - 23).clamp(
+                      4.0,
+                      constraints.maxWidth - 50,
+                    ),
+                    top: 25 + positions[bed].dy * 66,
+                    child: Semantics(
+                      button: true,
+                      selected: _bed == bed,
+                      label: 'Select bed ${bed + 1}',
+                      child: InkWell(
+                        key: ValueKey('harvest-bed-map-$bed'),
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => _selectBed(bed),
+                        child: Container(
+                          width: 46,
+                          height: 30,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: _bed == bed
+                                ? const Color(0xFFFFC55B)
+                                : const Color(0xFF6F793E),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _bed == bed
+                                  ? const Color(0xFFFFF1B0)
+                                  : const Color(0xFF414B27),
+                              width: _bed == bed ? 3 : 1.5,
+                            ),
+                            boxShadow: _bed == bed
+                                ? const [
+                                    BoxShadow(
+                                      color: Color(0x99FFB52F),
+                                      blurRadius: 12,
+                                      spreadRadius: 2,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Text(
+                            '${bed + 1}',
+                            style: _text(
+                              13,
+                              color: _bed == bed ? _olive : _cream,
+                              weight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
 
   Widget _progressSheet() => Column(
     mainAxisSize: MainAxisSize.min,

@@ -3297,7 +3297,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     required String placementName,
     bool resumeMusicAfter = true,
   }) async {
-    if (_interstitialAdShowing || !AdService.hasInterstitialAds) {
+    if (_interstitialAdShowing || !AdService.isInterstitialReady) {
       return false;
     }
 
