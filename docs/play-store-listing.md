@@ -20,7 +20,7 @@ Use these values in Google Play Console. Replace all `TODO` items before submitt
 Short description:
 
 ```text
-Swipe, slash, and save a blooming garden from wild weeds.
+Slash weeds, save your garden, and unlock upgrades in short tap-and-swipe sessions.
 ```
 
 Full description:
@@ -40,6 +40,13 @@ Features:
 Your mission is simple: protect the plants, slash the weeds, and keep the garden alive.
 ```
 
+Suggested promo video:
+
+```text
+Upload this Play Store promo URL after you publish the final trailer:
+https://youtu.be/YOUR_TRAILER_LINK
+```
+
 ## Required Graphic Assets
 
 - App icon: 512 x 512 PNG
@@ -54,7 +61,7 @@ Use screenshots that show the approved home screen, active swipe gameplay, level
 These are the recommended first-release answers based on the current app. Recheck them before submission if ads, analytics, purchases, accounts, leaderboards, cloud saves, multiplayer, or external links are added.
 
 - App access: All features are available without login or special access.
-- Ads: No ads.
+- Ads: Yes (LevelPlay mediation banners, interstitials, and rewarded videos).
 - Privacy policy: `https://github.com/ibsam588-lgtm/garden-ninja/blob/main/docs/privacy-policy.md`
 - Data safety: No data collected and no data shared.
 - Data deletion: Not applicable while there is no account system and no collected user data.

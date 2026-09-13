@@ -45,7 +45,17 @@ Create the Google Play app before the first deploy:
 
 In Play Console, enable Play App Signing and upload the first signed app bundle if required by the account. Then create a Google Cloud service account, grant it access to the app in Play Console, and store the service account JSON in `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
 
-The workflow deploys to `internal` by default. Change `PLAY_TRACK` in `.github/workflows/deploy-google-play.yml` to `production` only after the listing, app-content forms, testing requirements, and review process are complete.
+The workflow deploys to `internal` by default.
+
+To push to production from this branch, dispatch the workflow manually and set `play_track`
+to `production` after the listing, app-content forms, testing requirements, and review process
+are complete.
+
+Example:
+
+```bash
+gh workflow run deploy-google-play.yml -f play_track=production
+```
 
 ## LevelPlay Ads
 
