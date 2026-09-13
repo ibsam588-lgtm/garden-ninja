@@ -1,7 +1,7 @@
 default_platform(:android)
 
 platform :android do
-  desc "Upload Garden Ninja to the Google Play internal testing track"
+  desc "Upload Garden Ninja to the Google Play track configured by PLAY_TRACK"
   lane :internal do
     upload_to_play_store(
       package_name: ENV.fetch("ANDROID_PACKAGE_NAME", "com.gardenninja.garden_ninja"),

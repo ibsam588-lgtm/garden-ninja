@@ -5,6 +5,15 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      play_track:
+        description: "Google Play release track"
+        required: false
+        default: internal
+        type: choice
+        options:
+          - internal
+          - production
 
 permissions:
   contents: write
@@ -12,7 +21,7 @@ permissions:
 env:
   ANDROID_PACKAGE_NAME: com.gardenninja.garden_ninja
   FLUTTER_VERSION: "3.44.2"
-  PLAY_TRACK: internal
+  PLAY_TRACK: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.play_track || 'internal' }}
 
 jobs:
   deploy-android:
