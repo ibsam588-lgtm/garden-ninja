@@ -5555,7 +5555,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       child: Scaffold(
         backgroundColor: const Color(0xFF102716),
         resizeToAvoidBottomInset: false,
-        extendBody: true,
+        extendBody: false,
         extendBodyBehindAppBar: true,
         bottomNavigationBar: _buildBottomAdBar(),
         body: LayoutBuilder(

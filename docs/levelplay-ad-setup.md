@@ -14,7 +14,7 @@ the listing publicly:
 https://play.google.com/store/apps/details?id=com.gardenninja.garden_ninja
 ```
 
-Current dashboard status as of 2026-08-25:
+Current dashboard status as of 2026-09-12:
 
 ```text
 LevelPlay app: Garden Ninja
@@ -124,6 +124,13 @@ and opens the official integration test suite after initialization. On
 ironSource, Liftoff Monetize, and Unity Ads for rewarded, interstitial, and
 banner formats, loaded a Unity Ads rewarded creative, and loaded and displayed
 an ironSource test interstitial. Keep the flag `false` for Play builds.
+
+A production-mode Android smoke test on 2026-09-13 used the live app key and
+ad-unit IDs with `LEVELPLAY_TEST_SUITE=false`. LevelPlay initialized, loaded and
+displayed a Unity Ads banner and interstitial, displayed a Unity Ads rewarded
+video, returned to the game, and granted the level-complete reward. The banner
+host is fixed to LevelPlay's 320 x 50 slot and the game body ends above that
+slot, so the native ad view cannot cover or intercept the game controls.
 
 ## Test Device
 

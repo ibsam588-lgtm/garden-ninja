@@ -349,25 +349,30 @@ class _GardenNinjaBannerAdState extends State<GardenNinjaBannerAd> {
       return const SizedBox.shrink();
     }
 
-    return ColoredBox(
-      color: const Color(0xF20B2011),
-      child: Center(
-        child: SizedBox(
-          width: LevelPlayAdSize.BANNER.width.toDouble(),
-          height: LevelPlayAdSize.BANNER.height.toDouble(),
-          child: LevelPlayBannerAdView(
-            key: _bannerKey,
-            adUnitId: AdService._bannerAdUnitId,
-            adSize: LevelPlayAdSize.BANNER,
-            listener: _listener,
-            placementName: AdService._defaultPlacement,
-            onPlatformViewCreated: () {
-              _platformReady = true;
-              AdService._log(
-                'Loading banner request "${widget.placementName}".',
-              );
-              _loadBanner();
-            },
+    // Scaffold gives bottomNavigationBar loose vertical constraints. Bound the
+    // platform view to its real slot so it cannot expand over the game.
+    return SizedBox(
+      height: LevelPlayAdSize.BANNER.height.toDouble(),
+      child: ColoredBox(
+        color: const Color(0xF20B2011),
+        child: Center(
+          child: SizedBox(
+            width: LevelPlayAdSize.BANNER.width.toDouble(),
+            height: LevelPlayAdSize.BANNER.height.toDouble(),
+            child: LevelPlayBannerAdView(
+              key: _bannerKey,
+              adUnitId: AdService._bannerAdUnitId,
+              adSize: LevelPlayAdSize.BANNER,
+              listener: _listener,
+              placementName: AdService._defaultPlacement,
+              onPlatformViewCreated: () {
+                _platformReady = true;
+                AdService._log(
+                  'Loading banner request "${widget.placementName}".',
+                );
+                _loadBanner();
+              },
+            ),
           ),
         ),
       ),
