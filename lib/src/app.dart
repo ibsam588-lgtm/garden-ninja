@@ -730,6 +730,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   Future<void> _gardenSaveWrites = Future<void>.value();
   ReviewPromptPolicy? _reviewPromptPolicy;
   String? _reviewSessionId;
+  Timer? _reviewRequestTimer;
+  Completer<void>? _reviewRequestDelayCompleter;
   final PlayReviewGateway _playReviewGateway = PlayReviewGateway();
   HarvestProgress _harvestProgress = HarvestProgress();
   final GlobalKey<HarvestGardenState> _harvestKey =
@@ -970,14 +972,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _waterCharges = (data['waterCharges'] as num?)?.toInt() ?? _waterCharges;
     _sunDrops = (data['sunDrops'] as num?)?.toInt() ?? _sunDrops;
     _iceCharges = max(0, (data['iceCharges'] as num?)?.toInt() ?? _iceCharges);
-    _selectedAvatar = ((data['selectedAvatar'] as num?)?.toInt() ??
-            _selectedAvatar)
-        .clamp(0, _avatarAssets.length - 1)
-        .toInt();
-    _selectedMusicTrack = ((data['selectedMusicTrack'] as num?)?.toInt() ??
-            _selectedMusicTrack)
-        .clamp(0, _musicTracks.length - 1)
-        .toInt();
+    _selectedAvatar =
+        ((data['selectedAvatar'] as num?)?.toInt() ?? _selectedAvatar)
+            .clamp(0, _avatarAssets.length - 1)
+            .toInt();
+    _selectedMusicTrack =
+        ((data['selectedMusicTrack'] as num?)?.toInt() ?? _selectedMusicTrack)
+            .clamp(0, _musicTracks.length - 1)
+            .toInt();
     _musicEnabled = data['musicEnabled'] as bool? ?? _musicEnabled;
     _sfxEnabled = data['sfxEnabled'] as bool? ?? _sfxEnabled;
     _gardenPoints = (data['gardenPoints'] as num?)?.toInt() ?? _gardenPoints;
@@ -1213,10 +1215,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final String payload = jsonEncode(_gardenSavePayload());
     _gardenSaveWrites = _gardenSaveWrites
         .then((_) => prefs.setString(_gardenSaveKey, payload))
-        .then<void>(
-          (_) {},
-          onError: (Object error, StackTrace stackTrace) {},
-        );
+        .then<void>((_) {}, onError: (Object error, StackTrace stackTrace) {});
   }
 
   void _bumpGardenMood(int amount) {
@@ -2196,6 +2195,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     AdService.availability.removeListener(_handleAdAvailabilityChanged);
+    _reviewRequestTimer?.cancel();
+    _reviewRequestTimer = null;
+    final Completer<void>? reviewDelay = _reviewRequestDelayCompleter;
+    _reviewRequestDelayCompleter = null;
+    if (reviewDelay != null && !reviewDelay.isCompleted) {
+      reviewDelay.complete();
+    }
     _ticker.dispose();
     _gardenMapController.removeListener(_clampGardenTransform);
     _gardenMapController.dispose();
@@ -3343,16 +3349,33 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   Future<void> _considerReviewRequest() async {
     final ReviewPromptPolicy? policy = _reviewPromptPolicy;
     final String? sessionId = _reviewSessionId;
-    if (policy == null || sessionId == null) return;
+    if (!mounted ||
+        policy == null ||
+        sessionId == null ||
+        !_lastRunWon ||
+        _score <= 0 ||
+        _weedsSlashed <= 0 ||
+        _reviewRequestDelayCompleter != null) {
+      return;
+    }
 
-    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    final Completer<void> delay = Completer<void>();
+    _reviewRequestDelayCompleter = delay;
+    _reviewRequestTimer = Timer(
+      const Duration(milliseconds: 1200),
+      delay.complete,
+    );
+    await delay.future;
+    _reviewRequestTimer = null;
+    _reviewRequestDelayCompleter = null;
     if (!mounted) return;
     final bool safeToPresent = ReviewPromptPolicy.isSafePresentationMoment(
       meaningfulSuccess: _lastRunWon && _score > 0 && _weedsSlashed > 0,
       onboardingComplete:
           !_tutorialMode && _prefs?.getBool(_gardenTutorialKey) == true,
       resultsScreenStable: _phase == GamePhase.results,
-      transitionActive: _resultsShownAt == null ||
+      transitionActive:
+          _resultsShownAt == null ||
           _gardenNow.difference(_resultsShownAt!).inMilliseconds < 1200,
       adActive:
           _interstitialAdShowing || _rewardedAdShowing || _rewardedAdLoading,
@@ -6661,7 +6684,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               ),
               TextButton.icon(
                 key: const ValueKey('rate-app'),
-                onPressed: () => unawaited(_playReviewGateway.openStoreListing()),
+                onPressed: () =>
+                    unawaited(_playReviewGateway.openStoreListing()),
                 icon: const Icon(Icons.star_outline_rounded, size: 17),
                 label: const Text('Rate App'),
                 style: TextButton.styleFrom(

@@ -303,87 +303,92 @@ void main() {
     },
   );
 
-  testWidgets('avatar, audio preferences, and purchased ice survive use and restart', (
-    tester,
-  ) async {
-    await pumpGardenNinja(
-      tester,
-      prefs: {
-        'garden_ninja_garden_v4': jsonEncode({
-          'version': 8,
-          'seeds': 500,
-          'iceCharges': 2,
-          'selectedAvatar': 1,
-          'selectedMusicTrack': 2,
-          'musicEnabled': false,
-          'sfxEnabled': false,
-        }),
-      },
-    );
-    final prefs = await SharedPreferences.getInstance();
-    var saved = jsonDecode(prefs.getString('garden_ninja_garden_v4')!) as Map;
-    expect(saved['version'], 9);
-    expect(saved['selectedAvatar'], 1);
-    expect(saved['selectedMusicTrack'], 2);
-    expect(saved['musicEnabled'], isFalse);
-    expect(saved['sfxEnabled'], isFalse);
-    expect(saved['iceCharges'], 2);
+  testWidgets(
+    'avatar, audio preferences, and purchased ice survive use and restart',
+    (tester) async {
+      await pumpGardenNinja(
+        tester,
+        prefs: {
+          'garden_ninja_garden_v4': jsonEncode({
+            'version': 8,
+            'seeds': 500,
+            'iceCharges': 2,
+            'selectedAvatar': 1,
+            'selectedMusicTrack': 2,
+            'musicEnabled': false,
+            'sfxEnabled': false,
+          }),
+        },
+      );
+      final prefs = await SharedPreferences.getInstance();
+      var saved = jsonDecode(prefs.getString('garden_ninja_garden_v4')!) as Map;
+      expect(saved['version'], 9);
+      expect(saved['selectedAvatar'], 1);
+      expect(saved['selectedMusicTrack'], 2);
+      expect(saved['musicEnabled'], isFalse);
+      expect(saved['sfxEnabled'], isFalse);
+      expect(saved['iceCharges'], 2);
 
-    await tester.tap(find.text('Shop'));
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(find.text('Male Ninja'));
-    await tester.pump();
-    await tester.tap(find.text('Female Ninja'));
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.music_off_rounded));
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.music_note_rounded));
-    await tester.pump();
-    await tester.tap(find.text('Weed Invasion'));
-    await tester.pump();
-    await tester.tap(find.text('Garden Groove'));
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.volume_off_rounded));
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.graphic_eq_rounded));
-    await tester.pump();
-    saved = jsonDecode(prefs.getString('garden_ninja_garden_v4')!) as Map;
-    expect(saved['selectedAvatar'], 1);
-    expect(saved['selectedMusicTrack'], 2);
-    expect(saved['musicEnabled'], isFalse);
-    expect(saved['sfxEnabled'], isFalse);
+      await tester.tap(find.byKey(const ValueKey('home-menu-Shop')));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.text('Male Ninja'));
+      await tester.pump();
+      await tester.tap(find.text('Female Ninja'));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.music_off_rounded));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.music_note_rounded));
+      await tester.pump();
+      await tester.tap(find.text('Weed Invasion'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('Garden Groove'));
+      await tester.pump();
+      await tester.tap(find.text('Garden Groove'));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.volume_off_rounded));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.graphic_eq_rounded));
+      await tester.pump();
+      saved = jsonDecode(prefs.getString('garden_ninja_garden_v4')!) as Map;
+      expect(saved['selectedAvatar'], 1);
+      expect(saved['selectedMusicTrack'], 2);
+      expect(saved['musicEnabled'], isFalse);
+      expect(saved['sfxEnabled'], isFalse);
 
-    await tester.tap(find.text('Frost Vine'));
-    await tester.pump(const Duration(milliseconds: 100));
-    saved = jsonDecode(prefs.getString('garden_ninja_garden_v4')!) as Map;
-    expect(saved['seeds'], 360);
-    expect(saved['iceCharges'], 3);
+      await tester.ensureVisible(find.text('Frost Vine'));
+      await tester.pump();
+      await tester.tap(find.text('Frost Vine'));
+      await tester.pump(const Duration(milliseconds: 100));
+      saved = jsonDecode(prefs.getString('garden_ninja_garden_v4')!) as Map;
+      expect(saved['seeds'], 360);
+      expect(saved['iceCharges'], 3);
 
-    await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('Ice x3'), findsOneWidget);
-    await tester.tap(find.text('Ice x3'));
-    await tester.pump(const Duration(milliseconds: 100));
-    saved = jsonDecode(prefs.getString('garden_ninja_garden_v4')!) as Map;
-    expect(saved['iceCharges'], 2);
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Ice x3'), findsOneWidget);
+      await tester.tap(find.text('Ice x3'));
+      await tester.pump(const Duration(milliseconds: 100));
+      saved = jsonDecode(prefs.getString('garden_ninja_garden_v4')!) as Map;
+      expect(saved['iceCharges'], 2);
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump();
-    await tester.pumpWidget(const GardenNinjaApp());
-    await tester.pump(const Duration(milliseconds: 100));
-    saved = jsonDecode(prefs.getString('garden_ninja_garden_v4')!) as Map;
-    expect(saved['selectedAvatar'], 1);
-    expect(saved['selectedMusicTrack'], 2);
-    expect(saved['musicEnabled'], isFalse);
-    expect(saved['sfxEnabled'], isFalse);
-    expect(saved['iceCharges'], 2);
-    await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('Ice x2'), findsOneWidget);
-    expect(find.text('Ice x3'), findsNothing);
-  });
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await tester.pumpWidget(const GardenNinjaApp());
+      await tester.pump(const Duration(milliseconds: 100));
+      saved = jsonDecode(prefs.getString('garden_ninja_garden_v4')!) as Map;
+      expect(saved['selectedAvatar'], 1);
+      expect(saved['selectedMusicTrack'], 2);
+      expect(saved['musicEnabled'], isFalse);
+      expect(saved['sfxEnabled'], isFalse);
+      expect(saved['iceCharges'], 2);
+      await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Ice x2'), findsOneWidget);
+      expect(find.text('Ice x3'), findsNothing);
+    },
+  );
 
   testWidgets('a zero-score loss is not presented as a saved garden', (
     tester,
@@ -391,7 +396,11 @@ void main() {
     await pumpGardenNinja(tester);
     await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
     await tester.pump(const Duration(milliseconds: 100));
-    for (var i = 0; i < 1200 && find.text('Run Over').evaluate().isEmpty; i += 1) {
+    for (
+      var i = 0;
+      i < 1200 && find.text('Run Over').evaluate().isEmpty;
+      i += 1
+    ) {
       await tester.pump(const Duration(milliseconds: 50));
     }
     expect(find.text('Run Over'), findsOneWidget);
@@ -403,7 +412,9 @@ void main() {
     expect(find.text('NEXT LEVEL'), findsOneWidget);
   });
 
-  testWidgets('Rate App opens the platform Play listing action', (tester) async {
+  testWidgets('Rate App opens the platform Play listing action', (
+    tester,
+  ) async {
     const channel = MethodChannel('garden_ninja/play_review');
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;

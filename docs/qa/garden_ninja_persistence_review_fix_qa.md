@@ -17,6 +17,8 @@ Date: 2026-10-07
 - Changed a loss title to “Run Over,” with a clear retry message; consolation rewards and relaxed progression remain unchanged.
 - Added a native Play Core review bridge and a manual Rate App action that opens the package's Play listing (with a web listing fallback). Automatic requests require four successful, meaningful run sessions after onboarding. A later request requires four additional successful sessions and at least 30 days; a longer stored cooldown is retained. Requests are reserved persistently and limited to one per app session. Request-flow completion is treated as an attempt only, never proof that Play displayed a card or received a review.
 - Automatic requests wait until the result screen settles and skip when an ad, modal, keyboard, update prompt, tutorial, or other unsafe state is active. Play/API failures safely return without interrupting play.
+- Delayed review checks now use a cancellable timer, are not scheduled for a loss, and are canceled when the screen is disposed. The persistence widget regression navigates through the Shop menu key and scrolls the actual track and item controls into view before tapping.
+- The artifact upload lane now skips listing metadata, images, and screenshots. It keeps the independent changelog upload option enabled for release notes.
 
 ## Regression coverage
 
@@ -27,5 +29,9 @@ Date: 2026-10-07
 ## Validation record
 
 - Source inspection reproduced the persistence omissions and misleading loss title before edits.
-- Flutter tests, analyzer, and Android build: pending execution results. The Android build is being held until the parent task grants a shared Gradle/build slot.
-- No release, upload, publish, push, or release workflow was run.
+- Flutter test suite: 46 passed, 0 failed, using the installed Flutter/Dart versions through a writable task-local Flutter cache root and `--no-pub`. The focused persistence regression also passed.
+- Flutter analyzer: passed with no issues, using the same task-local tool root and `--no-pub`.
+- The installed `flutter.bat` launcher cannot start in this sandbox: its SDK cache lock files reject write access. Direct execution of the cached tool against the installed SDK also reports that its cache lockfile cannot be opened. The validation root isolated the writable cache and telemetry files and referenced the installed SDK/Dart/artifacts read-only.
+- Android app bundle build: blocked. With a task-specific `GRADLE_USER_HOME`, Gradle attempted to download the wrapper distribution and failed with `java.net.SocketException: Permission denied: connect`. No Android artifact was produced. The existing `android/local.properties` was restored unchanged after the attempt.
+- `fastlane/supply` upload options were checked against current fastlane supply documentation; the internal lane skips metadata, images, and screenshots while preserving changelog upload. No Fastlane upload was run.
+- No release, upload, publish, or release workflow was run.
