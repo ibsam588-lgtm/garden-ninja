@@ -19,6 +19,7 @@ Date: 2026-10-07
 - Automatic requests wait until the result screen settles and skip when an ad, modal, keyboard, update prompt, tutorial, or other unsafe state is active. Play/API failures safely return without interrupting play.
 - Delayed review checks now use a cancellable timer, are not scheduled for a loss, and are canceled when the screen is disposed. The persistence widget regression navigates through the Shop menu key and scrolls the actual track and item controls into view before tapping.
 - The artifact upload lane now skips listing metadata, images, and screenshots. It keeps the independent changelog upload option enabled for release notes.
+- The deploy workflow updates public forced-update minimums only for production-track releases; internal uploads do not force users onto internal-only builds.
 
 ## Regression coverage
 

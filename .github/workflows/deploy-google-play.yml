@@ -180,7 +180,7 @@ jobs:
         run: bundle exec fastlane android internal
 
       - name: Update forced update metadata
-        if: steps.deploy_secrets.outputs.configured == 'true'
+        if: steps.deploy_secrets.outputs.configured == 'true' && env.PLAY_TRACK == 'production'
         shell: bash
         env:
           ANDROID_PACKAGE_NAME: ${{ env.ANDROID_PACKAGE_NAME }}
