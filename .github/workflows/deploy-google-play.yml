@@ -150,9 +150,15 @@ jobs:
           LEVELPLAY_CHILD_DIRECTED: ${{ vars.LEVELPLAY_CHILD_DIRECTED }}
           LEVELPLAY_TEST_SUITE: ${{ vars.LEVELPLAY_TEST_SUITE }}
         run: |
+          # GitHub run 51 was the latest observed workflow run. Keep its
+          # existing monotonic scheme, with a floor above the verified 10049.
           build_number=$((10000 + GITHUB_RUN_NUMBER))
+          if [ "$build_number" -lt 10050 ]; then
+            build_number=10050
+          fi
           echo "VERSION_CODE=$build_number" >> "$GITHUB_ENV"
           flutter build appbundle --release \
+            --build-name "1.1.6" \
             --build-number "$build_number" \
             --dart-define=LEVELPLAY_APP_KEY="$LEVELPLAY_APP_KEY" \
             --dart-define=LEVELPLAY_BANNER_AD_UNIT_ID="$LEVELPLAY_BANNER_AD_UNIT_ID" \
