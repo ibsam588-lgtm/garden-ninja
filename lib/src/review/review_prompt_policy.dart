@@ -54,7 +54,7 @@ class ReviewPromptPolicy {
       return;
     }
     try {
-      await _store.recordSuccessfulSession(
+      await store.recordSuccessfulSession(
         sessionId: sessionId,
         total: store.successfulSessions + 1,
       );
