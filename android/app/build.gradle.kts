@@ -33,7 +33,8 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
+        // Keep local Android builds above the verified Play Console maximum.
+        versionCode = maxOf(flutter.versionCode, 10050)
         versionName = flutter.versionName
     }
 
@@ -67,6 +68,7 @@ kotlin {
 }
 
 dependencies {
+    implementation("com.google.android.play:review:2.0.2")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     // Works around a Flutter crash on Android 12L+ when desugaring is on,
     // see the flutter_local_notifications README.

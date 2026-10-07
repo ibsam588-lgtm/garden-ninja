@@ -13,6 +13,9 @@ import 'package:garden_ninja/src/ads/ad_placement_config.dart';
 import 'package:garden_ninja/src/ads/ad_service.dart';
 import 'package:garden_ninja/src/garden/harvest_garden.dart';
 import 'package:garden_ninja/src/garden/harvest_model.dart';
+import 'package:garden_ninja/src/review/play_review_gateway.dart';
+import 'package:garden_ninja/src/review/review_prompt_policy.dart';
+import 'package:garden_ninja/src/review/shared_preferences_review_prompt_store.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -354,6 +357,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const Duration _sameSfxGap = Duration(milliseconds: 82);
   static const String _gardenSaveKey = 'garden_ninja_garden_v4';
   static const String _gardenTutorialKey = 'garden_ninja_garden_tutorial_v3';
+  static const int _gardenSaveVersion = 9;
   static const int _dailyWaterGrant = 3;
   static const int _dailySunGrant = 1;
   static const int _gardenCalmMusicTrack = 4;
@@ -723,6 +727,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   bool _notificationsReady = false;
   bool _notificationPermissionAsked = false;
   SharedPreferences? _prefs;
+  Future<void> _gardenSaveWrites = Future<void>.value();
+  ReviewPromptPolicy? _reviewPromptPolicy;
+  String? _reviewSessionId;
+  Timer? _reviewRequestTimer;
+  Completer<void>? _reviewRequestDelayCompleter;
+  final PlayReviewGateway _playReviewGateway = PlayReviewGateway();
   HarvestProgress _harvestProgress = HarvestProgress();
   final GlobalKey<HarvestGardenState> _harvestKey =
       GlobalKey<HarvestGardenState>();
@@ -786,6 +796,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int? _gardenPondRefillMs;
   int? _gardenGiftPlotId;
   int? _gardenLastVisitMs;
+  DateTime? _resultsShownAt;
   int? _musicTrackBeforeGarden;
   int _gardenSessionWeedSpawns = 0;
   bool _lastRunWon = false;
@@ -930,6 +941,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
     setState(() {
       _prefs = prefs;
+      _reviewPromptPolicy = ReviewPromptPolicy(
+        store: SharedPreferencesReviewPromptStore(prefs),
+        clock: () => _gardenNow,
+      );
+      _reviewSessionId =
+          '${DateTime.now().microsecondsSinceEpoch}-${_random.nextInt(1 << 32)}';
       if (raw != null) {
         try {
           final Object? decoded = jsonDecode(raw);
@@ -954,6 +971,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
     _waterCharges = (data['waterCharges'] as num?)?.toInt() ?? _waterCharges;
     _sunDrops = (data['sunDrops'] as num?)?.toInt() ?? _sunDrops;
+    _iceCharges = max(0, (data['iceCharges'] as num?)?.toInt() ?? _iceCharges);
+    _selectedAvatar =
+        ((data['selectedAvatar'] as num?)?.toInt() ?? _selectedAvatar)
+            .clamp(0, _avatarAssets.length - 1)
+            .toInt();
+    _selectedMusicTrack =
+        ((data['selectedMusicTrack'] as num?)?.toInt() ?? _selectedMusicTrack)
+            .clamp(0, _musicTracks.length - 1)
+            .toInt();
+    _musicEnabled = data['musicEnabled'] as bool? ?? _musicEnabled;
+    _sfxEnabled = data['sfxEnabled'] as bool? ?? _sfxEnabled;
     _gardenPoints = (data['gardenPoints'] as num?)?.toInt() ?? _gardenPoints;
     _gardenLevel = (data['gardenLevel'] as num?)?.toInt() ?? _gardenLevel;
     _gardenHouseTier =
@@ -1111,11 +1139,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   Map<String, dynamic> _gardenSavePayload() {
     return {
-      'version': 8,
+      'version': _gardenSaveVersion,
       'seeds': _seeds,
       'harvestMastery': _harvestProgress.toJson(),
       'waterCharges': _waterCharges,
       'sunDrops': _sunDrops,
+      'iceCharges': _iceCharges,
+      'selectedAvatar': _selectedAvatar,
+      'selectedMusicTrack': _musicTrackBeforeGarden ?? _selectedMusicTrack,
+      'musicEnabled': _musicEnabled,
+      'sfxEnabled': _sfxEnabled,
       'gardenPoints': _gardenPoints,
       'gardenLevel': _gardenLevel,
       'gardenHouseTier': _gardenHouseTier,
@@ -1179,9 +1212,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (prefs == null || !_gardenSaveLoaded) {
       return;
     }
-    unawaited(
-      prefs.setString(_gardenSaveKey, jsonEncode(_gardenSavePayload())),
-    );
+    final String payload = jsonEncode(_gardenSavePayload());
+    _gardenSaveWrites = _gardenSaveWrites
+        .then((_) => prefs.setString(_gardenSaveKey, payload))
+        .then<void>((_) {}, onError: (Object error, StackTrace stackTrace) {});
   }
 
   void _bumpGardenMood(int amount) {
@@ -2161,6 +2195,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     AdService.availability.removeListener(_handleAdAvailabilityChanged);
+    _reviewRequestTimer?.cancel();
+    _reviewRequestTimer = null;
+    final Completer<void>? reviewDelay = _reviewRequestDelayCompleter;
+    _reviewRequestDelayCompleter = null;
+    if (reviewDelay != null && !reviewDelay.isCompleted) {
+      reviewDelay.complete();
+    }
     _ticker.dispose();
     _gardenMapController.removeListener(_clampGardenTransform);
     _gardenMapController.dispose();
@@ -3254,6 +3295,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         const Color(0xFF8EF5FF),
       );
     });
+    _queueGardenSave();
   }
 
   void _finishRun({required bool won}) {
@@ -3265,11 +3307,21 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _bestScore = max(_bestScore, _score);
     _rewardSeeds = (won ? 110 : 45) + (_weedsSlashed * 2) + (_maxCombo * 3);
     _seeds += _rewardSeeds;
+    final bool meaningfulWin = won && _score > 0 && _weedsSlashed > 0;
+    if (meaningfulWin && !_tutorialMode) {
+      final ReviewPromptPolicy? policy = _reviewPromptPolicy;
+      final String? sessionId = _reviewSessionId;
+      if (policy != null && sessionId != null) {
+        unawaited(policy.recordSuccessfulSession(sessionId));
+      }
+    }
+    _queueGardenSave();
     _targets.clear();
     _shards.clear();
     _slashes.clear();
     _bursts.clear();
     _phase = GamePhase.results;
+    _resultsShownAt = _gardenNow;
     _rewardedAdClaimedForRun = false;
     if (!_tutorialMode) {
       _adBreakPolicy.recordRunCompleted();
@@ -3280,17 +3332,67 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Future<void> _showCompletedRoundInterstitial() async {
-    if (!mounted ||
-        _phase != GamePhase.results ||
-        !_adBreakPolicy.isInterstitialDue) {
+    if (!mounted || _phase != GamePhase.results) {
       return;
     }
-    final bool shown = await _showInterstitialBreak(
-      placementName: 'after_completed_round_$_level',
-    );
-    if (shown) {
-      _adBreakPolicy.recordAdExperience();
+    if (_adBreakPolicy.isInterstitialDue) {
+      final bool shown = await _showInterstitialBreak(
+        placementName: 'after_completed_round_$_level',
+      );
+      if (shown) {
+        _adBreakPolicy.recordAdExperience();
+      }
     }
+    await _considerReviewRequest();
+  }
+
+  Future<void> _considerReviewRequest() async {
+    final ReviewPromptPolicy? policy = _reviewPromptPolicy;
+    final String? sessionId = _reviewSessionId;
+    if (!mounted ||
+        policy == null ||
+        sessionId == null ||
+        !_lastRunWon ||
+        _score <= 0 ||
+        _weedsSlashed <= 0 ||
+        _reviewRequestDelayCompleter != null) {
+      return;
+    }
+
+    final Completer<void> delay = Completer<void>();
+    _reviewRequestDelayCompleter = delay;
+    _reviewRequestTimer = Timer(
+      const Duration(milliseconds: 1200),
+      delay.complete,
+    );
+    await delay.future;
+    _reviewRequestTimer = null;
+    _reviewRequestDelayCompleter = null;
+    if (!mounted) return;
+    final bool safeToPresent = ReviewPromptPolicy.isSafePresentationMoment(
+      meaningfulSuccess: _lastRunWon && _score > 0 && _weedsSlashed > 0,
+      onboardingComplete:
+          !_tutorialMode && _prefs?.getBool(_gardenTutorialKey) == true,
+      resultsScreenStable: _phase == GamePhase.results,
+      transitionActive:
+          _resultsShownAt == null ||
+          _gardenNow.difference(_resultsShownAt!).inMilliseconds < 1200,
+      adActive:
+          _interstitialAdShowing || _rewardedAdShowing || _rewardedAdLoading,
+      dialogActive:
+          _forceUpdateVisible ||
+          _showGardenWelcome ||
+          _showGardenHousePanel ||
+          _showGardenMarketPanel ||
+          _showGardenHeartPanel ||
+          !(ModalRoute.of(context)?.isCurrent ?? false),
+      keyboardVisible: MediaQuery.viewInsetsOf(context).bottom > 0,
+    );
+    await policy.requestIfDue(
+      sessionId: sessionId,
+      safeToPresent: safeToPresent,
+      launch: _playReviewGateway.requestReview,
+    );
   }
 
   Future<bool> _showInterstitialBreak({
@@ -5322,6 +5424,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     setState(() {
       _selectedAvatar = index.clamp(0, _avatarAssets.length - 1).toInt();
     });
+    _queueGardenSave();
   }
 
   void _selectMusicTrack(int index) {
@@ -5330,6 +5433,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     setState(() {
       _selectedMusicTrack = index.clamp(0, _musicTracks.length - 1).toInt();
     });
+    _queueGardenSave();
     unawaited(_playSelectedMusic());
   }
 
@@ -5337,6 +5441,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     setState(() {
       _musicEnabled = !_musicEnabled;
     });
+    _queueGardenSave();
     if (_musicEnabled) {
       unawaited(_playSelectedMusic());
     } else {
@@ -5348,6 +5453,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     setState(() {
       _sfxEnabled = !_sfxEnabled;
     });
+    _queueGardenSave();
     if (_sfxEnabled) {
       _playSfx(_sfxCrispLeaf, volume: 0.44);
     }
@@ -5369,6 +5475,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           _iceCharges += 1;
       }
     });
+    _queueGardenSave();
   }
 
   Future<void> _confirmQuitRun() async {
@@ -6574,6 +6681,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                     value: '$_sunDrops',
                   ),
                 ],
+              ),
+              TextButton.icon(
+                key: const ValueKey('rate-app'),
+                onPressed: () =>
+                    unawaited(_playReviewGateway.openStoreListing()),
+                icon: const Icon(Icons.star_outline_rounded, size: 17),
+                label: const Text('Rate App'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFDFFF8A),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                ),
               ),
             ],
           ),
@@ -10259,7 +10377,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            _lastRunWon ? 'Level Complete' : 'Garden Saved',
+            _lastRunWon ? 'Level Complete' : 'Run Over',
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: Colors.white,
@@ -10267,6 +10385,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               fontWeight: FontWeight.w900,
             ),
           ),
+          if (!_lastRunWon) ...[
+            const SizedBox(height: 7),
+            const Text(
+              'The weeds got through this time. Try another run to protect the garden.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFFE7FFCC),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
