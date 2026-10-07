@@ -941,7 +941,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _prefs = prefs;
       _reviewPromptPolicy = ReviewPromptPolicy(
         store: SharedPreferencesReviewPromptStore(prefs),
-        clock: _gardenNow,
+        clock: () => _gardenNow,
       );
       _reviewSessionId =
           '${DateTime.now().microsecondsSinceEpoch}-${_random.nextInt(1 << 32)}';
