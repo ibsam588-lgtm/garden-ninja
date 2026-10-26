@@ -69,6 +69,7 @@ kotlin {
 
 dependencies {
     implementation("com.google.android.play:review:2.0.2")
+    implementation("com.google.android.gms:play-services-games-v2:22.1.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     // Works around a Flutter crash on Android 12L+ when desugaring is on,
     // see the flutter_local_notifications README.
@@ -87,6 +88,8 @@ dependencies {
     implementation("com.vungle:vungle-ads:7.7.0")
     implementation("com.unity3d.ads-mediation:inmobi-adapter:5.4.0")
     implementation("com.inmobi.monetization:inmobi-ads-kotlin:11.1.1")
+    // Includes the Chartboost SDK and supports LevelPlay 9.x bidding.
+    implementation("com.unity3d.ads-mediation:chartboost-adapter:5.11.0")
 }
 
 flutter {

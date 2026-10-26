@@ -2,6 +2,7 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://cboost.jfrog.io/artifactory/chartboost-ads/") }
     }
 }
 

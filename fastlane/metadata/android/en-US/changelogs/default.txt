@@ -1,1 +1,4 @@
-Garden Ninja 1.0.1 adds the polished garden plot view with cleaner planting guidance, tree rewards, zoom controls, and the latest gameplay fixes for internal testers.
+Garden Ninja 1.1.7
+- Ads now appear after three completed rounds, including wins and losses.
+- Harvest rounds use the same timing, and exit ads have been removed.
+- Added support for Chartboost mediation and Google Play Games platform sign-in.

@@ -25,12 +25,14 @@ class HarvestGarden extends StatefulWidget {
     required this.onExit,
     required this.onSave,
     this.onHarvest,
+    this.onRoundCompleted,
     this.suspended = false,
   });
   final HarvestProgress progress;
   final VoidCallback onExit;
   final VoidCallback onSave;
   final VoidCallback? onHarvest;
+  final VoidCallback? onRoundCompleted;
   final bool suspended;
   @override
   State<HarvestGarden> createState() => HarvestGardenState();
@@ -59,6 +61,7 @@ class HarvestGardenState extends State<HarvestGarden>
   bool _showResult = false;
   bool _reduceMotion = false;
   HarvestProgress get _progress => widget.progress;
+  bool get showingRoundResult => _showResult;
 
   @override
   void initState() {
@@ -189,6 +192,7 @@ class HarvestGardenState extends State<HarvestGarden>
   }
 
   void _finish() {
+    if (_showResult) return;
     setState(() {
       _round.finish();
       _pointer = null;
@@ -201,6 +205,7 @@ class HarvestGardenState extends State<HarvestGarden>
       _panel = _Panel.build;
     });
     widget.onSave();
+    widget.onRoundCompleted?.call();
   }
 
   void _closePanel() {

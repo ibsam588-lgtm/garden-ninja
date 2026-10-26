@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name" translatable="false">Garden Ninja</string>
+    <string name="game_services_project_id" translatable="false">1081711751724</string>
+</resources>

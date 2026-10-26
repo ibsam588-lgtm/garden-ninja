@@ -158,7 +158,7 @@ jobs:
           fi
           echo "VERSION_CODE=$build_number" >> "$GITHUB_ENV"
           flutter build appbundle --release \
-            --build-name "1.1.6" \
+            --build-name "1.1.7" \
             --build-number "$build_number" \
             --dart-define=LEVELPLAY_APP_KEY="$LEVELPLAY_APP_KEY" \
             --dart-define=LEVELPLAY_BANNER_AD_UNIT_ID="$LEVELPLAY_BANNER_AD_UNIT_ID" \

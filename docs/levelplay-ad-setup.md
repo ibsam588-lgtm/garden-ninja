@@ -14,21 +14,19 @@ the listing publicly:
 https://play.google.com/store/apps/details?id=com.gardenninja.garden_ninja
 ```
 
-Current dashboard status as of 2026-09-12:
+Current dashboard status (store connection verified 2026-09-26):
 
 ```text
 LevelPlay app: Garden Ninja
 LevelPlay app key: 27c8fbcdd
-Store status: Not live yet
+Store status: Live
 
 Banner: GardenNinja_Banner / 8bl8nkh06x468qo8
 Interstitial: GardenNinja_Interstitial / g7vbv6lc2vw8swyn
 Rewarded: GardenNinja_Rewarded / 6np38xk16zk980ef
 ```
 
-The real Play URL was rejected by LevelPlay while the app was not publicly
-reachable, so the app was created as `Not live yet`. Update the app to the real
-Play URL after Google Play exposes the listing publicly.
+The app is now connected to its public Google Play listing.
 
 Connect and activate these networks for all three formats:
 
@@ -37,6 +35,7 @@ Unity Ads
 Liftoff/Vungle
 InMobi
 ironSource/iSX
+Chartboost
 ```
 
 For every network, add an instance for Banner, Interstitial, and Rewarded.
@@ -51,6 +50,8 @@ Liftoff Monetize: active for Banner, Interstitial, Rewarded.
 InMobi: blocked. Garden Ninja inventory could not be created while the InMobi
 account is pending verification and the inventory create flow resets before
 submission.
+Chartboost: Android adapter 5.11.0 included. Dashboard credentials and bidding
+locations remain pending the Chartboost app registration acknowledgment.
 ```
 
 Configured network dashboard IDs:
@@ -118,6 +119,18 @@ it is available and uncapped. Rewarded videos can load after the player's tap,
 grant the reward only from `onAdRewarded`, and preload their replacement after
 closing or failing.
 
+Version 1.1.7 counts completed arcade rounds (wins and losses) and Harvest
+Garden rounds together. An interstitial becomes due after three completed
+rounds in the current session. Tutorials and quitting do not count, and no ad
+is shown on app exit. The counter resets only after an interstitial is shown;
+if inventory is unavailable, gameplay continues and the ad remains due at a
+later natural break. Rewarded videos remain voluntary.
+
+The Chartboost COPPA metadata is set before SDK initialization using the same
+`LEVELPLAY_CHILD_DIRECTED` value as LevelPlay. Keep test-suite mode off for Play
+uploads. Including an adapter does not activate a network: Garden Ninja's
+Chartboost app credentials and bidding locations must also be saved in LevelPlay.
+
 Building with `LEVELPLAY_TEST_SUITE=true` suppresses the normal app ad widgets
 and opens the official integration test suite after initialization. On
 2026-09-12, the suite identified all three configured ad units, detected
@@ -174,7 +187,7 @@ dashboard provides the live account IDs.
 
 ## Forced Update Metadata
 
-After a successful Play internal upload, CI updates:
+After a successful production upload, CI updates:
 
 ```text
 public/app-version.json

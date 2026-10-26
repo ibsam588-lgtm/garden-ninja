@@ -83,6 +83,9 @@ class AdService {
 
     try {
       await LevelPlayPrivacySettings.setCOPPA(levelPlayChildDirected);
+      await LevelPlay.setMetaData({
+        'CHARTBOOST_COPPA': [levelPlayChildDirected ? 'YES' : 'NO'],
+      });
       await LevelPlay.setAdaptersDebug(levelPlayTestSuite);
       if (levelPlayTestSuite) {
         await LevelPlay.setMetaData({

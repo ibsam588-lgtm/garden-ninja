@@ -1,29 +1,41 @@
 # Garden Ninja Privacy Policy
 
-Effective date: June 28, 2026
+Effective date: October 26, 2026
 
-Garden Ninja is a casual offline game. The current version does not collect, store, transmit, sell, or share personal information.
+Garden Ninja is published by Corsair Labs. This policy covers Android package `com.gardenninja.garden_ninja`.
 
 ## Information We Collect
 
-The current app does not collect personal data. It does not require an account, login, email address, phone number, location, contacts, camera, microphone, photos, or device advertising identifier.
+Garden progress, coins, upgrades, unlocks, selected tools, audio preferences, and tutorial state are saved on your device. Garden Ninja does not operate a Corsair Labs player-account server or upload garden saves to cloud storage. Clearing app data or uninstalling removes these local saves.
 
 ## Ads, Analytics, and Purchases
 
-The current app does not include third-party ads, third-party analytics, subscriptions, or in-app purchases.
+Garden Ninja uses Unity LevelPlay mediation for banners, interstitial ads at natural game breaks, and optional rewarded videos. Providers include ironSource Ads, Unity Ads, Liftoff Monetize / Vungle, and, when their mediation instances are enabled, Chartboost and InMobi.
+
+These SDKs can collect device and advertising identifiers, IP-derived approximate location, ad interactions, app version, diagnostics, and privacy-choice signals. Providers use and share this information to serve and measure ads, operate mediation, and prevent fraud, subject to their policies and applicable privacy choices. The app does not request precise device location, contacts, camera, or microphone access.
+
+## Google Play Games Services
+
+Releases that include Play Games platform sign-in use Google's Play Games Services SDK. Google processes gamer identity, sign-in activity, and SDK diagnostics according to its policies. This integration does not request friends lists, access other games' data, or enable cloud saves. Core gameplay does not require a separate Corsair Labs account.
+
+You can manage sign-in and delete Play Games data through your Play Games profile or Google Account. Google's [SDK data disclosure](https://developer.android.com/games/pgs/data-collection) describes its processing and deletion controls.
 
 ## Children's Privacy
 
-Garden Ninja does not knowingly collect personal information from children. If future features add online services, analytics, ads, accounts, or purchases, this policy and the Google Play Data safety form must be updated before release.
+Garden Ninja is a general audience game. The app's child-directed setting is passed to LevelPlay and Chartboost before advertising initialization.
 
 ## Data Sharing
 
-The current app does not share personal data with third parties.
+Advertising SDKs share identifiers, approximate location, and ad interactions with mediation and advertising providers for advertising, measurement, and fraud prevention according to their policies and applicable privacy choices. Google processes Play Games sign-in and SDK data under its policies.
+
+## Retention and privacy requests
+
+Local saves remain until app data is cleared or the game is uninstalled. Advertising and Play Games records follow the relevant provider's retention policy. Clearing local app data does not automatically delete those records. For app privacy questions or deletion requests, email labscorsair@gmail.com with the app name and the information concerned.
 
 ## Changes
 
-This policy may be updated as the game changes. Any updates will be published with a new effective date.
+This policy is updated when the game's services change. The current public policy is available on the [Garden Ninja website](https://corsairlabs.com/garden-ninja-privacy-policy).
 
 ## Contact
 
-ibsam588@gmail.com
+labscorsair@gmail.com
