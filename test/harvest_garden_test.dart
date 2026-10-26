@@ -17,6 +17,7 @@ Future<void> pumpGarden(
   HarvestProgress progress, {
   Size size = const Size(390, 844),
   double textScale = 1,
+  VoidCallback? onRoundCompleted,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -51,6 +52,7 @@ Future<void> pumpGarden(
               progress: progress,
               onExit: () {},
               onSave: () {},
+              onRoundCompleted: onRoundCompleted,
             ),
           ),
         ),
@@ -81,6 +83,27 @@ Future<void> screenshot(WidgetTester tester, String name) async {
 }
 
 void main() {
+  testWidgets('a finished harvest reports completion exactly once', (
+    tester,
+  ) async {
+    var completed = 0;
+    await pumpGarden(
+      tester,
+      HarvestProgress(),
+      onRoundCompleted: () => completed++,
+    );
+    await tester.tap(find.byKey(const ValueKey('harvest-start')));
+    await tester.pump(const Duration(seconds: 61));
+    expect(completed, 1);
+    await tester.pump(const Duration(seconds: 61));
+    expect(completed, 1);
+    await tester.tap(find.byKey(const ValueKey('harvest-sheet-close')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('harvest-start')));
+    await tester.pump(const Duration(seconds: 61));
+    expect(completed, 2);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'twelve physical taps pay the order and accessible taps remain available',
     (tester) async {

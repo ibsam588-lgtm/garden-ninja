@@ -3346,6 +3346,25 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     await _considerReviewRequest();
   }
 
+  void _onHarvestRoundCompleted() {
+    _adBreakPolicy.recordRunCompleted();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          _phase == GamePhase.garden &&
+          (_harvestKey.currentState?.showingRoundResult ?? false)) {
+        unawaited(_showHarvestRoundInterstitial());
+      }
+    });
+  }
+
+  Future<void> _showHarvestRoundInterstitial() async {
+    if (!_adBreakPolicy.isInterstitialDue) return;
+    final bool shown = await _showInterstitialBreak(
+      placementName: 'after_harvest_round',
+    );
+    if (shown) _adBreakPolicy.recordAdExperience();
+  }
+
   Future<void> _considerReviewRequest() async {
     final ReviewPromptPolicy? policy = _reviewPromptPolicy;
     final String? sessionId = _reviewSessionId;
@@ -3399,7 +3418,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     required String placementName,
     bool resumeMusicAfter = true,
   }) async {
-    if (_interstitialAdShowing || !AdService.isInterstitialReady) {
+    if (_interstitialAdShowing ||
+        _rewardedAdShowing ||
+        _rewardedAdLoading ||
+        !AdService.isInterstitialReady) {
       return false;
     }
 
@@ -5535,7 +5557,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (!mounted || !shouldQuit) {
       return;
     }
-    await _showInterstitialBreak(placementName: 'quit_run_confirmed');
     if (mounted) {
       _goHome();
     }
@@ -5608,10 +5629,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         false;
 
     if (shouldQuit) {
-      await _showInterstitialBreak(
-        placementName: 'app_exit_confirmed',
-        resumeMusicAfter: false,
-      );
       await _musicPlayer.stop();
       await SystemNavigator.pop();
     }
@@ -5634,13 +5651,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 HarvestGarden(
                   key: _harvestKey,
                   progress: _harvestProgress,
-                  suspended: _forceUpdateVisible,
+                  suspended:
+                      _forceUpdateVisible ||
+                      _interstitialAdShowing ||
+                      _rewardedAdShowing,
                   onExit: _goHome,
                   onSave: () {
                     _seeds = _harvestProgress.coins;
                     _queueGardenSave();
                   },
                   onHarvest: () => _playSfx(_sfxComboSpark, volume: .35),
+                  onRoundCompleted: _onHarvestRoundCompleted,
                 )
               else
                 const Center(
