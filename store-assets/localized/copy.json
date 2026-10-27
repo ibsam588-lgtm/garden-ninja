@@ -1,0 +1,112 @@
+{
+  "fr-FR": {
+    "feature": "Cultive. Améliore. Récolte.",
+    "footer": "Interface du jeu en anglais",
+    "slides": [
+      ["Ton jardin.\nTa prochaine récolte.", "Cultive tes parcelles et remplis les commandes."],
+      ["Tranche les herbes.\nProtège les fleurs.", "Des défis arcade rapides, au bout des doigts."],
+      ["Choisis ta\nprochaine amélioration.", "Outils, bonus et personnages ninja."],
+      ["Vise ton\nprochain record.", "Enchaîne les combos et gagne des pièces."],
+      ["Apprends\nen un geste.", "Suis la démo du jeu et lance-toi."]
+    ]
+  },
+  "de-DE": {
+    "feature": "Pflanzen. Verbessern. Ernten.",
+    "footer": "Spieloberfläche auf Englisch",
+    "slides": [
+      ["Dein Garten.\nDeine nächste Ernte.", "Pflanze an und erfülle Marktaufträge."],
+      ["Schneide Unkraut.\nSchütze Blumen.", "Schnelle Arcade-Herausforderungen per Wisch."],
+      ["Wähle dein\nnächstes Upgrade.", "Werkzeuge, Power-ups und Ninja-Figuren."],
+      ["Jage deinen\nnächsten Rekord.", "Bilde Kombos und verdiene Münzen."],
+      ["Lerne mit\neinem Wisch.", "Folge der Demo im Spiel und leg los."]
+    ]
+  },
+  "es-ES": {
+    "feature": "Cultiva. Mejora. Cosecha.",
+    "footer": "Interfaz del juego en inglés",
+    "slides": [
+      ["Tu jardín.\nTu próxima cosecha.", "Cultiva tus parcelas y completa los pedidos."],
+      ["Corta las hierbas.\nProtege las flores.", "Desafíos arcade rápidos con cada deslizamiento."],
+      ["Elige tu\npróxima mejora.", "Herramientas, potenciadores y personajes ninja."],
+      ["Ve a por tu\npróximo récord.", "Encadena combos y consigue monedas."],
+      ["Aprende\ncon un gesto.", "Sigue la demo del juego y empieza a jugar."]
+    ]
+  },
+  "es-419": {
+    "feature": "Cultiva. Mejora. Cosecha.",
+    "footer": "Interfaz del juego en inglés",
+    "slides": [
+      ["Tu jardín.\nTu próxima cosecha.", "Cultiva tus parcelas y completa los pedidos."],
+      ["Corta la maleza.\nProtege las flores.", "Desafíos arcade rápidos con cada deslizamiento."],
+      ["Elige tu\npróxima mejora.", "Herramientas, potenciadores y personajes ninja."],
+      ["Supera tu\nmejor puntaje.", "Encadena combos y gana monedas."],
+      ["Aprende\ncon un gesto.", "Sigue la demo del juego y empieza a jugar."]
+    ]
+  },
+  "pt-BR": {
+    "feature": "Plante. Melhore. Colha.",
+    "footer": "Interface do jogo em inglês",
+    "slides": [
+      ["Seu jardim.\nSua próxima colheita.", "Cultive seus canteiros e complete os pedidos."],
+      ["Corte as ervas.\nProteja as flores.", "Desafios arcade rápidos na ponta dos dedos."],
+      ["Escolha sua\npróxima melhoria.", "Ferramentas, poderes e personagens ninja."],
+      ["Busque seu\npróximo recorde.", "Faça combos e ganhe moedas."],
+      ["Aprenda\ncom um gesto.", "Siga a demonstração do jogo e comece a jogar."]
+    ]
+  },
+  "id": {
+    "feature": "Tanam. Tingkatkan. Panen.",
+    "footer": "Antarmuka game dalam bahasa Inggris",
+    "slides": [
+      ["Kebunmu.\nPanen berikutnya.", "Tanam di petak kebun dan penuhi pesanan pasar."],
+      ["Tebas gulma.\nLindungi bunga.", "Tantangan arcade singkat dengan usapan jari."],
+      ["Pilih peningkatan\nberikutnya.", "Alat, power-up, dan karakter ninja."],
+      ["Kejar rekor\nberikutnya.", "Rangkai kombo dan kumpulkan koin."],
+      ["Belajar dengan\nsatu usapan.", "Ikuti demo di dalam game dan mulai bermain."]
+    ]
+  },
+  "hi-IN": {
+    "feature": "उगाएँ। बेहतर बनाएँ।\nफसल काटें।",
+    "footer": "गेम का इंटरफ़ेस अंग्रेज़ी में है",
+    "slides": [
+      ["अपना बगीचा।\nअपनी अगली फसल।", "क्यारियों में फसल उगाएँ और बाज़ार के ऑर्डर पूरे करें।"],
+      ["खरपतवार काटें।\nफूलों को बचाएँ।", "स्वाइप करके छोटे आर्केड चैलेंज खेलें।"],
+      ["अपना अगला\nअपग्रेड चुनें।", "औज़ार, पावर-अप और निंजा किरदार।"],
+      ["अपना अगला\nरिकॉर्ड बनाएँ।", "कॉम्बो बनाएँ और सिक्के कमाएँ।"],
+      ["एक स्वाइप\nसे सीखें।", "गेम में डेमो देखें और खेलना शुरू करें।"]
+    ]
+  },
+  "ar": {
+    "feature": "ازرع. طوّر. احصد.",
+    "footer": "واجهة اللعبة باللغة الإنجليزية",
+    "slides": [
+      ["حديقتك.\nحصادك القادم.", "ازرع المحاصيل وأكمل طلبات السوق."],
+      ["اقطع الأعشاب.\nواحْمِ الزهور.", "تحديات أركيد سريعة بسحبة إصبع."],
+      ["اختر ترقيتك\nالقادمة.", "أدوات ومعززات وشخصيات نينجا."],
+      ["حطّم رقمك\nالقياسي.", "اصنع سلاسل ضربات واكسب العملات."],
+      ["تعلّم\nبسحبة واحدة.", "اتبع العرض التوضيحي داخل اللعبة وابدأ اللعب."]
+    ]
+  },
+  "ja-JP": {
+    "feature": "育てよう。強化しよう。\n収穫しよう。",
+    "footer": "ゲーム内の表示言語は英語です",
+    "slides": [
+      ["自分だけの庭で\n次の収穫へ。", "作物を育てて、市場の注文を達成しよう。"],
+      ["雑草を切って\n花を守ろう。", "スワイプで楽しむ、手軽なアーケード。"],
+      ["次の強化を\n選ぼう。", "道具、パワーアップ、忍者キャラクター。"],
+      ["次のハイスコアを\n目指そう。", "コンボをつなげて、コインを獲得。"],
+      ["ひと振りで\n覚えよう。", "ゲーム内のデモを見て、さっそくプレイ。"]
+    ]
+  },
+  "ko-KR": {
+    "feature": "심고. 강화하고.\n수확하세요.",
+    "footer": "게임 화면은 영어로 표시됩니다",
+    "slides": [
+      ["나만의 정원,\n다음 수확을 향해.", "작물을 키우고 시장 주문을 완료하세요."],
+      ["잡초를 베고\n꽃을 지키세요.", "손끝으로 즐기는 짧은 아케이드 도전."],
+      ["다음 업그레이드를\n선택하세요.", "도구, 파워업, 닌자 캐릭터."],
+      ["다음 최고 기록에\n도전하세요.", "콤보를 이어 가고 코인을 모으세요."],
+      ["한 번의 스와이프로\n배워 보세요.", "게임 속 데모를 보고 바로 시작하세요."]
+    ]
+  }
+}
