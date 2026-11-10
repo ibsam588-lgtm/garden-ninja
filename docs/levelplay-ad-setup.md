@@ -131,6 +131,14 @@ The Chartboost COPPA metadata is set before SDK initialization using the same
 uploads. Including an adapter does not activate a network: Garden Ninja's
 Chartboost app credentials and bidding locations must also be saved in LevelPlay.
 
+Garden Ninja's Android build also includes the Meta Audience Network adapter.
+In LevelPlay's **Instances** page, select Garden Ninja and confirm the Meta
+banner, interstitial, and rewarded instances use this app's Android placement
+IDs. The adapter uses the existing LevelPlay ad units and round-break rules.
+Meta must have payout onboarding completed and the app approved for live delivery;
+an active LevelPlay instance by itself does not prove that Meta can serve ads.
+Use the LevelPlay integration test suite to check each format on a test device.
+
 Building with `LEVELPLAY_TEST_SUITE=true` suppresses the normal app ad widgets
 and opens the official integration test suite after initialization. On
 2026-09-12, the suite identified all three configured ad units, detected
