@@ -90,6 +90,8 @@ dependencies {
     implementation("com.inmobi.monetization:inmobi-ads-kotlin:11.1.1")
     // Includes the Chartboost SDK and supports LevelPlay 9.x bidding.
     implementation("com.unity3d.ads-mediation:chartboost-adapter:5.11.0")
+    // Includes the Meta Audience Network SDK for the three existing LevelPlay ad units.
+    implementation("com.unity3d.ads-mediation:facebook-adapter:5.7.0")
 }
 
 flutter {
