@@ -22,7 +22,9 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  use_frameworks!
+  # IronSourceSDK contains static XCFrameworks, so the plug-in wrappers must
+  # also link statically rather than embedding a dynamic framework around them.
+  use_frameworks! :linkage => :static
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
   # The Flutter plug-in pins IronSourceSDK 9.4.0.0. These adapters support 9.x.

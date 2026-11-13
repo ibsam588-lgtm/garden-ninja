@@ -64,7 +64,7 @@ jobs:
           sleep 15
           xcrun simctl io "$DEVICE_ID" screenshot build/ios/iphone-launch.png
           # Confirm the app stayed alive after Flutter and native plug-ins started.
-          xcrun simctl spawn "$DEVICE_ID" launchctl list | grep com.gardenninja.gardenNinja
+          xcrun simctl spawn "$DEVICE_ID" launchctl list | awk '/com.gardenninja.gardenNinja/ && $1 ~ /^[0-9]+$/ { running=1 } END { exit !running }'
           tar -C build/ios/iphonesimulator -czf build/ios/garden-ninja-ios-simulator.tar.gz Runner.app
 
       - name: Upload iOS builds and launch screenshot
