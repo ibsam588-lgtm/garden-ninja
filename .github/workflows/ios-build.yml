@@ -54,28 +54,44 @@ jobs:
       - name: Build iPhone simulator
         run: flutter build ios --simulator --debug
 
-      - name: Launch game on iPhone simulator
-        run: |
-          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; print(next(d["udid"] for group in devices.values() for d in group if d["name"].startswith("iPhone")))')
-          xcrun simctl boot "$DEVICE_ID"
-          xcrun simctl bootstatus "$DEVICE_ID" -b
-          xcrun simctl install "$DEVICE_ID" build/ios/iphonesimulator/Runner.app
-          xcrun simctl launch "$DEVICE_ID" com.gardenninja.gardenNinja
-          sleep 15
-          xcrun simctl io "$DEVICE_ID" screenshot build/ios/iphone-launch.png
-          # Confirm the app stayed alive after Flutter and native plug-ins started.
-          xcrun simctl spawn "$DEVICE_ID" launchctl list | awk '/com.gardenninja.gardenNinja/ && $1 ~ /^[0-9]+$/ { running=1 } END { exit !running }'
-          tar -C build/ios/iphonesimulator -czf build/ios/garden-ninja-ios-simulator.tar.gz Runner.app
+      - name: Package simulator build
+        run: tar -C build/ios/iphonesimulator -czf build/ios/garden-ninja-ios-simulator.tar.gz Runner.app
 
-      - name: Upload iOS builds and launch screenshot
+      - name: Upload iOS builds
         uses: actions/upload-artifact@v4
         with:
           name: garden-ninja-ios-${{ github.run_number }}
           path: |
             build/ios/garden-ninja-ios-unsigned.tar.gz
             build/ios/garden-ninja-ios-simulator.tar.gz
-            build/ios/iphone-launch.png
             ios/Podfile.lock
+          compression-level: 0
+          retention-days: 30
+
+      - name: Launch game on iPhone simulator
+        timeout-minutes: 8
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; print(next(d["udid"] for group in devices.values() for d in group if d["name"].startswith("iPhone")))')
+          xcrun simctl boot "$DEVICE_ID"
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl install "$DEVICE_ID" build/ios/iphonesimulator/Runner.app
+          APP_LAUNCH=$(xcrun simctl launch "$DEVICE_ID" com.gardenninja.gardenNinja)
+          echo "$APP_LAUNCH"
+          APP_PID="${APP_LAUNCH##*: }"
+          [[ "$APP_PID" =~ ^[0-9]+$ ]]
+          sleep 15
+          # Simulator apps are host processes; signal 0 checks existence without
+          # sending a signal. Avoid launchctl inside the simulated device.
+          kill -0 "$APP_PID"
+          xcrun simctl io "$DEVICE_ID" screenshot build/ios/iphone-launch.png
+
+      - name: Upload launch screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: garden-ninja-ios-preview-${{ github.run_number }}
+          path: build/ios/iphone-launch.png
+          if-no-files-found: ignore
           retention-days: 30
 
       - name: Upload Xcode diagnostics
