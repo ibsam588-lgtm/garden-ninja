@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:garden_ninja/src/ads/ad_load_gate.dart';
+import 'package:garden_ninja/src/ads/levelplay_config.dart';
 import 'package:unity_levelplay_mediation/unity_levelplay_mediation.dart';
 
 abstract class AppRewardedAd {
@@ -30,15 +32,15 @@ class AdService {
     'LEVELPLAY_TEST_SUITE',
   );
 
-  static const String _appKey = String.fromEnvironment('LEVELPLAY_APP_KEY');
-  static const String _bannerAdUnitId = String.fromEnvironment(
-    'LEVELPLAY_BANNER_AD_UNIT_ID',
-  );
-  static const String _interstitialAdUnitId = String.fromEnvironment(
-    'LEVELPLAY_INTERSTITIAL_AD_UNIT_ID',
-  );
-  static const String _rewardedAdUnitId = String.fromEnvironment(
-    'LEVELPLAY_REWARDED_AD_UNIT_ID',
+  static LevelPlayConfig get _configuration =>
+      LevelPlayConfig.forPlatform(defaultTargetPlatform);
+  static String get _appKey => _configuration.appKey;
+  static String get _bannerAdUnitId => _configuration.bannerAdUnitId;
+  static String get _interstitialAdUnitId =>
+      _configuration.interstitialAdUnitId;
+  static String get _rewardedAdUnitId => _configuration.rewardedAdUnitId;
+  static const MethodChannel _iosPrivacy = MethodChannel(
+    'garden_ninja/ios_privacy',
   );
   static const String _defaultPlacement = 'Default';
 
@@ -82,6 +84,21 @@ class AdService {
     }
 
     try {
+      if (Platform.isIOS) {
+        // A missing native bridge or an inactive app must not initialize an ad
+        // SDK before iOS has resolved its tracking permission. Denial still
+        // permits ads; it only disables tracking.
+        final bool ready =
+            await _iosPrivacy.invokeMethod<bool>('prepareAds', {
+              'requestTracking': !levelPlayChildDirected,
+            }) ??
+            false;
+        if (!ready) {
+          _initStarted = false;
+          _scheduleInitRetry();
+          return;
+        }
+      }
       await LevelPlayPrivacySettings.setCOPPA(levelPlayChildDirected);
       await LevelPlay.setMetaData({
         'CHARTBOOST_COPPA': [levelPlayChildDirected ? 'YES' : 'NO'],

@@ -5686,44 +5686,28 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         extendBody: false,
         extendBodyBehindAppBar: true,
         bottomNavigationBar: _buildBottomAdBar(),
-        body: LayoutBuilder(
-          builder: (context, constraints) {
-            final Size viewport = constraints.biggest;
-            if (viewport.width <= 0 || viewport.height <= 0) {
-              return const SizedBox.shrink();
-            }
-
-            final double scale = max(
-              viewport.width / _worldWidth,
-              viewport.height / _worldHeight,
-            );
-            final double width = _worldWidth * scale;
-            final double height = _worldHeight * scale;
-
-            return DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF143C1B), Color(0xFF061B12)],
-                ),
-              ),
-              child: ClipRect(
-                child: OverflowBox(
-                  alignment: Alignment.center,
-                  minWidth: width,
-                  maxWidth: width,
-                  minHeight: height,
-                  maxHeight: height,
-                  child: SizedBox(
-                    width: width,
-                    height: height,
-                    child: _buildGameSurface(Size(width, height)),
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF143C1B), Color(0xFF061B12)],
+            ),
+          ),
+          child: SafeArea(
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: SizedBox(
+                  width: _worldWidth,
+                  height: _worldHeight,
+                  child: _buildGameSurface(
+                    const Size(_worldWidth, _worldHeight),
                   ),
                 ),
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );
@@ -6703,17 +6687,18 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   ),
                 ],
               ),
-              TextButton.icon(
-                key: const ValueKey('rate-app'),
-                onPressed: () =>
-                    unawaited(_playReviewGateway.openStoreListing()),
-                icon: const Icon(Icons.star_outline_rounded, size: 17),
-                label: const Text('Rate App'),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFDFFF8A),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w800),
+              if (PlayReviewGateway.supportsStoreListing)
+                TextButton.icon(
+                  key: const ValueKey('rate-app'),
+                  onPressed: () =>
+                      unawaited(_playReviewGateway.openStoreListing()),
+                  icon: const Icon(Icons.star_outline_rounded, size: 17),
+                  label: const Text('Rate App'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFDFFF8A),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
                 ),
-              ),
             ],
           ),
         ),
