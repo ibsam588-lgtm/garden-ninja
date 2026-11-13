@@ -8,7 +8,7 @@ from PIL import Image
 
 def main():
     root = Path(__file__).resolve().parents[1]
-    icon = Image.open(root / "fastlane/metadata/android/en-US/images/icon.png").convert("RGB")
+    icon = Image.open(root / "assets/images/icons/app_icon_b.png").convert("RGB")
     catalog = root / "ios/Runner/Assets.xcassets"
     app_icons = catalog / "AppIcon.appiconset"
     entries = json.loads((app_icons / "Contents.json").read_text())["images"]
