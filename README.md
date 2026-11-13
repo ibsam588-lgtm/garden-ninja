@@ -55,6 +55,10 @@ For web:
 flutter run -d chrome
 ```
 
+For iPhone/iPad builds, simulator installation, iOS ads and signing, see
+[the iOS setup guide](docs/ios-release.md). The iOS build workflow also creates
+unsigned device and simulator artifacts without an Apple Developer account.
+
 ## Checks
 
 ```bash
