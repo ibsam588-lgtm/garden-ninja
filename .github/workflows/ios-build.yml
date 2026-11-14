@@ -9,6 +9,9 @@ on:
       - 'assets/**'
       - 'pubspec.*'
       - '.github/workflows/ios-build.yml'
+      - '.github/workflows/deploy-app-store.yml'
+      - 'fastlane/Fastfile'
+      - 'tooling/ios_release_config.py'
   workflow_dispatch:
 
 permissions:
@@ -35,7 +38,7 @@ jobs:
         with:
           flutter-version: '3.44.2'
           channel: stable
-          cache: true
+          cache: false
 
       - name: Install dependencies
         run: flutter pub get
@@ -44,6 +47,7 @@ jobs:
         run: |
           plutil -lint ios/Runner/Info.plist ios/Flutter/AppFrameworkInfo.plist
           ruby -c ios/Podfile
+          ruby -c fastlane/Fastfile
 
       - name: Build unsigned iPhone and iPad release
         run: flutter build ios --release --no-codesign
@@ -75,7 +79,7 @@ jobs:
           xcrun simctl boot "$DEVICE_ID"
           xcrun simctl bootstatus "$DEVICE_ID" -b
           xcrun simctl install "$DEVICE_ID" build/ios/iphonesimulator/Runner.app
-          APP_LAUNCH=$(xcrun simctl launch "$DEVICE_ID" com.gardenninja.gardenNinja)
+          APP_LAUNCH=$(xcrun simctl launch "$DEVICE_ID" com.corsairlabs.gardenNinja)
           echo "$APP_LAUNCH"
           APP_PID="${APP_LAUNCH##*: }"
           [[ "$APP_PID" =~ ^[0-9]+$ ]]

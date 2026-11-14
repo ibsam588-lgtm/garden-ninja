@@ -3,9 +3,80 @@
 The iOS target shares the existing arcade, harvest garden, six garden tiers,
 upgrades, demo, audio and local saves with Android. It supports iPhone and iPad
 in portrait, starting at iOS 15. The bundle ID is
-`com.gardenninja.gardenNinja` (Apple bundle IDs cannot contain underscores).
+`com.corsairlabs.gardenNinja` (Apple bundle IDs cannot contain underscores).
 Progress stays on each device; Google Play Games is Android-only and this port
 does not introduce Game Center, cross-device saves or cross-store purchases.
+
+## Release pipelines
+
+There are two store deployment workflows, alongside the pull-request checks:
+
+| Workflow | On main | Manual production operation |
+| --- | --- | --- |
+| Deploy Android to Google Play | Build/sign and upload to internal testing | Promote a tested internal version code to production |
+| Deploy iOS to Apple | Build/sign and upload to App Store Connect/TestFlight | Submit an exact tested version/build for App Review |
+
+The Apple app record is **Garden Ninja: Harvest & Slice**, app ID
+`6834694197`, on team `5MST9WC27Z`:
+[App Store Connect](https://appstoreconnect.apple.com/apps/6834694197/distribution).
+
+The Apple workflow uses a macOS/Xcode runner. It fetches signing assets with
+the official Flutter-documented Codemagic CLI tools, signs a real IPA, checks
+the signing team, saves the IPA/dSYMs and uploads through Fastlane/Transporter.
+The API key avoids interactive Apple ID/2FA sessions on CI. An upload is not an
+App Store publication: Apple processes it for TestFlight first. External beta
+testing can require Beta App Review and export-compliance information.
+
+### GitHub configuration
+
+Set these repository **variables**:
+
+| Name | Value |
+| --- | --- |
+| `APP_STORE_ID` | `6834694197` |
+| `APPLE_TEAM_ID` | `5MST9WC27Z` |
+| `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID from Apple Integrations |
+| `APP_STORE_CONNECT_KEY_ID` | ID of the CI API key |
+| `IOS_RELEASE_ENABLED` | `true` after the first signed upload succeeds |
+
+Store these as encrypted repository **secrets**:
+
+| Name | Content |
+| --- | --- |
+| `APP_STORE_CONNECT_PRIVATE_KEY` | Complete downloaded App Store Connect `.p8` PEM key |
+| `IOS_DISTRIBUTION_PRIVATE_KEY` | Reusable RSA PEM private key for the Apple Distribution certificate |
+
+The signing key is persistent: CI reuses the matching Apple certificate and
+profile rather than creating a new distribution identity on every build.
+Existing distribution private keys can be reused. Apple limits active signing
+certificates, so other apps on the same team should share an appropriate
+existing distribution identity when its private key is available.
+
+Signing credentials stay in environment variables or the temporary runner
+keychain. The uploaded artifacts contain the signed app, public release
+configuration and debugging symbols, never the `.p8`, RSA key or `.p12`.
+Credentials are not exposed to pull-request workflows.
+
+### Upload and submit
+
+1. Merge game changes into main. Once enabled, each relevant main change is
+   signed and sent to TestFlight automatically. Apple build numbers are chosen
+   from the latest uploaded build for that version; release jobs run serially.
+2. For the first upload, use **Actions → Deploy iOS to Apple → Run workflow**,
+   branch **main**, operation **upload_testflight**. Leave the version blank to
+   read it from `pubspec.yaml`. A missing configuration fails with field names
+   instead of silently producing an unsigned release.
+3. Confirm processing in App Store Connect and test the selected build on a
+   real device. Complete the store listing, screenshots, privacy disclosures,
+   age rating, review details and export compliance in the Apple portal.
+4. Run the same workflow with **submit_for_review**, entering the exact tested
+   version (for example `1.1.7`) and Apple build number. This submits that
+   existing build without rebuilding it. Release remains manual after Apple's
+   approval; CI does not publish a new version automatically.
+
+To reproduce an upload from a configured Mac, run the commands in
+`.github/workflows/deploy-app-store.yml`. The non-secret input validation is
+covered by `python3 -m unittest discover -s tooling/tests -p test_ios_release_config.py`.
 
 ## Build and play without an Apple Developer membership
 
@@ -29,7 +100,7 @@ On a Mac, extract `garden-ninja-ios-simulator.tar.gz` and install it with:
 
 ```sh
 xcrun simctl install booted Runner.app
-xcrun simctl launch booted com.gardenninja.gardenNinja
+xcrun simctl launch booted com.corsairlabs.gardenNinja
 ```
 
 An unsigned device `.app` is a build check, not an installable IPA. Windows

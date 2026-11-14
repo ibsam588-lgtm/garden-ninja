@@ -7,16 +7,24 @@ on:
   workflow_dispatch:
     inputs:
       play_track:
-        description: "Google Play release track"
+        description: "Upload internal, or promote a tested internal build to production"
         required: false
         default: internal
         type: choice
         options:
           - internal
           - production
+      version_code:
+        description: "Existing tested internal version code (required for production)"
+        type: string
+        required: false
 
 permissions:
   contents: write
+
+concurrency:
+  group: garden-ninja-google-play-release
+  cancel-in-progress: false
 
 env:
   ANDROID_PACKAGE_NAME: com.gardenninja.garden_ninja
@@ -26,6 +34,7 @@ env:
 jobs:
   deploy-android:
     name: Build and deploy Android
+    if: github.event_name != 'workflow_dispatch' || inputs.play_track != 'production'
     runs-on: ubuntu-latest
     env:
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -157,8 +166,9 @@ jobs:
             build_number=10050
           fi
           echo "VERSION_CODE=$build_number" >> "$GITHUB_ENV"
+          build_name=$(python3 -c 'import pathlib,re; print(re.search(r"^version:\s*(\d+\.\d+\.\d+)",pathlib.Path("pubspec.yaml").read_text(),re.M)[1])')
           flutter build appbundle --release \
-            --build-name "1.1.7" \
+            --build-name "$build_name" \
             --build-number "$build_number" \
             --dart-define=LEVELPLAY_APP_KEY="$LEVELPLAY_APP_KEY" \
             --dart-define=LEVELPLAY_BANNER_AD_UNIT_ID="$LEVELPLAY_BANNER_AD_UNIT_ID" \
@@ -179,12 +189,39 @@ jobs:
           PLAY_TRACK: ${{ env.PLAY_TRACK }}
         run: bundle exec fastlane android internal
 
+  promote-android:
+    name: Promote tested Android build
+    if: github.event_name == 'workflow_dispatch' && inputs.play_track == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: android-production
+    env:
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+      PROMOTE_VERSION_CODE: ${{ inputs.version_code }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate production selection
+        env:
+          RELEASE_REF: ${{ github.ref }}
+        run: |
+          [ "$RELEASE_REF" = 'refs/heads/main' ] || { echo '::error::Production promotion must run from main'; exit 1; }
+          [[ "$PROMOTE_VERSION_CODE" =~ ^[1-9][0-9]*$ ]] || { echo '::error::Select a tested internal version code'; exit 1; }
+          [ -n "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" ] || { echo '::error::Google Play credentials are missing'; exit 1; }
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Install Fastlane
+        run: bundle install --jobs 4 --retry 3
+      - name: Prepare Google Play authentication
+        run: printf '%s' "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" > fastlane/play-store-service-account.json
+      - name: Promote the existing internal build
+        run: bundle exec fastlane android promote
+
       - name: Update forced update metadata
-        if: steps.deploy_secrets.outputs.configured == 'true' && env.PLAY_TRACK == 'production'
         shell: bash
         env:
           ANDROID_PACKAGE_NAME: ${{ env.ANDROID_PACKAGE_NAME }}
-          VERSION_CODE: ${{ env.VERSION_CODE }}
+          VERSION_CODE: ${{ inputs.version_code }}
         run: |
           mkdir -p public
           cat > public/app-version.json <<EOF
