@@ -56,7 +56,11 @@ jobs:
         run: tar -C build/ios/iphoneos -czf build/ios/garden-ninja-ios-unsigned.tar.gz Runner.app
 
       - name: Build iPhone simulator
-        run: flutter build ios --simulator --debug --dart-define=IOS_LAUNCH_PROBE=true
+        env:
+          APP_STORE_ID: ${{ vars.APP_STORE_ID }}
+        run: >-
+          flutter build ios --simulator --debug --dart-define=IOS_LAUNCH_PROBE=true
+          --dart-define="APP_STORE_ID=$APP_STORE_ID"
 
       - name: Package simulator build
         run: tar -C build/ios/iphonesimulator -czf build/ios/garden-ninja-ios-simulator.tar.gz Runner.app
