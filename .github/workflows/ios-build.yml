@@ -79,6 +79,9 @@ jobs:
           xcrun simctl boot "$DEVICE_ID"
           xcrun simctl bootstatus "$DEVICE_ID" -b
           xcrun simctl install "$DEVICE_ID" build/ios/iphonesimulator/Runner.app
+          # A debug Flutter app must complete the debugger-aware launch before
+          # a live PID or native launch screen counts as a running game.
+          flutter run --debug --no-resident --no-pub -d "$DEVICE_ID"
           APP_LAUNCH=$(xcrun simctl launch "$DEVICE_ID" com.corsairlabs.gardenNinja)
           echo "$APP_LAUNCH"
           APP_PID="${APP_LAUNCH##*: }"

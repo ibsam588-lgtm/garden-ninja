@@ -4,8 +4,10 @@ The iOS target shares the existing arcade, harvest garden, six garden tiers,
 upgrades, demo, audio and local saves with Android. It supports iPhone and iPad
 in portrait, starting at iOS 15. The bundle ID is
 `com.corsairlabs.gardenNinja` (Apple bundle IDs cannot contain underscores).
-Progress stays on each device; Google Play Games is Android-only and this port
-does not introduce Game Center, cross-device saves or cross-store purchases.
+Progress stays on each device. On iOS, the optional Game Center button opens
+Apple's player authentication and dashboard through GameKit. Earned arcade
+records and garden milestones are queued locally and retried after sign-in or
+when the app resumes. This does not introduce cloud saves or cross-store purchases.
 
 ## Release pipelines
 

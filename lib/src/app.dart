@@ -13,6 +13,7 @@ import 'package:garden_ninja/src/ads/ad_placement_config.dart';
 import 'package:garden_ninja/src/ads/ad_service.dart';
 import 'package:garden_ninja/src/garden/harvest_garden.dart';
 import 'package:garden_ninja/src/garden/harvest_model.dart';
+import 'package:garden_ninja/src/game_center/game_center_service.dart';
 import 'package:garden_ninja/src/review/play_review_gateway.dart';
 import 'package:garden_ninja/src/review/review_prompt_policy.dart';
 import 'package:garden_ninja/src/review/shared_preferences_review_prompt_store.dart';
@@ -733,6 +734,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   Timer? _reviewRequestTimer;
   Completer<void>? _reviewRequestDelayCompleter;
   final PlayReviewGateway _playReviewGateway = PlayReviewGateway();
+  final GameCenterService _gameCenter = GameCenterService();
   HarvestProgress _harvestProgress = HarvestProgress();
   final GlobalKey<HarvestGardenState> _harvestKey =
       GlobalKey<HarvestGardenState>();
@@ -941,6 +943,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
     setState(() {
       _prefs = prefs;
+      _gameCenter.initialize(prefs);
       _reviewPromptPolicy = ReviewPromptPolicy(
         store: SharedPreferencesReviewPromptStore(prefs),
         clock: () => _gardenNow,
@@ -1213,6 +1216,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return;
     }
     final String payload = jsonEncode(_gardenSavePayload());
+    _gameCenter.recordHarvest(
+      orders: _harvestProgress.totalOrders,
+      tier: _harvestProgress.tier,
+    );
     _gardenSaveWrites = _gardenSaveWrites
         .then((_) => prefs.setString(_gardenSaveKey, payload))
         .then<void>((_) {}, onError: (Object error, StackTrace stackTrace) {});
@@ -2223,6 +2230,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
+        unawaited(_gameCenter.flush());
         unawaited(AdService.initialize());
         if (_musicEnabled && _phase != GamePhase.paused) {
           unawaited(_musicPlayer.resume());
@@ -3305,6 +3313,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     unawaited(_musicPlayer.setVolume(0.34));
     _lastRunWon = won;
     _bestScore = max(_bestScore, _score);
+    if (!_tutorialMode && _weedsSlashed > 0) {
+      _gameCenter.recordArcadeScore(_score);
+    }
     _rewardSeeds = (won ? 110 : 45) + (_weedsSlashed * 2) + (_maxCombo * 3);
     _seeds += _rewardSeeds;
     final bool meaningfulWin = won && _score > 0 && _weedsSlashed > 0;
@@ -6687,18 +6698,46 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   ),
                 ],
               ),
-              if (PlayReviewGateway.supportsStoreListing)
-                TextButton.icon(
-                  key: const ValueKey('rate-app'),
-                  onPressed: () =>
-                      unawaited(_playReviewGateway.openStoreListing()),
-                  icon: const Icon(Icons.star_outline_rounded, size: 17),
-                  label: const Text('Rate App'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFFDFFF8A),
-                    textStyle: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                children: [
+                  if (GameCenterService.supported)
+                    TextButton.icon(
+                      key: const ValueKey('game-center'),
+                      onPressed: () async {
+                        final opened = await _gameCenter.openDashboard();
+                        if (!opened && mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Game Center is unavailable. You can keep playing and try again later.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.emoji_events_outlined, size: 17),
+                      label: const Text('Game Center'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFDFFF8A),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  if (PlayReviewGateway.supportsStoreListing)
+                    TextButton.icon(
+                      key: const ValueKey('rate-app'),
+                      onPressed: () =>
+                          unawaited(_playReviewGateway.openStoreListing()),
+                      icon: const Icon(Icons.star_outline_rounded, size: 17),
+                      label: const Text('Rate App'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFDFFF8A),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),
