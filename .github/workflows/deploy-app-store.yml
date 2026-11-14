@@ -118,14 +118,15 @@ jobs:
           echo "CI_KEYCHAIN_PASSWORD=$CI_KEYCHAIN_PASSWORD" >> "$GITHUB_ENV"
           export CI_KEYCHAIN_PASSWORD
           keychain initialize --path "$IOS_RELEASE_DIR/signing.keychain-db" --password '@env:CI_KEYCHAIN_PASSWORD'
+          # Xcode must discover the downloaded profile in its installed-profile directory.
           app-store-connect fetch-signing-files "$IOS_BUNDLE_ID" \
             --certificates-dir "$IOS_RELEASE_DIR/certificates" \
-            --profiles-dir "$IOS_RELEASE_DIR/profiles" \
+            --profiles-dir "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" \
             --platform IOS --type IOS_APP_STORE --strict-match-identifier --create
           keychain add-certificates --path "$IOS_RELEASE_DIR/signing.keychain-db" \
             --certificate "$IOS_RELEASE_DIR/certificates/*.p12"
           xcode-project use-profiles --project ios/Runner.xcodeproj \
-            --profile "$IOS_RELEASE_DIR/profiles/*.mobileprovision" \
+            --profile "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/*.mobileprovision" \
             --export-options-plist "$IOS_RELEASE_DIR/ExportOptions.plist" \
             --custom-export-options '{"manageAppVersionAndBuildNumber":false}'
 
