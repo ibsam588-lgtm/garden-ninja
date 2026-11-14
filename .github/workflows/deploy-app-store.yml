@@ -117,13 +117,12 @@ jobs:
           echo "::add-mask::$CI_KEYCHAIN_PASSWORD"
           echo "CI_KEYCHAIN_PASSWORD=$CI_KEYCHAIN_PASSWORD" >> "$GITHUB_ENV"
           export CI_KEYCHAIN_PASSWORD
-          keychain --path "$IOS_RELEASE_DIR/signing.keychain-db" initialize --password '@env:CI_KEYCHAIN_PASSWORD'
-          app-store-connect \
+          keychain initialize --path "$IOS_RELEASE_DIR/signing.keychain-db" --password '@env:CI_KEYCHAIN_PASSWORD'
+          app-store-connect fetch-signing-files "$IOS_BUNDLE_ID" \
             --certificates-dir "$IOS_RELEASE_DIR/certificates" \
             --profiles-dir "$IOS_RELEASE_DIR/profiles" \
-            fetch-signing-files "$IOS_BUNDLE_ID" \
             --platform IOS --type IOS_APP_STORE --strict-match-identifier --create
-          keychain --path "$IOS_RELEASE_DIR/signing.keychain-db" add-certificates \
+          keychain add-certificates --path "$IOS_RELEASE_DIR/signing.keychain-db" \
             --certificate "$IOS_RELEASE_DIR/certificates/*.p12"
           xcode-project use-profiles --project ios/Runner.xcodeproj \
             --profile "$IOS_RELEASE_DIR/profiles/*.mobileprovision" \
