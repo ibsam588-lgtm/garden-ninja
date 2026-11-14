@@ -79,7 +79,14 @@ jobs:
       - name: Launch game on iPhone simulator
         timeout-minutes: 8
         run: |
-          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; print(next(d["udid"] for group in devices.values() for d in group if d["name"].startswith("iPhone")))')
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,re,sys; devices=json.load(sys.stdin)["devices"]; runtimes=sorted((r for r in devices if ".iOS-" in r), key=lambda r: tuple(map(int,re.findall(r"\d+",r))), reverse=True); print(next(d["udid"] for r in runtimes for d in devices[r] if d["name"].startswith("iPhone")))')
+          capture_screen() {
+            python3 - "$DEVICE_ID" <<'PY'
+          import subprocess, sys
+          subprocess.run(['xcrun', 'simctl', 'io', sys.argv[1], 'screenshot',
+                          'build/ios/iphone-launch.png'], check=True, timeout=45)
+          PY
+          }
           xcrun simctl boot "$DEVICE_ID"
           xcrun simctl bootstatus "$DEVICE_ID" -b
           echo 'Installing the compiled simulator app'
@@ -98,7 +105,7 @@ jobs:
           done
           cat build/ios/simulator-launch.log
           if ! grep -q 'GARDEN_NINJA_FIRST_FRAME' build/ios/simulator-launch.log; then
-            xcrun simctl io "$DEVICE_ID" screenshot build/ios/iphone-launch.png || true
+            capture_screen || true
             echo '::error::Garden Ninja did not render its first frame'
             exit 1
           fi
@@ -109,7 +116,7 @@ jobs:
           # Simulator apps are host processes; signal 0 checks existence without
           # sending a signal. Avoid launchctl inside the simulated device.
           kill -0 "$APP_PID"
-          xcrun simctl io "$DEVICE_ID" screenshot build/ios/iphone-launch.png
+          capture_screen
 
       - name: Upload launch screenshot
         if: always()
