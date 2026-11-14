@@ -6736,6 +6736,28 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                         textStyle: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
+                  if (GameCenterService.supported)
+                    TextButton.icon(
+                      key: const ValueKey('ad-privacy'),
+                      onPressed: () async {
+                        final opened = await AdService.showPrivacyOptions();
+                        if (!opened && mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Privacy options are unavailable. Please try again when connected.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.privacy_tip_outlined, size: 17),
+                      label: const Text('Ad privacy'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFDFFF8A),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
                 ],
               ),
             ],

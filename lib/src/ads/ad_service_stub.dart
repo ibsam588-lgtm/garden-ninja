@@ -31,6 +31,7 @@ class AdService {
   static bool get isRewardedReady => false;
 
   static Future<void> initialize() async {}
+  static Future<bool> showPrivacyOptions() async => false;
   static Future<bool> showInterstitial({String placementName = ''}) async {
     return false;
   }
