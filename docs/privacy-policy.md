@@ -10,9 +10,19 @@ Garden progress, coins, upgrades, unlocks, selected tools, audio preferences, an
 
 ## Ads, Analytics, and Purchases
 
-Garden Ninja uses Unity LevelPlay mediation for banners, interstitial ads at natural game breaks, and optional rewarded videos. Providers include ironSource Ads, Unity Ads, Liftoff Monetize / Vungle, and, when their mediation instances are enabled, Chartboost and InMobi.
+Garden Ninja uses Unity LevelPlay mediation for banners, interstitial ads at natural game breaks, and optional rewarded videos. Providers include ironSource Ads, Unity Ads, Liftoff Monetize / Vungle, and, when their mediation instances are enabled, Meta Audience Network, Chartboost and InMobi.
 
 These SDKs can collect device and advertising identifiers, IP-derived approximate location, ad interactions, app version, diagnostics, and privacy-choice signals. Providers use and share this information to serve and measure ads, operate mediation, and prevent fraud, subject to their policies and applicable privacy choices. The app does not request precise device location, contacts, camera, or microphone access.
+
+On iOS, InMobi Consent Management Platform (CMP) processes consent choices and
+IP-derived regional information to display the relevant privacy choices. Ads
+wait for this process; a consent error leaves gameplay available with ads off.
+Use **Ad privacy** on the home menu to revisit choices, including sale/sharing
+and targeted advertising opt-outs where applicable. Apple's tracking permission
+is separate: declining it does not block the game. You can change Apple's
+permission in the device's Privacy & Security settings under Tracking.
+Consent records are stored on the device and processed under InMobi's
+[CMP privacy policy](https://www.inmobi.com/privacy-policy).
 
 ## Google Play Games Services
 

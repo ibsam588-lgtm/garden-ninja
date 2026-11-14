@@ -41,8 +41,18 @@ void main() {
         await tester.pump(const Duration(milliseconds: 200));
         expect(playUpdateChecks, 0);
         expect(find.text('Update Required'), findsNothing);
-        expect(find.byKey(const ValueKey('rate-app')), findsNothing);
+        expect(
+          find.byKey(const ValueKey('rate-app')),
+          const String.fromEnvironment('APP_STORE_ID').isEmpty
+              ? findsNothing
+              : findsOneWidget,
+        );
         expect(find.byKey(const ValueKey('game-center')), findsOneWidget);
+        expect(find.byKey(const ValueKey('ad-privacy')), findsOneWidget);
+        // Missing/offline native privacy UI must leave the game usable.
+        await tester.tap(find.byKey(const ValueKey('ad-privacy')));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(tester.takeException(), isNull);
         await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
         await tester.pump(const Duration(milliseconds: 200));
         expect(find.byKey(const ValueKey('harvest-garden')), findsOneWidget);
