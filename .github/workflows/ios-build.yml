@@ -56,7 +56,7 @@ jobs:
         run: tar -C build/ios/iphoneos -czf build/ios/garden-ninja-ios-unsigned.tar.gz Runner.app
 
       - name: Build iPhone simulator
-        run: flutter build ios --simulator --debug
+        run: flutter build ios --simulator --debug --dart-define=IOS_LAUNCH_PROBE=true
 
       - name: Package simulator build
         run: tar -C build/ios/iphonesimulator -czf build/ios/garden-ninja-ios-simulator.tar.gz Runner.app
@@ -79,9 +79,24 @@ jobs:
           xcrun simctl boot "$DEVICE_ID"
           xcrun simctl bootstatus "$DEVICE_ID" -b
           xcrun simctl install "$DEVICE_ID" build/ios/iphonesimulator/Runner.app
-          # A debug Flutter app must complete the debugger-aware launch before
-          # a live PID or native launch screen counts as a running game.
-          flutter run --debug --no-resident --no-pub -d "$DEVICE_ID"
+          # Launch the compiled app without rebuilding. Flutter can wait for a
+          # debugger connection after the game is already rendering, so verify
+          # the debug-only first-frame signal instead of waiting on its CLI.
+          flutter run --debug --no-resident --no-pub \
+            --use-application-binary=build/ios/iphonesimulator/Runner.app \
+            -d "$DEVICE_ID" > build/ios/simulator-launch.log 2>&1 &
+          FLUTTER_LAUNCH_PID=$!
+          trap 'kill "$FLUTTER_LAUNCH_PID" 2>/dev/null || true' EXIT
+          for attempt in {1..90}; do
+            if rg -q 'GARDEN_NINJA_FIRST_FRAME' build/ios/simulator-launch.log; then break; fi
+            sleep 2
+          done
+          cat build/ios/simulator-launch.log
+          if ! rg -q 'GARDEN_NINJA_FIRST_FRAME' build/ios/simulator-launch.log; then
+            xcrun simctl io "$DEVICE_ID" screenshot build/ios/iphone-launch.png || true
+            echo '::error::Garden Ninja did not render its first frame'
+            exit 1
+          fi
           APP_LAUNCH=$(xcrun simctl launch "$DEVICE_ID" com.corsairlabs.gardenNinja)
           echo "$APP_LAUNCH"
           APP_PID="${APP_LAUNCH##*: }"
@@ -109,5 +124,6 @@ jobs:
           path: |
             /tmp/flutter_tools.*/flutter_ios_build_temp_dir/*.xcresult
             ios/Podfile.lock
+            build/ios/simulator-launch.log
           if-no-files-found: ignore
           retention-days: 7
