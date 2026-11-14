@@ -84,7 +84,7 @@ jobs:
             python3 - "$DEVICE_ID" <<'PY'
           import subprocess, sys
           subprocess.run(['xcrun', 'simctl', 'io', sys.argv[1], 'screenshot',
-                          'build/ios/iphone-launch.png'], check=True, timeout=45)
+                          'build/ios/iphone-launch.png'], check=True, timeout=120)
           PY
           }
           xcrun simctl boot "$DEVICE_ID"
