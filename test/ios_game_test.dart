@@ -42,6 +42,7 @@ void main() {
         expect(playUpdateChecks, 0);
         expect(find.text('Update Required'), findsNothing);
         expect(find.byKey(const ValueKey('rate-app')), findsNothing);
+        expect(find.byKey(const ValueKey('game-center')), findsOneWidget);
         await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
         await tester.pump(const Duration(milliseconds: 200));
         expect(find.byKey(const ValueKey('harvest-garden')), findsOneWidget);

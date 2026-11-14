@@ -7,6 +7,7 @@ import FBAudienceNetwork
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+  private var gameCenter: GameCenterBridge?
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -18,6 +19,7 @@ import FBAudienceNetwork
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
 
     let messenger = engineBridge.applicationRegistrar.messenger()
+    gameCenter = GameCenterBridge(messenger: messenger)
     let reviews = FlutterMethodChannel(name: "garden_ninja/play_review", binaryMessenger: messenger)
     reviews.setMethodCallHandler { [weak self] call, result in
       switch call.method {

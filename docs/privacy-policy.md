@@ -1,8 +1,8 @@
 # Garden Ninja Privacy Policy
 
-Effective date: October 26, 2026
+Effective date: November 14, 2026
 
-Garden Ninja is published by Corsair Labs. This policy covers Android package `com.gardenninja.garden_ninja`.
+Garden Ninja is published by Corsair Labs. This policy covers Android package `com.gardenninja.garden_ninja` and iOS bundle `com.corsairlabs.gardenNinja`.
 
 ## Information We Collect
 
@@ -19,6 +19,16 @@ These SDKs can collect device and advertising identifiers, IP-derived approximat
 Releases that include Play Games platform sign-in use Google's Play Games Services SDK. Google processes gamer identity, sign-in activity, and SDK diagnostics according to its policies. This integration does not request friends lists, access other games' data, or enable cloud saves. Core gameplay does not require a separate Corsair Labs account.
 
 You can manage sign-in and delete Play Games data through your Play Games profile or Google Account. Google's [SDK data disclosure](https://developer.android.com/games/pgs/data-collection) describes its processing and deletion controls.
+
+## Apple Game Center
+
+On iOS, players may choose to connect to Apple Game Center. Apple processes the
+Game Center player identity, submitted arcade scores, harvest order totals and
+achievement progress to provide leaderboards and achievements. Records earned
+on the device are retained locally so the app can retry submissions when the
+player connects. Core gameplay remains available without connecting. This
+integration does not upload garden save files or enable cloud-save syncing.
+You can manage Game Center through your Apple account and device settings.
 
 ## Children's Privacy
 
