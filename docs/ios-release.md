@@ -16,6 +16,21 @@ There are two store deployment workflows, alongside the pull-request checks:
 | Deploy Android to Google Play | Build/sign and upload to internal testing | Promote a tested internal version code to production |
 | Deploy iOS to Apple | Build/sign and upload to App Store Connect/TestFlight | Submit an exact tested version/build for App Review |
 
+Automatic releases use the changed file paths:
+
+| Changed files | Android upload | iOS upload |
+| --- | --- | --- |
+| `android/**`, Android Fastlane settings/changelogs, Android release workflow | Yes | No |
+| `ios/**`, Apple release settings/workflow | No | Yes |
+| Shared `lib/**`, `assets/**`, `pubspec.*`, `fastlane/Fastfile`, `Gemfile*` | Yes | Yes |
+| Documentation, tests, or store screenshots/listing text alone | No | No |
+
+An iOS-only pull request also skips Android deployment. The lightweight Flutter
+analysis/tests still run on pull requests; the native iOS build check runs only
+for its relevant paths. A manual **Run workflow** starts only the selected
+platform's workflow. A change inside a shared Dart file affects both release
+filters, even if the edited code contains a platform condition.
+
 The Apple app record is **Garden Ninja: Harvest & Slice**, app ID
 `6834694197`, on team `5MST9WC27Z`:
 [App Store Connect](https://appstoreconnect.apple.com/apps/6834694197/distribution).

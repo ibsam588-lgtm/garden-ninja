@@ -1,6 +1,14 @@
 # Google Play Deployment
 
-This repo deploys Android builds from GitHub Actions after changes are merged to `main`. The workflow runs analysis and tests on every merge. It uploads to the Google Play internal testing track only after all required secrets are configured.
+This repo deploys Android builds from GitHub Actions when Android or shared game
+changes are merged to `main`. Android files, Android Fastlane settings/changelogs,
+the Android release workflow, shared Flutter code/assets/dependencies and shared
+Fastlane dependencies trigger the upload. Changes confined to `ios/**`, Apple
+release configuration, documentation, tests or listing screenshots do not start
+an Android release. See the [platform trigger table](ios-release.md#release-pipelines).
+
+The workflow runs analysis and tests before uploading to Google Play internal
+testing. Manual dispatch runs only this Android workflow.
 
 ## GitHub Secrets
 
@@ -47,14 +55,14 @@ In Play Console, enable Play App Signing and upload the first signed app bundle 
 
 The workflow deploys to `internal` by default.
 
-To push to production from this branch, dispatch the workflow manually and set `play_track`
-to `production` after the listing, app-content forms, testing requirements, and review process
-are complete.
+To promote a tested internal build to production, dispatch the workflow from
+`main`, set `play_track` to `production`, and provide its existing `version_code`
+after the listing, app-content forms and testing requirements are complete.
 
 Example:
 
 ```bash
-gh workflow run deploy-google-play.yml -f play_track=production
+gh workflow run deploy-google-play.yml --ref main -f play_track=production -f version_code=TESTED_VERSION_CODE
 ```
 
 ## LevelPlay Ads
