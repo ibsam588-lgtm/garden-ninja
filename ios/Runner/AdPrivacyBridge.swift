@@ -194,7 +194,7 @@ final class AdPrivacyBridge: NSObject, ChoiceCmpDelegate, CCPADelegate {
       self.loaded = false
       self.resolved = false
       self.started = false
-      self.channel.invokeMethod("privacyPending", arguments: nil)
+      self.channel.invokeMethod("privacyError", arguments: nil)
       self.finish(false)
     }
   }
@@ -203,6 +203,9 @@ final class AdPrivacyBridge: NSObject, ChoiceCmpDelegate, CCPADelegate {
     DispatchQueue.main.async {
       self.resolved = false
       self.channel.invokeMethod("privacyPending", arguments: nil)
+      if UIApplication.shared.applicationState == .active {
+        ChoiceCmp.shared.showUSRegulations(ccpaDelegate: self)
+      }
     }
   }
   func didReceiveNonIABVendorConsent(nonIabData: NonIABData, updated: Bool) {}

@@ -89,11 +89,16 @@ class AdService {
     try {
       if (Platform.isIOS) {
         _iosPrivacy.setMethodCallHandler((call) async {
-          if (call.method == 'privacyPending') {
+          if (call.method == 'privacyPending' ||
+              call.method == 'privacyError') {
             _privacyPending = true;
             _runtimeEnabled = false;
             _notifyAvailability();
             _privacyReset = _privacyReset.then((_) => _clearVideoAds());
+            if (call.method == 'privacyError') {
+              _initStarted = false;
+              _scheduleInitRetry();
+            }
           } else if (call.method == 'privacyReady') {
             _privacyPending = false;
             await _privacyReset;
