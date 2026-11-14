@@ -9,6 +9,11 @@ Apple's player authentication and dashboard through GameKit. Earned arcade
 records and garden milestones are queued locally and retried after sign-in or
 when the app resumes. This does not introduce cloud saves or cross-store purchases.
 
+Apple playback uses AAC/M4A music and PCM/WAV sound effects converted from the
+existing Ogg originals, because AVPlayer rejected the Ogg files in the simulator.
+Android and other platforms retain their existing assets. The audio asset test
+checks that every original has a corresponding Apple file with the right container.
+
 ## Release pipelines
 
 There are two store deployment workflows, alongside the pull-request checks:

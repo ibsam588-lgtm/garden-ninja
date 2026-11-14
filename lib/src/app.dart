@@ -11,6 +11,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:garden_ninja/src/ads/ad_break_policy.dart';
 import 'package:garden_ninja/src/ads/ad_placement_config.dart';
 import 'package:garden_ninja/src/ads/ad_service.dart';
+import 'package:garden_ninja/src/audio/audio_assets.dart';
 import 'package:garden_ninja/src/garden/harvest_garden.dart';
 import 'package:garden_ninja/src/garden/harvest_model.dart';
 import 'package:garden_ninja/src/game_center/game_center_service.dart';
@@ -2434,7 +2435,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     for (final asset in _sfxAssets) {
       try {
         _sfxPools[asset] = await AudioPool.create(
-          source: AssetSource(asset),
+          source: AssetSource(platformAudioAsset(asset)),
           minPlayers: 1,
           maxPlayers: 3,
           audioContext: _sfxAudioContext,
@@ -2452,7 +2453,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     try {
       await _musicPlayer.setReleaseMode(ReleaseMode.loop);
       await _musicPlayer.play(
-        AssetSource(_currentMusicTrack.asset),
+        AssetSource(platformAudioAsset(_currentMusicTrack.asset)),
         volume: _phase == GamePhase.playing ? 0.46 : 0.34,
         ctx: _musicAudioContext,
       );

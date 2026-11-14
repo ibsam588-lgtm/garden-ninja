@@ -101,9 +101,9 @@ jobs:
             echo '::error::Garden Ninja did not render its first frame'
             exit 1
           fi
-          APP_LAUNCH=$(xcrun simctl launch "$DEVICE_ID" com.corsairlabs.gardenNinja)
-          echo "$APP_LAUNCH"
-          APP_PID="${APP_LAUNCH##*: }"
+          # Flutter already launched the app. A second simctl launch can block
+          # while Flutter is attaching its debugger; inspect its host PID.
+          APP_PID=$(pgrep -f '/Runner.app/Runner' | head -n 1)
           [[ "$APP_PID" =~ ^[0-9]+$ ]]
           sleep 15
           # Simulator apps are host processes; signal 0 checks existence without
