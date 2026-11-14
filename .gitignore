@@ -50,3 +50,9 @@ app.*.map.json
 /android/app/*.keystore
 /fastlane/play-store-service-account.json
 /play-store-service-account.json
+
+# Apple signing credentials are stored in GitHub secrets, never source control.
+*.p8
+*.p12
+*.mobileprovision
+/fastlane/apple-api-key.json

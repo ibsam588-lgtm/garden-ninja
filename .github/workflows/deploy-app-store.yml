@@ -1,0 +1,208 @@
+name: Deploy iOS to Apple
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - 'lib/**'
+      - 'assets/**'
+      - 'pubspec.*'
+      - 'fastlane/Fastfile'
+      - 'Gemfile*'
+      - 'tooling/ios_release_config.py'
+      - '.github/workflows/deploy-app-store.yml'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Apple release operation
+        type: choice
+        default: upload_testflight
+        options: [upload_testflight, submit_for_review]
+      version:
+        description: Version (optional for upload; required for App Review)
+        type: string
+        required: false
+      build_number:
+        description: Existing tested build number (App Review only)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+# Never cancel an upload that Apple may already have received.
+concurrency:
+  group: garden-ninja-apple-release
+  cancel-in-progress: false
+
+env:
+  IOS_BUNDLE_ID: com.corsairlabs.gardenNinja
+  FLUTTER_VERSION: '3.44.2'
+  FASTLANE_SKIP_UPDATE_CHECK: 'true'
+  FASTLANE_HIDE_CHANGELOG: 'true'
+  REQUESTED_IOS_VERSION: ${{ inputs.version }}
+  REQUESTED_IOS_BUILD: ${{ inputs.build_number }}
+
+jobs:
+  upload-testflight:
+    name: Sign and upload to TestFlight
+    if: >-
+      (github.event_name == 'push' && vars.IOS_RELEASE_ENABLED == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.operation == 'upload_testflight')
+    runs-on: macos-15
+    timeout-minutes: 45
+    environment: ios-testflight
+    env:
+      APP_STORE_ID: ${{ vars.APP_STORE_ID }}
+      APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ vars.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ vars.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      CERTIFICATE_PRIVATE_KEY: ${{ secrets.IOS_DISTRIBUTION_PRIVATE_KEY }}
+      LEVELPLAY_IOS_APP_KEY: ${{ vars.LEVELPLAY_IOS_APP_KEY }}
+      LEVELPLAY_IOS_BANNER_AD_UNIT_ID: ${{ vars.LEVELPLAY_IOS_BANNER_AD_UNIT_ID }}
+      LEVELPLAY_IOS_INTERSTITIAL_AD_UNIT_ID: ${{ vars.LEVELPLAY_IOS_INTERSTITIAL_AD_UNIT_ID }}
+      LEVELPLAY_IOS_REWARDED_AD_UNIT_ID: ${{ vars.LEVELPLAY_IOS_REWARDED_AD_UNIT_ID }}
+      LEVELPLAY_CHILD_DIRECTED: ${{ vars.LEVELPLAY_CHILD_DIRECTED }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate release branch and settings
+        env:
+          RELEASE_REF: ${{ github.ref }}
+        run: |
+          [ "$RELEASE_REF" = 'refs/heads/main' ] || { echo '::error::Apple releases must run from main'; exit 1; }
+          IOS_RELEASE_DIR="$RUNNER_TEMP/garden-ninja-ios"
+          echo "IOS_RELEASE_DIR=$IOS_RELEASE_DIR" >> "$GITHUB_ENV"
+          python3 tooling/ios_release_config.py --mode upload --output "$IOS_RELEASE_DIR"
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install Fastlane
+        run: bundle install --jobs 4 --retry 3
+
+      - name: Select next Apple build number
+        id: apple_build
+        run: bundle exec fastlane ios next_build_number
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install signing tools
+        run: python -m pip install 'codemagic-cli-tools==0.70.2'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: false
+
+      - name: Verify Flutter game
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Fetch App Store signing files
+        run: |
+          CI_KEYCHAIN_PASSWORD=$(openssl rand -hex 32)
+          echo "::add-mask::$CI_KEYCHAIN_PASSWORD"
+          echo "CI_KEYCHAIN_PASSWORD=$CI_KEYCHAIN_PASSWORD" >> "$GITHUB_ENV"
+          export CI_KEYCHAIN_PASSWORD
+          keychain --path "$IOS_RELEASE_DIR/signing.keychain-db" initialize --password '@env:CI_KEYCHAIN_PASSWORD'
+          app-store-connect \
+            --certificates-dir "$IOS_RELEASE_DIR/certificates" \
+            --profiles-dir "$IOS_RELEASE_DIR/profiles" \
+            fetch-signing-files "$IOS_BUNDLE_ID" \
+            --platform IOS --type IOS_APP_STORE --strict-match-identifier --create
+          keychain --path "$IOS_RELEASE_DIR/signing.keychain-db" add-certificates \
+            --certificate "$IOS_RELEASE_DIR/certificates/*.p12"
+          xcode-project use-profiles --project ios/Runner.xcodeproj \
+            --profile "$IOS_RELEASE_DIR/profiles/*.mobileprovision" \
+            --export-options-plist "$IOS_RELEASE_DIR/ExportOptions.plist" \
+            --custom-export-options '{"manageAppVersionAndBuildNumber":false}'
+
+      - name: Build signed IPA
+        env:
+          IOS_BUILD_NUMBER: ${{ steps.apple_build.outputs.build_number }}
+        run: |
+          flutter build ipa --release \
+            --build-name "$IOS_VERSION" --build-number "$IOS_BUILD_NUMBER" \
+            --export-options-plist "$IOS_RELEASE_DIR/ExportOptions.plist" \
+            --dart-define-from-file "$IOS_RELEASE_DIR/dart-defines.json"
+          python3 - <<'PY'
+          from pathlib import Path
+          files = list(Path('build/ios/ipa').glob('*.ipa'))
+          if len(files) != 1:
+              raise SystemExit('Expected exactly one signed IPA')
+          destination = files[0].with_name('GardenNinja.ipa')
+          if files[0] != destination:
+              files[0].rename(destination)
+          PY
+          codesign --verify --deep --strict build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
+          test "$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:SigningIdentity' build/ios/archive/Runner.xcarchive/Info.plist)" != '-'
+          SIGNING_TEAM=$(codesign -d --verbose=4 build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app 2>&1 | sed -n 's/^TeamIdentifier=//p')
+          [ "$SIGNING_TEAM" = "$APPLE_TEAM_ID" ] || { echo '::error::The IPA was signed by an unexpected Apple team'; exit 1; }
+
+      - name: Save signed build and symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: garden-ninja-apple-${{ env.IOS_VERSION }}-${{ steps.apple_build.outputs.build_number }}
+          path: |
+            build/ios/ipa/GardenNinja.ipa
+            build/ios/archive/Runner.xcarchive/dSYMs/
+            ${{ runner.temp }}/garden-ninja-ios/release.json
+          compression-level: 0
+          retention-days: 30
+
+      - name: Upload directly to App Store Connect
+        run: bundle exec fastlane ios testflight
+
+      - name: Record Apple delivery
+        env:
+          IOS_BUILD_NUMBER: ${{ steps.apple_build.outputs.build_number }}
+        run: |
+          echo "Garden Ninja $IOS_VERSION ($IOS_BUILD_NUMBER) uploaded to App Store Connect." >> "$GITHUB_STEP_SUMMARY"
+          echo "Apple processes the upload before it appears in TestFlight. App Review submission is a separate manual operation." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Restore runner keychain
+        if: always()
+        run: |
+          if command -v keychain >/dev/null; then keychain use-login; fi
+          if [ -n "${IOS_RELEASE_DIR:-}" ] && [ -f "$IOS_RELEASE_DIR/signing.keychain-db" ]; then security delete-keychain "$IOS_RELEASE_DIR/signing.keychain-db"; fi
+
+  submit-for-review:
+    name: Submit tested Apple build for review
+    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'submit_for_review'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ios-app-store
+    env:
+      APP_STORE_ID: ${{ vars.APP_STORE_ID }}
+      APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ vars.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ vars.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate tested build selection
+        env:
+          RELEASE_REF: ${{ github.ref }}
+        run: |
+          [ "$RELEASE_REF" = 'refs/heads/main' ] || { echo '::error::Apple submissions must run from main'; exit 1; }
+          python3 tooling/ios_release_config.py --mode submit --output "$RUNNER_TEMP/garden-ninja-review"
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Install Fastlane
+        run: bundle install --jobs 4 --retry 3
+      - name: Submit the existing TestFlight build
+        run: bundle exec fastlane ios submit_review

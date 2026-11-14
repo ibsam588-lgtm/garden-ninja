@@ -38,3 +38,6 @@ jobs:
 
       - name: Test
         run: flutter test --reporter expanded
+
+      - name: Validate Apple release inputs
+        run: python3 -m unittest discover -s tooling/tests -p 'test_ios_release_config.py' -v
