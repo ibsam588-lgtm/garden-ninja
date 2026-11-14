@@ -92,11 +92,11 @@ jobs:
           FLUTTER_LAUNCH_PID=$!
           trap 'kill "$FLUTTER_LAUNCH_PID" 2>/dev/null || true' EXIT
           for attempt in {1..90}; do
-            if rg -q 'GARDEN_NINJA_FIRST_FRAME' build/ios/simulator-launch.log; then break; fi
+            if grep -q 'GARDEN_NINJA_FIRST_FRAME' build/ios/simulator-launch.log; then break; fi
             sleep 2
           done
           cat build/ios/simulator-launch.log
-          if ! rg -q 'GARDEN_NINJA_FIRST_FRAME' build/ios/simulator-launch.log; then
+          if ! grep -q 'GARDEN_NINJA_FIRST_FRAME' build/ios/simulator-launch.log; then
             xcrun simctl io "$DEVICE_ID" screenshot build/ios/iphone-launch.png || true
             echo '::error::Garden Ninja did not render its first frame'
             exit 1
