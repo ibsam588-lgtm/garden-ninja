@@ -46,6 +46,9 @@ class AdService {
 
   static bool _runtimeEnabled = false;
   static bool _initStarted = false;
+  static bool _sdkInitialized = false;
+  static bool _privacyPending = false;
+  static Future<void> _privacyReset = Future<void>.value();
   static _LevelPlayInterstitialAdHandle? _interstitial;
   static _LevelPlayRewardedAdHandle? _rewarded;
   static Timer? _initRetryTimer;
@@ -85,6 +88,27 @@ class AdService {
 
     try {
       if (Platform.isIOS) {
+        _iosPrivacy.setMethodCallHandler((call) async {
+          if (call.method == 'privacyPending' ||
+              call.method == 'privacyError') {
+            _privacyPending = true;
+            _runtimeEnabled = false;
+            _notifyAvailability();
+            _privacyReset = _privacyReset.then((_) => _clearVideoAds());
+            if (call.method == 'privacyError') {
+              _initStarted = false;
+              _scheduleInitRetry();
+            }
+          } else if (call.method == 'privacyReady') {
+            _privacyPending = false;
+            await _privacyReset;
+            if (_sdkInitialized && !_privacyPending) {
+              _runtimeEnabled = true;
+              _notifyAvailability();
+              _preloadVideoAds();
+            }
+          }
+        });
         // A missing native bridge or an inactive app must not initialize an ad
         // SDK before iOS has resolved its tracking permission. Denial still
         // permits ads; it only disables tracking.
@@ -98,6 +122,7 @@ class AdService {
           _scheduleInitRetry();
           return;
         }
+        await _privacyReset;
       }
       await LevelPlayPrivacySettings.setCOPPA(levelPlayChildDirected);
       await LevelPlay.setMetaData({
@@ -108,6 +133,13 @@ class AdService {
         await LevelPlay.setMetaData({
           'is_test_suite': ['enable'],
         });
+      }
+
+      if (_sdkInitialized) {
+        _runtimeEnabled = !_privacyPending;
+        _notifyAvailability();
+        if (_runtimeEnabled) _preloadVideoAds();
+        return;
       }
 
       final LevelPlayInitRequest initRequest = LevelPlayInitRequest.builder(
@@ -136,7 +168,8 @@ class AdService {
           return false;
         },
       );
-      _runtimeEnabled = initialized;
+      _sdkInitialized = initialized;
+      _runtimeEnabled = initialized && !_privacyPending;
       _notifyAvailability();
       if (!initialized) {
         _initStarted = false;
@@ -156,6 +189,29 @@ class AdService {
       _log('LevelPlay init failed: $error');
       _scheduleInitRetry();
     }
+  }
+
+  static Future<bool> showPrivacyOptions() async {
+    if (!Platform.isIOS || isSuppressedForStoreScreenshots) return false;
+    try {
+      return await _iosPrivacy.invokeMethod<bool>('showPrivacyOptions', {
+            'requestTracking': !levelPlayChildDirected,
+          }) ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> _clearVideoAds() async {
+    _interstitialRetryTimer?.cancel();
+    _rewardedRetryTimer?.cancel();
+    final interstitial = _interstitial;
+    final rewarded = _rewarded;
+    _interstitial = null;
+    _rewarded = null;
+    await interstitial?.dispose();
+    await rewarded?.dispose();
   }
 
   static Future<bool> showInterstitial({

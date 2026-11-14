@@ -11,6 +11,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:garden_ninja/src/ads/ad_break_policy.dart';
 import 'package:garden_ninja/src/ads/ad_placement_config.dart';
 import 'package:garden_ninja/src/ads/ad_service.dart';
+import 'package:garden_ninja/src/audio/audio_assets.dart';
 import 'package:garden_ninja/src/garden/harvest_garden.dart';
 import 'package:garden_ninja/src/garden/harvest_model.dart';
 import 'package:garden_ninja/src/game_center/game_center_service.dart';
@@ -2434,7 +2435,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     for (final asset in _sfxAssets) {
       try {
         _sfxPools[asset] = await AudioPool.create(
-          source: AssetSource(asset),
+          source: AssetSource(platformAudioAsset(asset)),
           minPlayers: 1,
           maxPlayers: 3,
           audioContext: _sfxAudioContext,
@@ -2452,7 +2453,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     try {
       await _musicPlayer.setReleaseMode(ReleaseMode.loop);
       await _musicPlayer.play(
-        AssetSource(_currentMusicTrack.asset),
+        AssetSource(platformAudioAsset(_currentMusicTrack.asset)),
         volume: _phase == GamePhase.playing ? 0.46 : 0.34,
         ctx: _musicAudioContext,
       );
@@ -6731,6 +6732,28 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                           unawaited(_playReviewGateway.openStoreListing()),
                       icon: const Icon(Icons.star_outline_rounded, size: 17),
                       label: const Text('Rate App'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFDFFF8A),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  if (GameCenterService.supported)
+                    TextButton.icon(
+                      key: const ValueKey('ad-privacy'),
+                      onPressed: () async {
+                        final opened = await AdService.showPrivacyOptions();
+                        if (!opened && mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Privacy options are unavailable. Please try again when connected.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.privacy_tip_outlined, size: 17),
+                      label: const Text('Ad privacy'),
                       style: TextButton.styleFrom(
                         foregroundColor: const Color(0xFFDFFF8A),
                         textStyle: const TextStyle(fontWeight: FontWeight.w800),

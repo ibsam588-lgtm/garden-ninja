@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:garden_ninja/src/app.dart';
@@ -15,4 +16,9 @@ Future<void> main() async {
     ),
   );
   runApp(const GardenNinjaApp());
+  if (kDebugMode && const bool.fromEnvironment('IOS_LAUNCH_PROBE')) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      debugPrint('GARDEN_NINJA_FIRST_FRAME');
+    });
+  }
 }

@@ -56,7 +56,11 @@ jobs:
         run: tar -C build/ios/iphoneos -czf build/ios/garden-ninja-ios-unsigned.tar.gz Runner.app
 
       - name: Build iPhone simulator
-        run: flutter build ios --simulator --debug
+        env:
+          APP_STORE_ID: ${{ vars.APP_STORE_ID }}
+        run: >-
+          flutter build ios --simulator --debug --dart-define=IOS_LAUNCH_PROBE=true
+          --dart-define="APP_STORE_ID=$APP_STORE_ID"
 
       - name: Package simulator build
         run: tar -C build/ios/iphonesimulator -czf build/ios/garden-ninja-ios-simulator.tar.gz Runner.app
@@ -78,13 +82,28 @@ jobs:
           DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; print(next(d["udid"] for group in devices.values() for d in group if d["name"].startswith("iPhone")))')
           xcrun simctl boot "$DEVICE_ID"
           xcrun simctl bootstatus "$DEVICE_ID" -b
+          echo 'Installing the compiled simulator app'
           xcrun simctl install "$DEVICE_ID" build/ios/iphonesimulator/Runner.app
-          # A debug Flutter app must complete the debugger-aware launch before
-          # a live PID or native launch screen counts as a running game.
-          flutter run --debug --no-resident --no-pub -d "$DEVICE_ID"
-          APP_LAUNCH=$(xcrun simctl launch "$DEVICE_ID" com.corsairlabs.gardenNinja)
-          echo "$APP_LAUNCH"
-          APP_PID="${APP_LAUNCH##*: }"
+          # Use the same simulator launch arguments as Flutter, with Apple's
+          # console capture, so startup does not depend on debugger discovery.
+          echo 'Launching Garden Ninja with simulator console capture'
+          xcrun simctl launch --console-pty "$DEVICE_ID" com.corsairlabs.gardenNinja \
+            --enable-dart-profiling --enable-checked-mode --verify-entry-points \
+            > build/ios/simulator-launch.log 2>&1 &
+          SIMULATOR_CONSOLE_PID=$!
+          trap 'kill "$SIMULATOR_CONSOLE_PID" 2>/dev/null || true' EXIT
+          for attempt in {1..90}; do
+            if grep -q 'GARDEN_NINJA_FIRST_FRAME' build/ios/simulator-launch.log; then break; fi
+            sleep 2
+          done
+          cat build/ios/simulator-launch.log
+          if ! grep -q 'GARDEN_NINJA_FIRST_FRAME' build/ios/simulator-launch.log; then
+            xcrun simctl io "$DEVICE_ID" screenshot build/ios/iphone-launch.png || true
+            echo '::error::Garden Ninja did not render its first frame'
+            exit 1
+          fi
+          # Inspect the already-running app instead of launching it twice.
+          APP_PID=$(pgrep -f '/Runner.app/Runner' | head -n 1)
           [[ "$APP_PID" =~ ^[0-9]+$ ]]
           sleep 15
           # Simulator apps are host processes; signal 0 checks existence without
@@ -109,5 +128,6 @@ jobs:
           path: |
             /tmp/flutter_tools.*/flutter_ios_build_temp_dir/*.xcresult
             ios/Podfile.lock
+            build/ios/simulator-launch.log
           if-no-files-found: ignore
           retention-days: 7

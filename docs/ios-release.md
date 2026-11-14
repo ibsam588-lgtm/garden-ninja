@@ -9,6 +9,11 @@ Apple's player authentication and dashboard through GameKit. Earned arcade
 records and garden milestones are queued locally and retried after sign-in or
 when the app resumes. This does not introduce cloud saves or cross-store purchases.
 
+Apple playback uses AAC/M4A music and PCM/WAV sound effects converted from the
+existing Ogg originals, because AVPlayer rejected the Ogg files in the simulator.
+Android and other platforms retain their existing assets. The audio asset test
+checks that every original has a corresponding Apple file with the right container.
+
 ## Release pipelines
 
 There are two store deployment workflows, alongside the pull-request checks:
@@ -127,11 +132,30 @@ Apple Developer account.
 
 ## iOS ads
 
-iOS credentials intentionally have no Android fallback. Without an iOS key,
-the game remains playable and ads and the tracking permission prompt stay off.
-The Podfile includes LevelPlay's native SDK via Flutter, Meta Audience Network
-adapter 5.4.0.0 (FAN 6.22.0) and Chartboost adapter 5.10.0.0. Their native build
-integration is separate from activation in each advertising dashboard.
+iOS credentials intentionally have no Android fallback. The separate iOS
+inventory below was configured on 2026-11-14 and its four values are saved as
+GitHub repository variables for the Apple release workflow:
+
+| Setting | Value |
+| --- | --- |
+| LevelPlay app key | `2990d6595` |
+| Banner | `GardenNinja_iOS_Banner` / `8axgv1vdwdx8ocve` |
+| Interstitial | `GardenNinja_iOS_Interstitial` / `3lbhtym58gw2nanc` |
+| Rewarded | `GardenNinja_iOS_Rewarded` / `mu8oi34r9sk9mr7l` |
+
+ironSource and Unity Ads bidding have all three formats configured. Unity's
+iOS game ID is `800438618`, with `BP_Banner_iOS`, `BP_Interstitial_iOS` and
+`BP_Rewarded_iOS` placements. Meta's separate iOS placements are saved in
+LevelPlay, but Meta reports **Missing app URL** until this iOS app is public:
+
+- Banner: `28274733552202027_28342511198757595`
+- Interstitial: `28274733552202027_28342553838753331`
+- Rewarded: `28274733552202027_28342600555415326`
+
+The Podfile includes LevelPlay SDK 9.4.0 through Flutter, Meta adapter 5.4.0.0
+(FAN 6.22.0), Chartboost adapter 5.10.0.0, and Unity Ads adapter 5.9.0.0
+(Unity Ads 4.19.0). Their native integration is separate from network approval
+and actual fill. Without an iOS key, ads and consent prompts stay off.
 
 Create a separate **iOS app** in LevelPlay, separate iOS network apps/placements,
 and supply these build definitions when the iOS inventory is ready:
@@ -151,13 +175,29 @@ a separate test build; leave this flag off for release. Additional networks
 enabled on Android need their own iOS adapters and dashboard setup.
 
 Before SDK initialization, the native bridge waits for an active app and
-resolves App Tracking Transparency. Declining still permits gameplay and
-nontracking ad requests. Meta's tracking flag is set from the actual permission
-on older iOS versions; recent FAN reads ATT directly on iOS 17+. Child-directed
-builds skip the ATT request. Info.plist includes the networks' primary
-SKAdNetwork IDs. Refresh the full network lists and review the privacy policy,
-regional consent and App Store privacy answers before enabling production ads.
-ATT permission does not replace any regional consent requirements.
+InMobi CMP 2.4.2 to resolve the published iOS property's GDPR/US choices.
+The home menu's **Ad privacy** control reopens those choices. Ad views and
+preloaded videos are cleared while choices change. CMP failures leave ads off
+and gameplay available. ATT is requested only when consent permits tracking;
+declining ATT still permits gameplay and nontracking requests. Meta's tracking
+flag follows ATT on older iOS versions; FAN reads ATT directly on iOS 17+.
+
+The CMP property is `com.corsairlabs.gardenNinja` (ID `1150067`), published
+under the existing account. It uses the default consent text, worldwide
+coverage, GDPR/US regulation settings and no Consent or Pay. No paid
+subscription was created. InMobi currently labels the account's properties
+with its existing Premium Free Trial. Custom premium options were not added.
+Native consent forwards IAB vendor IDs 1549 (Unity) and 1601 (Chartboost),
+checked against the IAB GVL on 2026-11-14. Meta receives no invented GDPR
+consent grant; it is disabled for personalization where this property has no
+matching non-IAB vendor consent. US opt-outs are forwarded to LevelPlay.
+
+Info.plist contains 185 unique SKAdNetwork IDs from the official
+[Unity list](https://skan.mz.unity3d.com/v3/partner/skadnetworks.plist.json) and
+[Chartboost list](https://a3.chartboost.com/skadnetworkids.json), fetched on
+2026-11-14, including ironSource and Meta IDs. Apple's proposed privacy answers
+are recorded in `docs/ios-app-privacy.md`; their publication requires approval.
+Test all three ad formats and privacy-choice changes on a signed iPhone.
 
 ## When an Apple account is ready
 
