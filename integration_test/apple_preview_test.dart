@@ -9,25 +9,8 @@ import 'package:garden_ninja/src/garden/harvest_art.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Deliver the same touch events without the testing framework's crosshair overlay.
-class _StoreCaptureBinding extends IntegrationTestWidgetsFlutterBinding {
-  @override
-  void handlePointerEvent(PointerEvent event) {
-    final previous = shouldPropagateDevicePointerEvents;
-    shouldPropagateDevicePointerEvents = true;
-    try {
-      withPointerEventSource(
-        TestBindingEventSource.device,
-        () => super.handlePointerEvent(event),
-      );
-    } finally {
-      shouldPropagateDevicePointerEvents = previous;
-    }
-  }
-}
-
 void main() {
-  final binding = _StoreCaptureBinding();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
   testWidgets(
     'record a real harvest and arcade session',
@@ -38,6 +21,34 @@ void main() {
           await tester.pump(const Duration(milliseconds: 16));
         }
       }
+
+      final previousPointerPropagation =
+          binding.shouldPropagateDevicePointerEvents;
+      binding.shouldPropagateDevicePointerEvents = true;
+      addTearDown(() {
+        binding.shouldPropagateDevicePointerEvents = previousPointerPropagation;
+      });
+      var pointer = 1;
+      Future<TestGesture> startGesture(Offset position) async {
+        final gesture = TestGesture(
+          pointer: pointer++,
+          dispatcher: (event) async {
+            binding.handlePointerEventForSource(
+              event,
+              source: TestBindingEventSource.device,
+            );
+          },
+        );
+        await gesture.down(position);
+        return gesture;
+      }
+
+      Future<void> tapAt(Offset position) async {
+        final gesture = await startGesture(position);
+        await gesture.up();
+      }
+
+      Future<void> tap(Finder finder) => tapAt(tester.getCenter(finder));
 
       SharedPreferences.setMockInitialValues({
         'garden_ninja_garden_tutorial_v3': true,
@@ -69,13 +80,13 @@ void main() {
         await animate(const Duration(milliseconds: 100));
       }
       await animate(const Duration(milliseconds: 800));
-      await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
+      await tap(find.byKey(const ValueKey('home-menu-Garden')));
       await animate(const Duration(seconds: 1));
-      await tester.tap(find.byKey(const ValueKey('harvest-start')));
+      await tap(find.byKey(const ValueKey('harvest-start')));
       await animate(const Duration(seconds: 8));
       for (var row = 0; row < 3; row++) {
         final start = row * 4;
-        final gesture = await tester.startGesture(
+        final gesture = await startGesture(
           tester.getCenter(find.byKey(ValueKey('harvest-crop-$start'))),
         );
         for (var col = 1; col < 4; col++) {
@@ -89,15 +100,15 @@ void main() {
         await gesture.up();
         await animate(const Duration(milliseconds: 350));
       }
-      await tester.tap(find.byKey(const ValueKey('harvest-pause')));
+      await tap(find.byKey(const ValueKey('harvest-pause')));
       await animate(const Duration(milliseconds: 300));
-      await tester.tap(find.byKey(const ValueKey('harvest-finish')));
+      await tap(find.byKey(const ValueKey('harvest-finish')));
       await animate(const Duration(milliseconds: 900));
-      await tester.tap(find.byKey(const ValueKey('harvest-sheet-close')));
+      await tap(find.byKey(const ValueKey('harvest-sheet-close')));
       await animate(const Duration(milliseconds: 200));
-      await tester.tap(find.byKey(const ValueKey('harvest-back')));
+      await tap(find.byKey(const ValueKey('harvest-back')));
       await animate(const Duration(milliseconds: 400));
-      await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
+      await tap(find.byKey(const ValueKey('primary-PLAY')));
       await animate(const Duration(milliseconds: 150));
       for (var i = 0; i < 18; i++) {
         final weeds = find.byWidgetPredicate(
@@ -107,14 +118,12 @@ void main() {
         );
         // Only cut weeds; flowers remain protected during the recorded session.
         if (i == 0) {
-          await tester.tapAt(
-            tester.getCenter(find.byKey(const ValueKey('target-1'))),
-          );
+          await tapAt(tester.getCenter(find.byKey(const ValueKey('target-1'))));
         }
         if (i == 4 || i == 9) {
           final key = ValueKey('target-${i == 4 ? 3 : 5}');
           if (find.byKey(key).evaluate().isNotEmpty) {
-            await tester.tapAt(tester.getCenter(find.byKey(key)));
+            await tapAt(tester.getCenter(find.byKey(key)));
           }
         }
         expect(weeds.evaluate().isNotEmpty, isTrue);
