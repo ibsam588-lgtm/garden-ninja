@@ -89,9 +89,13 @@
             @throw [NSException exceptionWithName:NSInvalidArgumentException reason:@"Invalid templateType" userInfo:nil];
         }
         // Get the bundle path for the resource bundle
+#if SWIFT_PACKAGE
+        bundle = SWIFTPM_MODULE_BUNDLE;
+#else
         bundle = [NSBundle bundleForClass:[self class]];
         NSURL *bundleURL = [bundle URLForResource:@"unity_levelplay_mediation" withExtension:@"bundle"];
         bundle = [NSBundle bundleWithURL:bundleURL]; // Resource bundle
+#endif
         // Load the NIB file from the resource bundle
         nib = [UINib nibWithNibName:nibName bundle:bundle];
     }
