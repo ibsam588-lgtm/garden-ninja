@@ -8,7 +8,11 @@ on:
       - 'lib/**'
       - 'assets/**'
       - 'pubspec.*'
+      - 'third_party/**/lib/**'
+      - 'third_party/**/pubspec.yaml'
+      - 'third_party/**/ios/**'
       - 'fastlane/Fastfile'
+      - 'fastlane/ios/**'
       - 'Gemfile*'
       - 'tooling/ios_release_config.py'
       - '.github/workflows/deploy-app-store.yml'
@@ -66,7 +70,7 @@ jobs:
       LEVELPLAY_IOS_REWARDED_AD_UNIT_ID: ${{ vars.LEVELPLAY_IOS_REWARDED_AD_UNIT_ID }}
       LEVELPLAY_CHILD_DIRECTED: ${{ vars.LEVELPLAY_CHILD_DIRECTED }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Validate release branch and settings
         env:
@@ -92,7 +96,7 @@ jobs:
         id: apple_build
         run: bundle exec fastlane ios next_build_number
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -153,7 +157,7 @@ jobs:
           [ "$SIGNING_TEAM" = "$APPLE_TEAM_ID" ] || { echo '::error::The IPA was signed by an unexpected Apple team'; exit 1; }
 
       - name: Save signed build and symbols
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: garden-ninja-apple-${{ env.IOS_VERSION }}-${{ steps.apple_build.outputs.build_number }}
           path: |
@@ -192,7 +196,7 @@ jobs:
       APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ vars.APP_STORE_CONNECT_KEY_ID }}
       APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate tested build selection
         env:
           RELEASE_REF: ${{ github.ref }}

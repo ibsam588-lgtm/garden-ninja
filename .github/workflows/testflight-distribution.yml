@@ -1,0 +1,44 @@
+name: Sync external TestFlight testing
+
+on:
+  workflow_run:
+    workflows: [Deploy iOS to Apple]
+    types: [completed]
+    branches: [main]
+  # Apple processing/review may finish long after the upload job exits.
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: garden-ninja-testflight-distribution
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: >-
+      vars.IOS_RELEASE_ENABLED == 'true' &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ios-testflight
+    env:
+      APP_STORE_ID: ${{ vars.APP_STORE_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ vars.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ vars.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      IOS_TESTFLIGHT_GROUP_ID: ${{ vars.IOS_TESTFLIGHT_GROUP_ID }}
+      IOS_TESTFLIGHT_TESTER_EMAILS: ${{ vars.IOS_TESTFLIGHT_TESTER_EMAILS }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r tooling/apple-requirements.txt
+      - name: Submit processed builds and notify approved testers
+        run: python tooling/testflight_sync.py

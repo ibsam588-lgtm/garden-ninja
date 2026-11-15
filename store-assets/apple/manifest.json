@@ -1,0 +1,174 @@
+{
+  "youtube_trailer": "https://www.youtube.com/watch?v=fLmL-XDmO8c",
+  "screenshots": [
+    {
+      "locale": "en-US",
+      "display_type": "APP_IPAD_105",
+      "dimensions": [
+        1668,
+        2224
+      ],
+      "files": [
+        "screenshots/en-US/APP_IPAD_105/01-home.jpg",
+        "screenshots/en-US/APP_IPAD_105/02-garden.jpg",
+        "screenshots/en-US/APP_IPAD_105/03-harvest.jpg",
+        "screenshots/en-US/APP_IPAD_105/04-arcade.jpg"
+      ]
+    },
+    {
+      "locale": "en-US",
+      "display_type": "APP_IPAD_97",
+      "dimensions": [
+        1536,
+        2048
+      ],
+      "files": [
+        "screenshots/en-US/APP_IPAD_97/01-home.jpg",
+        "screenshots/en-US/APP_IPAD_97/02-garden.jpg",
+        "screenshots/en-US/APP_IPAD_97/03-harvest.jpg",
+        "screenshots/en-US/APP_IPAD_97/04-arcade.jpg"
+      ]
+    },
+    {
+      "locale": "en-US",
+      "display_type": "APP_IPAD_PRO_129",
+      "dimensions": [
+        2048,
+        2732
+      ],
+      "files": [
+        "screenshots/en-US/APP_IPAD_PRO_129/01-home.jpg",
+        "screenshots/en-US/APP_IPAD_PRO_129/02-garden.jpg",
+        "screenshots/en-US/APP_IPAD_PRO_129/03-harvest.jpg",
+        "screenshots/en-US/APP_IPAD_PRO_129/04-arcade.jpg"
+      ]
+    },
+    {
+      "locale": "en-US",
+      "display_type": "APP_IPAD_PRO_3GEN_11",
+      "dimensions": [
+        1668,
+        2388
+      ],
+      "files": [
+        "screenshots/en-US/APP_IPAD_PRO_3GEN_11/01-home.jpg",
+        "screenshots/en-US/APP_IPAD_PRO_3GEN_11/02-garden.jpg",
+        "screenshots/en-US/APP_IPAD_PRO_3GEN_11/03-harvest.jpg",
+        "screenshots/en-US/APP_IPAD_PRO_3GEN_11/04-arcade.jpg"
+      ]
+    },
+    {
+      "locale": "en-US",
+      "display_type": "APP_IPAD_PRO_3GEN_129",
+      "dimensions": [
+        2064,
+        2752
+      ],
+      "files": [
+        "screenshots/en-US/APP_IPAD_PRO_3GEN_129/01-home.jpg",
+        "screenshots/en-US/APP_IPAD_PRO_3GEN_129/02-garden.jpg",
+        "screenshots/en-US/APP_IPAD_PRO_3GEN_129/03-harvest.jpg",
+        "screenshots/en-US/APP_IPAD_PRO_3GEN_129/04-arcade.jpg"
+      ]
+    },
+    {
+      "locale": "en-US",
+      "display_type": "APP_IPHONE_40",
+      "dimensions": [
+        640,
+        1136
+      ],
+      "files": [
+        "screenshots/en-US/APP_IPHONE_40/01-home.jpg",
+        "screenshots/en-US/APP_IPHONE_40/02-garden.jpg",
+        "screenshots/en-US/APP_IPHONE_40/03-harvest.jpg",
+        "screenshots/en-US/APP_IPHONE_40/04-arcade.jpg"
+      ]
+    },
+    {
+      "locale": "en-US",
+      "display_type": "APP_IPHONE_47",
+      "dimensions": [
+        750,
+        1334
+      ],
+      "files": [
+        "screenshots/en-US/APP_IPHONE_47/01-home.jpg",
+        "screenshots/en-US/APP_IPHONE_47/02-garden.jpg",
+        "screenshots/en-US/APP_IPHONE_47/03-harvest.jpg",
+        "screenshots/en-US/APP_IPHONE_47/04-arcade.jpg"
+      ]
+    },
+    {
+      "locale": "en-US",
+      "display_type": "APP_IPHONE_55",
+      "dimensions": [
+        1242,
+        2208
+      ],
+      "files": [
+        "screenshots/en-US/APP_IPHONE_55/01-home.jpg",
+        "screenshots/en-US/APP_IPHONE_55/02-garden.jpg",
+        "screenshots/en-US/APP_IPHONE_55/03-harvest.jpg",
+        "screenshots/en-US/APP_IPHONE_55/04-arcade.jpg"
+      ]
+    },
+    {
+      "locale": "en-US",
+      "display_type": "APP_IPHONE_58",
+      "dimensions": [
+        1125,
+        2436
+      ],
+      "files": [
+        "screenshots/en-US/APP_IPHONE_58/01-home.jpg",
+        "screenshots/en-US/APP_IPHONE_58/02-garden.jpg",
+        "screenshots/en-US/APP_IPHONE_58/03-harvest.jpg",
+        "screenshots/en-US/APP_IPHONE_58/04-arcade.jpg"
+      ]
+    },
+    {
+      "locale": "en-US",
+      "display_type": "APP_IPHONE_61",
+      "dimensions": [
+        1206,
+        2622
+      ],
+      "files": [
+        "screenshots/en-US/APP_IPHONE_61/01-home.jpg",
+        "screenshots/en-US/APP_IPHONE_61/02-garden.jpg",
+        "screenshots/en-US/APP_IPHONE_61/03-harvest.jpg",
+        "screenshots/en-US/APP_IPHONE_61/04-arcade.jpg"
+      ]
+    },
+    {
+      "locale": "en-US",
+      "display_type": "APP_IPHONE_65",
+      "dimensions": [
+        1242,
+        2688
+      ],
+      "files": [
+        "screenshots/en-US/APP_IPHONE_65/01-home.jpg",
+        "screenshots/en-US/APP_IPHONE_65/02-garden.jpg",
+        "screenshots/en-US/APP_IPHONE_65/03-harvest.jpg",
+        "screenshots/en-US/APP_IPHONE_65/04-arcade.jpg"
+      ]
+    },
+    {
+      "locale": "en-US",
+      "display_type": "APP_IPHONE_67",
+      "dimensions": [
+        1320,
+        2868
+      ],
+      "files": [
+        "screenshots/en-US/APP_IPHONE_67/01-home.jpg",
+        "screenshots/en-US/APP_IPHONE_67/02-garden.jpg",
+        "screenshots/en-US/APP_IPHONE_67/03-harvest.jpg",
+        "screenshots/en-US/APP_IPHONE_67/04-arcade.jpg"
+      ]
+    }
+  ],
+  "previews": []
+}
