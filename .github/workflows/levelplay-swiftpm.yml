@@ -1,0 +1,81 @@
+name: LevelPlay SwiftPM compatibility
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'third_party/unity_levelplay_mediation/ios/**'
+      - 'tooling/prepare_levelplay_spm_smoke.py'
+      - '.github/workflows/levelplay-swiftpm.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: levelplay-spm-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  swiftpm:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.2'
+          channel: stable
+          cache: false
+      - name: Prepare an isolated SwiftPM consumer
+        run: |
+          flutter config --enable-swift-package-manager
+          python3 tooling/prepare_levelplay_spm_smoke.py
+      - name: Compile the real native bridge with SwiftPM
+        working-directory: build/levelplay-spm-smoke
+        run: |
+          set -o pipefail
+          flutter pub get
+          flutter build ios --simulator --debug 2>&1 | tee spm-build.log
+          if grep -q 'plugins do not support Swift Package Manager' spm-build.log; then
+            echo '::error::The native plugin still lacks SwiftPM support'
+            exit 1
+          fi
+      - name: Launch and exercise the native SDK bridge
+        working-directory: build/levelplay-spm-smoke
+        run: |
+          python3 - <<'PY'
+          import json, plistlib, subprocess, time
+          from pathlib import Path
+          devices = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '--json']))['devices']
+          device = next(d['udid'] for runtime in sorted(devices, reverse=True) for d in devices[runtime] if d['name'].startswith('iPhone'))
+          app = Path('build/ios/iphonesimulator/Runner.app')
+          bundle = plistlib.loads((app / 'Info.plist').read_bytes())['CFBundleIdentifier']
+          subprocess.run(['xcrun', 'simctl', 'boot', device], check=True)
+          subprocess.run(['xcrun', 'simctl', 'bootstatus', device, '-b'], check=True)
+          subprocess.run(['xcrun', 'simctl', 'install', device, str(app)], check=True)
+          container = Path(subprocess.check_output(['xcrun', 'simctl', 'get_app_container', device, bundle, 'data'], text=True).strip())
+          subprocess.run(['xcrun', 'simctl', 'launch', device, bundle, '--enable-dart-profiling', '--enable-checked-mode', '--verify-entry-points'], check=True)
+          marker = container / 'tmp/levelplay_spm_ready'
+          deadline = time.monotonic() + 150
+          while not marker.exists() and time.monotonic() < deadline:
+              time.sleep(2)
+          if not marker.exists():
+              raise RuntimeError('The SwiftPM native SDK call or first frame failed')
+          nibs = list(app.rglob('LevelPlayNativeAdViewSmall.nib'))
+          if not nibs:
+              raise RuntimeError('SwiftPM did not package the native-ad resource templates')
+          print('SwiftPM bridge called the native SDK, rendered its first frame, and packaged native-ad resources')
+          subprocess.run(['xcrun', 'simctl', 'io', device, 'screenshot', 'spm-launch.png'], check=True)
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: levelplay-swiftpm-proof
+          path: |
+            build/levelplay-spm-smoke/spm-build.log
+            build/levelplay-spm-smoke/spm-launch.png
+          retention-days: 14
