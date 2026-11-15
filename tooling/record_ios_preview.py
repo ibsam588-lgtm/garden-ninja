@@ -15,15 +15,22 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    deadline = time.monotonic() + 600
+    deadline = time.monotonic() + 900
     data = None
     while time.monotonic() < deadline:
-        result = subprocess.run(['xcrun', 'simctl', 'get_app_container', args.device, BUNDLE_ID, 'data'], capture_output=True, text=True)
-        if result.returncode == 0:
-            data = Path(result.stdout.strip()) / 'tmp'
-            if (data / 'garden_ninja_preview_ready').exists():
-                break
-        time.sleep(1)
+        # Once installed, poll its marker directly. Repeated simctl calls can
+        # each stall on a busy simulator and miss the game's recorder deadline.
+        if data is None or not data.exists():
+            try:
+                result = subprocess.run(['xcrun', 'simctl', 'get_app_container', args.device, BUNDLE_ID, 'data'],
+                                        capture_output=True, text=True, timeout=20)
+            except subprocess.TimeoutExpired:
+                continue
+            if result.returncode == 0:
+                data = Path(result.stdout.strip()) / 'tmp'
+        if data is not None and (data / 'garden_ninja_preview_ready').exists():
+            break
+        time.sleep(.25)
     else:
         raise RuntimeError('The native game never signaled that its preview was ready')
     recorder = subprocess.Popen(['xcrun', 'simctl', 'io', args.device, 'recordVideo', '--codec=h264', str(args.output)],

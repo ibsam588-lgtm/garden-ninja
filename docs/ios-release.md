@@ -94,8 +94,8 @@ UI or Google Play call to action is used in Apple's preview.
 
 The published Google Play video is
 [the Corsair Labs trailer](https://www.youtube.com/watch?v=fLmL-XDmO8c).
-Apple accepts uploaded 15�30 second App Preview files, not a YouTube URL in
-that slot. The existing YouTube trailer is also saved as the Apple listing�s Marketing URL.
+Apple accepts uploaded 15–30 second App Preview files, not a YouTube URL in
+that slot. The existing YouTube trailer is also saved as the Apple listing’s Marketing URL.
 Native iOS recordings use the same harvest/arcade gameplay theme.
 [Apple's video requirements](https://developer.apple.com/help/app-store-connect/reference/app-information/app-preview-specifications).
 
@@ -134,7 +134,7 @@ Credentials are not exposed to pull-request workflows.
 1. Merge game changes into main. Once enabled, each relevant main change is
    signed and sent to TestFlight automatically. Apple build numbers are chosen
    from the latest uploaded build for that version; release jobs run serially.
-2. For the first upload, use **Actions → Deploy iOS to Apple → Run workflow**,
+2. For the first upload, use **Actions â†’ Deploy iOS to Apple â†’ Run workflow**,
    branch **main**, operation **upload_testflight**. Leave the version blank to
    read it from `pubspec.yaml`. A missing configuration fails with field names
    instead of silently producing an unsigned release.
@@ -297,3 +297,14 @@ official 9.5.0 package still applies KGP. Its native ad SDK versions are unchang
 Three deprecated `Color.value` conversions use `toARGB32()` with the same output.
 Android PR builds reject the original KGP warning; Apple PR builds still compile
 and launch the app. `pub outdated` upgrade suggestions are not deprecations.
+
+### Upstream Swift Package Manager advisory
+
+Flutter 3.44.2 prints a future-compatibility advisory for the LevelPlay Flutter
+wrapper during native integration tests, including when SwiftPM is explicitly
+disabled. The wrapper's latest published 9.5.0 release and its official master
+branch contain no Package.swift as of 2026-11-14. The native LevelPlay SDK itself
+supports SwiftPM, but the Flutter wrapper still needs a proper migration.
+Garden Ninja deliberately uses the verified CocoaPods integration; no placeholder
+Swift manifest or warning suppression is used. This advisory is still outstanding,
+while current device, simulator and store-upload builds are supported.
