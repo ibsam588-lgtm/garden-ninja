@@ -30,9 +30,9 @@ def main():
         out.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run([
             args.ffmpeg, '-hide_banner', '-loglevel', 'error', '-y',
-            '-ss', '.25', '-i', str(source), '-stream_loop', '-1', '-i', str(music),
+            '-i', str(source), '-stream_loop', '-1', '-i', str(music),
             '-map', '0:v:0', '-map', '1:a:0', '-t', str(duration),
-            '-vf', f'scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=0x102716,fps=30,format=yuv420p',
+            '-vf', f'fps=30:start_time=0,trim=start=0.25,setpts=PTS-STARTPTS,scale={width}:{height}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=0x102716,setsar=1,format=yuv420p',
             '-c:v', 'libx264', '-preset', 'medium', '-profile:v', 'high', '-level:v', '4.0',
             '-b:v', '11M', '-maxrate', '12M', '-bufsize', '24M',
             '-c:a', 'aac', '-b:a', '256k', '-ac', '2', '-ar', '48000',
@@ -43,6 +43,7 @@ def main():
         audio = next(s for s in data['streams'] if s['codec_type'] == 'audio')
         assert (video['width'], video['height']) == (width, height)
         assert video['codec_name'] == 'h264' and video['pix_fmt'] == 'yuv420p'
+        assert float(video['start_time']) < .05
         assert audio['codec_name'] == 'aac' and audio['channels'] == 2
         assert 15 <= float(data['format']['duration']) <= 30
         assert out.stat().st_size < 500_000_000

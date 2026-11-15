@@ -85,9 +85,16 @@ def upload(api, app_id, version, directory):
             with ThreadPoolExecutor(max_workers=4) as pool:
                 results = list(pool.map(lambda p: upload_file(api, item_kind, current["id"], p), paths))
             uploaded.extend(results)
+            # Keep manually added assets; only our same-name versions are replaced.
+            current_assets = api.all(f"/v1/{set_kind}/{current['id']}/{item_kind}?limit=200")
+            wanted_ids = {r["id"] for r in results}
+            ordered = results + [r for r in current_assets if r["id"] not in wanted_ids]
+            maximum = 10 if item_kind == "appScreenshots" else 3
+            if len(ordered) > maximum:
+                raise ValueError(f"{display} exceeds Apple's {maximum}-asset limit; existing manual assets were preserved")
             # Persist requested sequence rather than relying on concurrent upload order.
             api.request("PATCH", f"/v1/{set_kind}/{current['id']}/relationships/{item_kind}", {
-                "data": [{"type": item_kind, "id": r["id"]} for r in results]})
+                "data": [{"type": item_kind, "id": r["id"]} for r in ordered]})
             print(f"Ordered {len(results)} {display} assets.", flush=True)
     return uploaded
 
