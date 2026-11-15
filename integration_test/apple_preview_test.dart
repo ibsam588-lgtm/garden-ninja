@@ -22,21 +22,21 @@ void main() {
         }
       }
 
-      final previousPointerPropagation =
-          binding.shouldPropagateDevicePointerEvents;
-      binding.shouldPropagateDevicePointerEvents = true;
-      addTearDown(() {
-        binding.shouldPropagateDevicePointerEvents = previousPointerPropagation;
-      });
       var pointer = 1;
       Future<TestGesture> startGesture(Offset position) async {
         final gesture = TestGesture(
           pointer: pointer++,
           dispatcher: (event) async {
-            binding.handlePointerEventForSource(
-              event,
-              source: TestBindingEventSource.device,
-            );
+            final previous = binding.shouldPropagateDevicePointerEvents;
+            binding.shouldPropagateDevicePointerEvents = true;
+            try {
+              binding.handlePointerEventForSource(
+                event,
+                source: TestBindingEventSource.device,
+              );
+            } finally {
+              binding.shouldPropagateDevicePointerEvents = previous;
+            }
           },
         );
         await gesture.down(position);
