@@ -29,13 +29,25 @@ declaring tracking does not grant permission or override a refusal.
 Other categories are not selected. The game does not request access to precise
 location, contacts, photos, microphone recordings, or financial account details.
 Device-local garden saves are not uploaded to Game Center. Purchase History is
-included because Unity's SDK disclosure lists it, not because this build adds
-in-app purchases or collects payment credentials.
+included because Unity's SDK disclosure lists it. The 2026-11-15 Remove Ads
+implementation also verifies ownership locally through StoreKit 2; it does not
+collect card/bank credentials or send purchase proof to a Corsair Labs server.
+Apple handles the store account and payment. Apple's privacy guidance excludes
+processing confined to the device and data collected by Apple itself from the
+developer's collection disclosure; third-party ad SDK collection remains covered
+by the published declaration above.
+
+The compiled 2026-11-15 release includes InMobiSDK 11.5.0 and VungleAds 7.8.0.
+Their bundled privacy manifests were inspected: they provide required-reason API
+declarations, rather than a complete inventory of ad data collected by the SDKs.
+Manifest presence alone does not replace the declaration or SDK privacy review.
+No additional OS privacy permissions were added for these adapters.
 
 Sources checked:
 
 - [ironSource Apple questionnaire](https://docs.unity.com/en-us/grow/is-ads/legal-resources/apple-privacy-questionnaire)
 - [Unity Ads Apple privacy survey](https://docs.unity.com/en-us/grow/ads/privacy/apple-privacy-survey)
+- [Apple app privacy details and on-device processing](https://developer.apple.com/app-store/app-privacy-details/)
 - [Chartboost privacy manifest](https://docs.chartboost.com/en/monetization/integrate/ios/privacy-manifest/)
 - Meta FAN 6.22.0's bundled `PrivacyInfo.xcprivacy`, inspected from its official
   CocoaPods distribution at `https://developers.facebook.com/resources/FBAudienceNetwork-6.22.0.zip`.

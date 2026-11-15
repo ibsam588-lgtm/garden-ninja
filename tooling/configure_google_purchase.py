@@ -6,6 +6,7 @@ build never changes product prices. No customer purchases are made by this tool.
 import argparse
 import json
 import os
+import re
 from decimal import Decimal
 
 PACKAGE = "com.gardenninja.garden_ninja"
@@ -49,7 +50,11 @@ def verify_product(product):
     option = options[0]
     if "buyOption" not in option or option["buyOption"].get("multiQuantityEnabled", False):
         raise ValueError("Remove Ads must be a single permanent purchase")
+    if not option["buyOption"].get("legacyCompatible", False):
+        raise ValueError("The default buy option must support the app's compatible billing flow")
     us = next(r for r in option["regionalPricingAndAvailabilityConfigs"] if r["regionCode"] == "US")
+    if us.get("availability") != "AVAILABLE":
+        raise ValueError("The approved US purchase option is not available")
     price = us["price"]
     amount = Decimal(price.get("units", "0")) + Decimal(price.get("nanos", 0)) / 1000000000
     if price["currencyCode"] != "USD" or amount != Decimal("2.99"):
@@ -63,8 +68,14 @@ def configure(session, apply=False):
         if response.status_code == 404 and method == "GET":
             return None
         if not response.ok:
-            # Provider error messages can contain service account identifiers.
-            raise RuntimeError(f"Google Play catalog {method} failed: HTTP {response.status_code}. Check billing-enabled upload and product-management permission.")
+            # Report the provider's actionable catalog error, without headers,
+            # credentials, or any account email it includes.
+            try:
+                detail = response.json().get("error", {}).get("message", "")
+            except ValueError:
+                detail = ""
+            detail = re.sub(r"[\w.+%-]+@[\w.-]+\.[A-Za-z]{2,}", "[account]", detail)[:500]
+            raise RuntimeError(f"Google Play catalog {method} failed: HTTP {response.status_code}. {detail}")
         return response.json() if response.content else {}
 
     path = f"/onetimeproducts/{PRODUCT}"

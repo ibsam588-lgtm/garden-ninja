@@ -52,3 +52,14 @@ class StoreCatalogTests(unittest.TestCase):
                 product["purchaseOptions"].append(copy.deepcopy(option))
             with self.assertRaises(ValueError):
                 verify_product(product)
+
+    def test_incompatible_or_unavailable_purchase_cannot_be_reported_ready(self):
+        product = copy.deepcopy(self.product)
+        product["purchaseOptions"][0]["buyOption"]["legacyCompatible"] = False
+        with self.assertRaises(ValueError):
+            verify_product(product)
+        product = copy.deepcopy(self.product)
+        us = next(r for r in product["purchaseOptions"][0]["regionalPricingAndAvailabilityConfigs"] if r["regionCode"] == "US")
+        us["availability"] = "AVAILABLE_FOR_OFFERS_ONLY"
+        with self.assertRaises(ValueError):
+            verify_product(product)
