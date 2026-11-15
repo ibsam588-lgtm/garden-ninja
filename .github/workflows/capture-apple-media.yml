@@ -30,7 +30,10 @@ jobs:
           flutter-version: '3.44.2'
           channel: stable
           cache: false
-      - run: flutter pub get
+      - name: Use the project's CocoaPods integration
+        run: |
+          flutter config --no-enable-swift-package-manager
+          flutter pub get
       - name: Boot an available Apple simulator
         env:
           FAMILY: ${{ matrix.family }}

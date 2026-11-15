@@ -66,11 +66,15 @@ void main() {
               (w.key! as ValueKey<String>).value.startsWith('target-'),
         );
         // Only cut weeds; flowers remain protected during the recorded session.
-        if (i == 0) await tester.tap(find.byKey(const ValueKey('target-1')));
+        if (i == 0) {
+          await tester.tapAt(
+            tester.getCenter(find.byKey(const ValueKey('target-1'))),
+          );
+        }
         if (i == 4 || i == 9) {
           final key = ValueKey('target-${i == 4 ? 3 : 5}');
           if (find.byKey(key).evaluate().isNotEmpty) {
-            await tester.tap(find.byKey(key));
+            await tester.tapAt(tester.getCenter(find.byKey(key)));
           }
         }
         expect(weeds.evaluate().isNotEmpty, isTrue);
@@ -81,6 +85,10 @@ void main() {
         '${Directory.systemTemp.path}/garden_ninja_preview_done',
       ).writeAsStringSync('done');
       await tester.pump(const Duration(seconds: 2));
+      // Dispose the real native AudioPlayers before the test binding shuts down.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
     },
     timeout: const Timeout(Duration(minutes: 3)),
   );
