@@ -66,9 +66,11 @@ class PurchaseController extends ChangeNotifier {
     );
     try {
       try {
-        ownsRemoveAds = await gateway.cachedOwnership().timeout(
+        final revision = _ownershipRevision;
+        final cached = await gateway.cachedOwnership().timeout(
           const Duration(seconds: 15),
         );
+        if (revision == _ownershipRevision) ownsRemoveAds = cached;
       } catch (_) {
         // Cache errors must not prevent an authoritative store lookup.
       }

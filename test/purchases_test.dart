@@ -190,6 +190,16 @@ void main() {
     expect(otherStore.queries, 0);
   });
 
+  test('an old cache response cannot undo a verified payment', () async {
+    store.delayedCache = Completer<bool>();
+    store.offline = true;
+    final initialization = purchases.initialize();
+    store.events.add(StoreUpdate.owned);
+    store.delayedCache!.complete(false);
+    await initialization;
+    expect(purchases.ownsRemoveAds, isTrue);
+  });
+
   testWidgets(
     'small-phone panel shows localized price, restore and paid state',
     (tester) async {
