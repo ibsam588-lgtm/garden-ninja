@@ -26,8 +26,16 @@ def main():
         time.sleep(1)
     else:
         raise RuntimeError('The native game never signaled that its preview was ready')
-    recorder = subprocess.Popen(['xcrun', 'simctl', 'io', args.device, 'recordVideo', '--codec=h264', str(args.output)])
+    recorder = subprocess.Popen(['xcrun', 'simctl', 'io', args.device, 'recordVideo', '--codec=h264', str(args.output)],
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     try:
+        for line in recorder.stdout:
+            print(line.rstrip(), flush=True)
+            if 'Recording started' in line:
+                (data / 'garden_ninja_preview_recording').write_text('recording')
+                break
+        else:
+            raise RuntimeError('The simulator could not start recording')
         deadline = time.monotonic() + 100
         while time.monotonic() < deadline:
             if (data / 'garden_ninja_preview_done').exists():

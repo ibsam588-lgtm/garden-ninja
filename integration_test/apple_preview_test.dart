@@ -10,7 +10,8 @@ import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
   testWidgets(
     'record a real harvest and arcade session',
     (tester) async {
@@ -27,8 +28,18 @@ void main() {
       File(
         '${Directory.systemTemp.path}/garden_ninja_preview_ready',
       ).writeAsStringSync('ready');
-      // Give simctl's recorder time to start, then perform actual UI interactions.
-      await tester.pump(const Duration(seconds: 3));
+      // Start only when simctl confirms it is actually recording.
+      final recording = File(
+        '${Directory.systemTemp.path}/garden_ninja_preview_recording',
+      );
+      final deadline = DateTime.now().add(const Duration(seconds: 45));
+      while (!recording.existsSync()) {
+        if (DateTime.now().isAfter(deadline)) {
+          fail('The native simulator recorder did not start');
+        }
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.pump(const Duration(milliseconds: 800));
       await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
       await tester.pump(const Duration(seconds: 1));
       await tester.tap(find.byKey(const ValueKey('harvest-start')));

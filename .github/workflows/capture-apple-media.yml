@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: apple-gameplay-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   capture:
     strategy:
