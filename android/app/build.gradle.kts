@@ -68,6 +68,8 @@ kotlin {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20251224")
     implementation("com.google.android.play:review:2.0.2")
     implementation("com.google.android.gms:play-services-games-v2:22.1.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")

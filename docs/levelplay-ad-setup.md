@@ -1,5 +1,23 @@
 # LevelPlay Ad Setup
 
+## iOS adapter completion (2026-11-15)
+
+The iOS build includes InMobi adapter 5.10.0.0 and Liftoff/Vungle adapter 5.17.0.0
+alongside ironSource, Unity Ads, Meta and Chartboost, retaining LevelPlay 9.4.0.0.
+GDPR vendor consent is forwarded separately for InMobi (GVL 333) and Liftoff
+(GVL 667); US opt-out covers both. Official attribution lists were checked and 14
+missing valid IDs added, giving 199 unique entries. Malformed nine-character IDs
+in InMobi's list were not copied into the app.
+
+SDK inclusion does not activate bidding. InMobi and Liftoff still require app
+registrations and three iOS placement mappings. The last verified dashboard had
+four configured iOS bidders. Meta requires a public Apple store URL; Chartboost
+remains in developer mode before release. Check serving on a registered iPhone.
+
+The [Remove Ads purchase](in-app-purchases.md) disables banners and automatic
+interstitials, including preloaded ads. Rewarded videos remain optional. Startup
+restore completes before automatic ads are eligible.
+
 Garden Ninja is wired for Unity LevelPlay mediation in Android release builds.
 If the LevelPlay app key or ad unit IDs are missing, ads stay disabled so local,
 CI, and screenshot builds remain safe.

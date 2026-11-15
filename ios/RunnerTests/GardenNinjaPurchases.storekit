@@ -1,0 +1,24 @@
+{
+  "identifier": "B0E8F132",
+  "nonRenewingSubscriptions": [],
+  "products": [{
+    "displayPrice": "2.99",
+    "familyShareable": false,
+    "internalID": "BA13C920",
+    "localizations": [{
+      "description": "Remove banners and automatic ad breaks permanently.",
+      "displayName": "Remove Ads",
+      "locale": "en_US"
+    }],
+    "productID": "garden_ninja_remove_ads",
+    "referenceName": "Garden Ninja Remove Ads",
+    "type": "NonConsumable"
+  }],
+  "settings": {
+    "_failTransactionsEnabled": false,
+    "_locale": "en_US",
+    "_storefront": "USA"
+  },
+  "subscriptionGroups": [],
+  "version": {"major": 4, "minor": 0}
+}

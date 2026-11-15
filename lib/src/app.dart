@@ -15,6 +15,9 @@ import 'package:garden_ninja/src/audio/audio_assets.dart';
 import 'package:garden_ninja/src/garden/harvest_garden.dart';
 import 'package:garden_ninja/src/garden/harvest_model.dart';
 import 'package:garden_ninja/src/game_center/game_center_service.dart';
+import 'package:garden_ninja/src/purchases/purchase_controller.dart';
+import 'package:garden_ninja/src/purchases/store_purchase_gateway.dart';
+import 'package:garden_ninja/src/purchases/remove_ads_panel.dart';
 import 'package:garden_ninja/src/review/play_review_gateway.dart';
 import 'package:garden_ninja/src/review/review_prompt_policy.dart';
 import 'package:garden_ninja/src/review/shared_preferences_review_prompt_store.dart';
@@ -22,7 +25,8 @@ import 'package:in_app_update/in_app_update.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class GardenNinjaApp extends StatelessWidget {
-  const GardenNinjaApp({super.key});
+  const GardenNinjaApp({super.key, this.purchaseGateway});
+  final PurchaseGateway? purchaseGateway;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +38,7 @@ class GardenNinjaApp extends StatelessWidget {
         fontFamily: 'Arial',
         useMaterial3: true,
       ),
-      home: const GardenNinjaScreen(),
+      home: GardenNinjaScreen(purchaseGateway: purchaseGateway),
     );
   }
 }
@@ -333,7 +337,8 @@ class FloatingBurst {
 }
 
 class GardenNinjaScreen extends StatefulWidget {
-  const GardenNinjaScreen({super.key});
+  const GardenNinjaScreen({super.key, this.purchaseGateway});
+  final PurchaseGateway? purchaseGateway;
 
   @override
   State<GardenNinjaScreen> createState() => _GardenNinjaScreenState();
@@ -812,6 +817,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   bool _rewardedAdLoading = false;
   bool _rewardedAdShowing = false;
   bool _rewardedAdClaimedForRun = false;
+  late final PurchaseController _purchases;
   bool _tutorialMode = false;
   bool _tutorialMistake = false;
   bool _gardenSaveLoaded = false;
@@ -2180,7 +2186,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     AdService.availability.addListener(_handleAdAvailabilityChanged);
-    unawaited(AdService.initialize());
+    _purchases = PurchaseController(
+      widget.purchaseGateway ?? StorePurchaseGateway(),
+    );
+    _purchases.addListener(_handlePurchaseChanged);
+    AdService.setAutomaticAdsSuppressed(true);
+    unawaited(_initializeMonetization());
     _musicPlayer = AudioPlayer(playerId: 'garden-ninja-music');
     _gardenMapController = TransformationController(
       _gardenMatrix(
@@ -2203,6 +2214,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     AdService.availability.removeListener(_handleAdAvailabilityChanged);
+    _purchases.removeListener(_handlePurchaseChanged);
+    _purchases.dispose();
     _reviewRequestTimer?.cancel();
     _reviewRequestTimer = null;
     final Completer<void>? reviewDelay = _reviewRequestDelayCompleter;
@@ -2227,10 +2240,43 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
   }
 
+  Future<void> _initializeMonetization() async {
+    await _purchases.initialize();
+    if (mounted) await AdService.initialize();
+  }
+
+  void _handlePurchaseChanged() {
+    AdService.setAutomaticAdsSuppressed(_purchases.automaticAdsSuppressed);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _openPurchases() async {
+    if (_interstitialAdShowing || _rewardedAdShowing || _rewardedAdLoading) {
+      return;
+    }
+    unawaited(_purchases.refresh());
+    await showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF203D23),
+      builder: (context) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * .85,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(12),
+          child: RemoveAdsPanel(purchases: _purchases),
+        ),
+      ),
+    );
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
+        unawaited(_purchases.refresh());
         unawaited(_gameCenter.flush());
         unawaited(AdService.initialize());
         if (_musicEnabled && _phase != GamePhase.paused) {
@@ -6737,6 +6783,23 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                         textStyle: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
+                  if (_purchases.supported)
+                    TextButton.icon(
+                      key: const ValueKey('open-purchases'),
+                      onPressed: _openPurchases,
+                      icon: Icon(
+                        _purchases.ownsRemoveAds
+                            ? Icons.verified_outlined
+                            : Icons.shield_outlined,
+                        size: 17,
+                      ),
+                      label: Text(
+                        _purchases.ownsRemoveAds ? 'Ad-free' : 'Remove Ads',
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFDFFF8A),
+                      ),
+                    ),
                   if (GameCenterService.supported)
                     TextButton.icon(
                       key: const ValueKey('ad-privacy'),
@@ -10577,6 +10640,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           child: SingleChildScrollView(
             child: Column(
               children: [
+                if (_purchases.supported) ...[
+                  RemoveAdsPanel(purchases: _purchases),
+                  const SizedBox(height: 10),
+                ],
                 Row(
                   children: [
                     Expanded(

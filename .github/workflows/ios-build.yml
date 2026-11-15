@@ -84,6 +84,7 @@ jobs:
         timeout-minutes: 8
         run: |
           DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,re,sys; devices=json.load(sys.stdin)["devices"]; runtimes=sorted((r for r in devices if ".iOS-" in r), key=lambda r: tuple(map(int,re.findall(r"\d+",r))), reverse=True); print(next(d["udid"] for r in runtimes for d in devices[r] if d["name"].startswith("iPhone")))')
+          echo "IOS_TEST_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
           capture_screen() {
             python3 - "$DEVICE_ID" <<'PY'
           import subprocess, sys
@@ -126,6 +127,17 @@ jobs:
           kill -0 "$APP_PID"
           capture_screen
 
+      - name: Test native StoreKit purchase, restore and refund
+        timeout-minutes: 12
+        run: |
+          set -o pipefail
+          xcrun simctl terminate "$IOS_TEST_DEVICE_ID" com.corsairlabs.gardenNinja || true
+          xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner \
+            -destination "id=$IOS_TEST_DEVICE_ID" -only-testing:RunnerTests \
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
+            -resultBundlePath build/ios/storekit-tests.xcresult \
+            2>&1 | tee build/ios/storekit-tests.log
+
       - name: Upload launch screenshot
         if: always()
         uses: actions/upload-artifact@v7
@@ -144,5 +156,7 @@ jobs:
             /tmp/flutter_tools.*/flutter_ios_build_temp_dir/*.xcresult
             ios/Podfile.lock
             build/ios/simulator-launch.log
+            build/ios/storekit-tests.log
+            build/ios/storekit-tests.xcresult
           if-no-files-found: ignore
           retention-days: 7

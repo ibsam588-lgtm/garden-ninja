@@ -24,7 +24,8 @@ final class AdPrivacyBridge: NSObject, ChoiceCmpDelegate, CCPADelegate {
 
   private static func networkConsents(_ allowed: Bool) -> [String: NSNumber] {
     ["UnityAds": NSNumber(value: allowed), "Chartboost": NSNumber(value: allowed),
-     "Facebook": NSNumber(value: allowed)]
+     "Facebook": NSNumber(value: allowed), "InMobi": NSNumber(value: allowed),
+     "Vungle": NSNumber(value: allowed)]
   }
 
   init(messenger: FlutterBinaryMessenger) {
@@ -144,6 +145,8 @@ final class AdPrivacyBridge: NSObject, ChoiceCmpDelegate, CCPADelegate {
       self.consents = [
         "UnityAds": NSNumber(value: !self.gdprApplies || (personalized && gdprData.vendor.consents["1549"] == true)),
         "Chartboost": NSNumber(value: !self.gdprApplies || (personalized && gdprData.vendor.consents["1601"] == true)),
+        "InMobi": NSNumber(value: !self.gdprApplies || (personalized && gdprData.vendor.consents["333"] == true)),
+        "Vungle": NSNumber(value: !self.gdprApplies || (personalized && gdprData.vendor.consents["667"] == true)),
         // Meta is not an IAB vendor in this property's vendor list. Never
         // manufacture a consent grant from another network's consent.
         "Facebook": NSNumber(value: !self.gdprApplies)
