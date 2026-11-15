@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from configure_google_purchase import product_payload, verify_product
+from configure_google_purchase import BASE, PRODUCT, configure, product_payload, verify_product
 
 
 class StoreCatalogTests(unittest.TestCase):
@@ -58,6 +58,53 @@ class StoreCatalogTests(unittest.TestCase):
         product["purchaseOptions"][0]["buyOption"]["legacyCompatible"] = False
         with self.assertRaises(ValueError):
             verify_product(product)
+
+    def test_catalog_reads_use_the_documented_case_and_do_not_rewrite_active_product(self):
+        product = copy.deepcopy(self.product)
+        product["purchaseOptions"][0]["state"] = "ACTIVE"
+        calls = []
+
+        class Response:
+            status_code = 200
+            ok = True
+            content = b"response"
+            def json(self):
+                return product
+
+        class Session:
+            def request(self, method, url, **kwargs):
+                calls.append((method, url))
+                return Response()
+
+        configure(Session(), apply=True)
+        self.assertEqual(calls, [("GET", f"{BASE}/oneTimeProducts/{PRODUCT}")])
+
+    def test_activation_rechecks_the_same_documented_read_route(self):
+        product = copy.deepcopy(self.product)
+        option = product["purchaseOptions"][0]
+        option["state"] = "DRAFT"
+        calls = []
+
+        class Response:
+            status_code = 200
+            ok = True
+            content = b"response"
+            def json(self):
+                return product
+
+        class Session:
+            def request(self, method, url, **kwargs):
+                calls.append((method, url))
+                if method == "POST":
+                    option["state"] = "ACTIVE"
+                return Response()
+
+        configure(Session(), apply=True)
+        self.assertEqual(calls, [
+            ("GET", f"{BASE}/oneTimeProducts/{PRODUCT}"),
+            ("POST", f"{BASE}/oneTimeProducts/{PRODUCT}/purchaseOptions:batchUpdateStates"),
+            ("GET", f"{BASE}/oneTimeProducts/{PRODUCT}"),
+        ])
         product = copy.deepcopy(self.product)
         us = next(r for r in product["purchaseOptions"][0]["regionalPricingAndAvailabilityConfigs"] if r["regionCode"] == "US")
         us["availability"] = "AVAILABLE_FOR_OFFERS_ONLY"

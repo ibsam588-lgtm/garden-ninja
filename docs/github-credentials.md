@@ -64,7 +64,9 @@ its platform-specific LevelPlay application/ad-unit identifiers at build time.
 GitHub also issues an ephemeral `GITHUB_TOKEN` to each Actions run. It is not one
 of the eight stored repository secrets. Workflows declare its job permissions:
 Apple jobs read repository contents, while Android release jobs can also write
-the existing version metadata. Checkout and artifact operations use this token.
+the existing version metadata. Checkout and GitHub API operations use this token.
+Artifact upload uses the separate, automatically issued `ACTIONS_RUNTIME_TOKEN`;
+it is also ephemeral and is not one of the stored repository secrets.
 
 The Android Play licensing **public verification key** is a source constant in
 `PurchaseProofVerifier.kt`. It verifies Google's signed Remove Ads purchase JSON
