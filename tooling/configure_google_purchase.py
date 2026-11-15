@@ -42,6 +42,8 @@ def product_payload(conversion):
 
 
 def verify_product(product):
+    if not isinstance(product, dict):
+        raise ValueError("Google has not returned the product; check catalog propagation before continuing")
     if product.get("packageName") != PACKAGE or product.get("productId") != PRODUCT:
         raise ValueError("Unexpected app or product in store response")
     options = product["purchaseOptions"]
@@ -78,8 +80,10 @@ def configure(session, apply=False):
             raise RuntimeError(f"Google Play catalog {method} failed: HTTP {response.status_code}. {detail}")
         return response.json() if response.content else {}
 
-    path = f"/onetimeproducts/{PRODUCT}"
-    product = request("GET", path)
+    # Google's published API uses different casing for GET and PATCH.
+    read_path = f"/oneTimeProducts/{PRODUCT}"
+    write_path = f"/onetimeproducts/{PRODUCT}"
+    product = request("GET", read_path)
     if product:
         option = verify_product(product)
         print(f"Existing approved product: {PRODUCT}; option={option.get('state')}")
@@ -88,7 +92,7 @@ def configure(session, apply=False):
         return
     else:
         conversion = request("POST", "/pricing:convertRegionPrices", json={"price": USD_PRICE})
-        product = request("PATCH", path, params={
+        product = request("PATCH", write_path, params={
             "allowMissing": "true", "updateMask": "listings,purchaseOptions",
             "regionsVersion.version": conversion["regionVersion"]["version"],
         }, json=product_payload(conversion))
@@ -100,7 +104,7 @@ def configure(session, apply=False):
                 "packageName": PACKAGE, "productId": PRODUCT, "purchaseOptionId": OPTION,
             }}],
         })
-        product = request("GET", path)
+        product = request("GET", read_path)
         option = verify_product(product)
         if option.get("state") != "ACTIVE":
             raise RuntimeError("Purchase option was not confirmed ACTIVE")
