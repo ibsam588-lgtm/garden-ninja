@@ -61,7 +61,7 @@ incompatible billing setup and leaves unrelated products untouched.
   deliveries; they do not promote Android to production or submit Apple App Review.
 - Catalog tooling subsequently passed 25 Python tests. Its corrections and these
   documentation changes do not match native build/upload path filters.
-- Signed release inspection confirmed the local `.storekit` test catalog is absent
+- Release artifact inspection confirmed the local `.storekit` test catalog is absent
   from the shipped app. Apple reported the product review screenshot **COMPLETE**.
 
 The remaining acceptance work is real Play sandbox purchase testing and signed
