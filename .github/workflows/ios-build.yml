@@ -81,9 +81,10 @@ jobs:
           retention-days: 30
 
       - name: Launch game on iPhone simulator
-        timeout-minutes: 8
+        timeout-minutes: 12
         run: |
           DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,re,sys; devices=json.load(sys.stdin)["devices"]; runtimes=sorted((r for r in devices if ".iOS-" in r), key=lambda r: tuple(map(int,re.findall(r"\d+",r))), reverse=True); print(next(d["udid"] for r in runtimes for d in devices[r] if d["name"].startswith("iPhone")))')
+          echo "IOS_TEST_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
           capture_screen() {
             python3 - "$DEVICE_ID" <<'PY'
           import subprocess, sys
@@ -106,15 +107,23 @@ jobs:
             > build/ios/simulator-launch.log 2>&1 &
           SIMULATOR_CONSOLE_PID=$!
           trap 'kill "$SIMULATOR_CONSOLE_PID" 2>/dev/null || true' EXIT
-          for attempt in {1..90}; do
+          # Cold iOS 26 runners can spend several minutes loading system
+          # frameworks before Dart starts. Still require the real frame marker.
+          for attempt in {1..150}; do
             if [ -s "$FRAME_MARKER" ]; then break; fi
             sleep 2
           done
           cat build/ios/simulator-launch.log
           if [ ! -s "$FRAME_MARKER" ]; then
             capture_screen || true
-            echo '::error::Garden Ninja did not render its first frame'
-            exit 1
+            # Screenshot capture can complete after the first frame arrives.
+            # Refresh the data-container path and check again before failing.
+            APP_DATA=$(xcrun simctl get_app_container "$DEVICE_ID" com.corsairlabs.gardenNinja data)
+            FRAME_MARKER="$APP_DATA/tmp/garden_ninja_first_frame"
+            if [ ! -s "$FRAME_MARKER" ]; then
+              echo '::error::Garden Ninja did not render its first frame'
+              exit 1
+            fi
           fi
           echo 'Garden Ninja rendered its first frame'
           # Inspect the already-running app instead of launching it twice.
@@ -125,6 +134,17 @@ jobs:
           # sending a signal. Avoid launchctl inside the simulated device.
           kill -0 "$APP_PID"
           capture_screen
+
+      - name: Test native StoreKit purchase, restore and refund
+        timeout-minutes: 12
+        run: |
+          set -o pipefail
+          xcrun simctl terminate "$IOS_TEST_DEVICE_ID" com.corsairlabs.gardenNinja || true
+          xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner \
+            -destination "id=$IOS_TEST_DEVICE_ID" -only-testing:RunnerTests \
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES \
+            -resultBundlePath build/ios/storekit-tests.xcresult \
+            2>&1 | tee build/ios/storekit-tests.log
 
       - name: Upload launch screenshot
         if: always()
@@ -144,5 +164,7 @@ jobs:
             /tmp/flutter_tools.*/flutter_ios_build_temp_dir/*.xcresult
             ios/Podfile.lock
             build/ios/simulator-launch.log
+            build/ios/storekit-tests.log
+            build/ios/storekit-tests.xcresult
           if-no-files-found: ignore
           retention-days: 7

@@ -1,0 +1,36 @@
+name: Configure approved Remove Ads product
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Create and activate the approved permanent USD 2.99 product
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: garden-ninja-store-product
+  cancel-in-progress: false
+
+jobs:
+  google-product:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r tooling/store-purchases-requirements.txt
+      - name: Verify or configure approved Google Play product
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          APPLY_PRODUCT: ${{ inputs.apply }}
+        run: |
+          args=()
+          if [ "$APPLY_PRODUCT" = "true" ]; then args+=(--apply); fi
+          python tooling/configure_google_purchase.py "${args[@]}"

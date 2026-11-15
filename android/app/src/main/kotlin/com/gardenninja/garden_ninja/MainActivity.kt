@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Base64
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -20,6 +21,20 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "garden_ninja/purchase_verification")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "verifyGooglePurchase") {
+                    result.notImplemented()
+                } else {
+                    val verified = try {
+                        val data = call.argument<String>("data") ?: ""
+                        val signature = Base64.decode(call.argument<String>("signature") ?: "", Base64.DEFAULT)
+                        val key = Base64.decode(PurchaseProofVerifier.publicKey, Base64.DEFAULT)
+                        PurchaseProofVerifier.verify(data, signature, key)
+                    } catch (_: Exception) { false }
+                    result.success(verified)
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, reviewChannelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {

@@ -48,6 +48,7 @@ class AdService {
   static bool _initStarted = false;
   static bool _sdkInitialized = false;
   static bool _privacyPending = false;
+  static bool _automaticAdsSuppressed = true;
   static Future<void> _privacyReset = Future<void>.value();
   static _LevelPlayInterstitialAdHandle? _interstitial;
   static _LevelPlayRewardedAdHandle? _rewarded;
@@ -65,15 +66,41 @@ class AdService {
       _mobileSupported &&
       _runtimeEnabled;
   static bool get hasBannerAds =>
-      shouldShowAds && _bannerAdUnitId.trim().isNotEmpty;
+      shouldShowAds &&
+      !_automaticAdsSuppressed &&
+      _bannerAdUnitId.trim().isNotEmpty;
   static bool get hasInterstitialAds =>
-      shouldShowAds && _interstitialAdUnitId.trim().isNotEmpty;
+      shouldShowAds &&
+      !_automaticAdsSuppressed &&
+      _interstitialAdUnitId.trim().isNotEmpty;
   static bool get hasRewardedAds =>
       shouldShowAds && _rewardedAdUnitId.trim().isNotEmpty;
   static bool get isInterstitialReady =>
       hasInterstitialAds && (_interstitial?.isReady ?? false);
   static bool get isRewardedReady =>
       hasRewardedAds && (_rewarded?.isReady ?? false);
+
+  /// Remove automatic ads at the service boundary, including preloaded ads.
+  /// Rewarded videos stay opt-in and retain their existing verified rewards.
+  static void setAutomaticAdsSuppressed(bool suppressed) {
+    if (_automaticAdsSuppressed == suppressed) return;
+    _automaticAdsSuppressed = suppressed;
+    if (suppressed) {
+      _interstitialRetryTimer?.cancel();
+      final old = _interstitial;
+      _interstitial = null;
+      if (old != null) {
+        unawaited(
+          old.dispose().catchError(
+            (Object error) => _log('Interstitial cleanup: $error'),
+          ),
+        );
+      }
+    } else if (_runtimeEnabled) {
+      _preloadInterstitial();
+    }
+    _notifyAvailability();
+  }
 
   static Future<void> initialize() async {
     if (_initStarted || isSuppressedForStoreScreenshots || !_mobileSupported) {
@@ -127,6 +154,7 @@ class AdService {
       await LevelPlayPrivacySettings.setCOPPA(levelPlayChildDirected);
       await LevelPlay.setMetaData({
         'CHARTBOOST_COPPA': [levelPlayChildDirected ? 'YES' : 'NO'],
+        'Vungle_coppa': [levelPlayChildDirected ? 'true' : 'false'],
       });
       await LevelPlay.setAdaptersDebug(levelPlayTestSuite);
       if (levelPlayTestSuite) {
@@ -394,7 +422,7 @@ class _GardenNinjaBannerAdState extends State<GardenNinjaBannerAd> {
   }
 
   void _loadBanner() {
-    if (!mounted || !_platformReady) {
+    if (!mounted || !_platformReady || !AdService.hasBannerAds) {
       return;
     }
     unawaited(
@@ -522,6 +550,7 @@ class _LevelPlayInterstitialAdHandle
         AdService._log('Interstitial placement "$placementName" is capped.');
         return false;
       }
+      if (_disposed || !AdService.hasInterstitialAds) return false;
       _showing = true;
       _loadGate.consume();
       onStateChanged();

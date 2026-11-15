@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A71C01302F00000100000001 /* GardenNinjaPurchases.storekit in Resources */ = {isa = PBXBuildFile; fileRef = A71C01302F00000100000002 /* GardenNinjaPurchases.storekit */; };
 		A71C01102F00000100000001 /* GameCenterBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71C01102F00000100000002 /* GameCenterBridge.swift */; };
 		A71C01202F00000100000001 /* AdPrivacyBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71C01202F00000100000002 /* AdPrivacyBridge.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
@@ -43,6 +44,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A71C01302F00000100000002 /* GardenNinjaPurchases.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = GardenNinjaPurchases.storekit; sourceTree = "<group>"; };
 		A71C01102F00000100000002 /* GameCenterBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterBridge.swift; sourceTree = "<group>"; };
 		A71C01202F00000100000002 /* AdPrivacyBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdPrivacyBridge.swift; sourceTree = "<group>"; };
 		A71C01102F00000100000003 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
@@ -80,6 +82,7 @@
 			isa = PBXGroup;
 			children = (
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
+				A71C01302F00000100000002 /* GardenNinjaPurchases.storekit */,
 			);
 			path = RunnerTests;
 			sourceTree = "<group>";
@@ -225,6 +228,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A71C01302F00000100000001 /* GardenNinjaPurchases.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
