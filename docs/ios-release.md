@@ -65,17 +65,19 @@ review is never cancelled or expired. The configured tester receives a first
 invitation only when an attached build is approved; invited/accepted testers
 are not emailed again. This never creates App Store Connect staff access.
 
-The workflow uses repository variables `IOS_TESTFLIGHT_GROUP_ID` and
-`IOS_TESTFLIGHT_TESTER_EMAILS`, in addition to the existing Apple CI key.
-The latter is an explicit comma-separated allowlist for first invitations.
+The workflow uses repository variable `IOS_TESTFLIGHT_GROUP_ID` and encrypted
+secret `IOS_TESTFLIGHT_TESTER_EMAILS`, in addition to the existing Apple CI key.
+The secret is an explicit comma-separated allowlist for first invitations.
 GitHub cron jobs can start late; Apple's `autoNotifyEnabled` is the immediate
 approval handoff. App Store production review remains the explicit operation
 in the release workflow.
 
 ### Store screenshots and preview
 
-`store-assets/apple/manifest.json` maps current-game captures to 12 supported
-iPhone/iPad screenshot types, plus native Apple preview files when available.
+`store-assets/apple/manifest.json` maps 48 English current-game screenshots to
+12 supported iPhone/iPad display types. Two native iOS gameplay recordings supply
+three preview slots: the two modern iPhone display groups and 13-inch iPad. All 51 Apple
+asset resources were uploaded and verified COMPLETE on 2026-11-15.
 `publish-apple-media.yml` uploads media-only pushes without rebuilding either
 app, validates the bundle/version, preserves screenshot ordering, and verifies
 Apple's asset checksums and processing states. It does not submit App Review.
@@ -95,8 +97,15 @@ UI or Google Play call to action is used in Apple's preview.
 The published Google Play video is
 [the Corsair Labs trailer](https://www.youtube.com/watch?v=fLmL-XDmO8c).
 Apple accepts uploaded 15–30 second App Preview files, not a YouTube URL in
-that slot. The existing YouTube trailer is also saved as the Apple listing’s Marketing URL.
+that slot. The Apple Marketing URL points to
+[Garden Ninja’s developer page](https://corsairlabs.com/garden-ninja), which embeds
+that same trailer. Keeping the developer domain also preserves discovery of the
+root app-ads.txt seller file.
 Native iOS recordings use the same harvest/arcade gameplay theme.
+Download both capture artifacts, then run `tooling/encode_apple_previews.py` with
+`--iphone` and `--ipad` paths. It removes the recorder's opening warm-up and
+encodes real gameplay as 15–30 second H.264/AAC clips without test crosshairs.
+The encoder also updates the media manifest for the automated uploader.
 [Apple's video requirements](https://developer.apple.com/help/app-store-connect/reference/app-information/app-preview-specifications).
 
 ### GitHub configuration
@@ -134,7 +143,7 @@ Credentials are not exposed to pull-request workflows.
 1. Merge game changes into main. Once enabled, each relevant main change is
    signed and sent to TestFlight automatically. Apple build numbers are chosen
    from the latest uploaded build for that version; release jobs run serially.
-2. For the first upload, use **Actions â†’ Deploy iOS to Apple â†’ Run workflow**,
+2. For the first upload, use **Actions > Deploy iOS to Apple > Run workflow**,
    branch **main**, operation **upload_testflight**. Leave the version blank to
    read it from `pubspec.yaml`. A missing configuration fails with field names
    instead of silently producing an unsigned release.
@@ -298,13 +307,19 @@ Three deprecated `Color.value` conversions use `toARGB32()` with the same output
 Android PR builds reject the original KGP warning; Apple PR builds still compile
 and launch the app. `pub outdated` upgrade suggestions are not deprecations.
 
-### Upstream Swift Package Manager advisory
+### Swift Package Manager compatibility
 
-Flutter 3.44.2 prints a future-compatibility advisory for the LevelPlay Flutter
-wrapper during native integration tests, including when SwiftPM is explicitly
-disabled. The wrapper's latest published 9.5.0 release and its official master
-branch contain no Package.swift as of 2026-11-14. The native LevelPlay SDK itself
-supports SwiftPM, but the Flutter wrapper still needs a proper migration.
-Garden Ninja deliberately uses the verified CocoaPods integration; no placeholder
-Swift manifest or warning suppression is used. This advisory is still outstanding,
-while current device, simulator and store-upload builds are supported.
+The official Flutter wrapper's latest 9.5.0 release still lacks Package.swift as
+of 2026-11-15. The vendored wrapper now supplies a real SwiftPM package pinned
+to Unity's official native LevelPlay 9.4.0, matching its existing CocoaPods SDK.
+Both managers share the same Objective-C sources and native-ad templates;
+template lookup resolves each manager's resource bundle.
+
+Production keeps the existing CocoaPods mediation adapters. The separate
+`LevelPlay SwiftPM compatibility` check compiles an isolated consumer, calls the
+actual native SDK bridge, verifies its first frame and packaged native-ad NIBs.
+Garden Ninja's normal CocoaPods device build, simulator build and launch also
+passed. The iOS-only main merge automatically uploaded 1.1.7 (6), which Apple
+processed as VALID. Its upload log no longer contains the former SwiftPM,
+Kotlin-plugin or Node-runtime deprecation warnings. No warning suppression or
+placeholder manifest is used.
