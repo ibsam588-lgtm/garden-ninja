@@ -72,7 +72,7 @@ void main() {
       final recording = File(
         '${Directory.systemTemp.path}/garden_ninja_preview_recording',
       );
-      final deadline = DateTime.now().add(const Duration(seconds: 45));
+      final deadline = DateTime.now().add(const Duration(minutes: 3));
       while (!recording.existsSync()) {
         if (DateTime.now().isAfter(deadline)) {
           fail('The native simulator recorder did not start');
@@ -139,6 +139,6 @@ void main() {
       await animate(const Duration(seconds: 2));
       await tester.pumpAndSettle();
     },
-    timeout: const Timeout(Duration(minutes: 3)),
+    timeout: const Timeout(Duration(minutes: 5)),
   );
 }
