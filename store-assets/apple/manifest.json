@@ -170,5 +170,27 @@
       ]
     }
   ],
-  "previews": []
+  "previews": [
+    {
+      "locale": "en-US",
+      "display_type": "IPHONE_61",
+      "files": [
+        "previews/en-US/iphone-gameplay.mp4"
+      ]
+    },
+    {
+      "locale": "en-US",
+      "display_type": "IPHONE_67",
+      "files": [
+        "previews/en-US/iphone-gameplay.mp4"
+      ]
+    },
+    {
+      "locale": "en-US",
+      "display_type": "IPAD_PRO_3GEN_129",
+      "files": [
+        "previews/en-US/ipad-gameplay.mp4"
+      ]
+    }
+  ]
 }
