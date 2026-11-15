@@ -14,6 +14,14 @@ registrations and three iOS placement mappings. The last verified dashboard had
 four configured iOS bidders. Meta requires a public Apple store URL; Chartboost
 remains in developer mode before release. Check serving on a registered iPhone.
 
+The six-network iOS build compiled, launched in the simulator, uploaded through
+GitHub Actions as **1.1.7 (7)** and was processed by Apple as **VALID**. The signed
+app contains the native adapters; this does not demonstrate live ad fill.
+InMobi's account dashboard showed **Pending Verification**. InMobi/Liftoff app
+registrations and placement mappings were not completed: browser control was
+stopped with the physical Escape key after their sign-ins. No other apps'
+inventory or payout settings were changed.
+
 The [Remove Ads purchase](in-app-purchases.md) disables banners and automatic
 interstitials, including preloaded ads. Rewarded videos remain optional. Startup
 restore completes before automatic ads are eligible.

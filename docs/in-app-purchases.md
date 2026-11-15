@@ -37,13 +37,36 @@ price, automatic local equivalents, availability and review screenshot were set.
 Apple reported **READY_TO_SUBMIT**, and the screenshot **COMPLETE**. The first
 purchase must accompany the app's App Review submission; it is not approved for sale.
 
-Google requires a billing-enabled upload before product setup. After the internal
-build uploads, run **Configure approved Remove Ads product** on `main` with
-`apply=false` to inspect, then `apply=true` to create and activate the approved buy
-option. This manual operation uses `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`; a normal
-push never changes prices. It refuses to replace a different app, SKU, price,
-rental option or multi-quantity product and leaves unrelated products untouched.
-It performs no customer purchase.
+Google product `garden_ninja_remove_ads` was confirmed **ACTIVE** on 2026-11-15,
+after Android's first billing-enabled build **10064** uploaded to internal testing.
+The verified buy option is permanent, single-quantity, legacy-compatible and
+available in the US at **US$2.99**, with Google's localized pricing equivalents.
+[The read-only catalog verification](https://github.com/ibsam588-lgtm/garden-ninja/actions/runs/43759522586)
+succeeded. No customer purchase was performed.
+
+For later inspection, run **Configure approved Remove Ads product** on `main`
+with `apply=false`; `apply=true` creates/activates the approved option when needed.
+It uses `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`. A normal push never changes prices.
+The tool refuses a different app, SKU, price, rental/multi-quantity option or
+incompatible billing setup and leaves unrelated products untouched.
+
+## Verified delivery (2026-11-15)
+
+- [PR 74](https://github.com/ibsam588-lgtm/garden-ninja/pull/74) merged after all
+  checks passed: 74 Flutter tests, five native Android verification tests,
+  Android release, iPhone/iPad release, simulator launch and a native StoreKit
+  purchase → finish → restore → refund test with zero failures.
+- GitHub uploaded **Android 10064** to Play internal testing and **iOS 1.1.7 (7)**
+  to App Store Connect. Apple reported build 7 **VALID**. These are testing
+  deliveries; they do not promote Android to production or submit Apple App Review.
+- Catalog tooling subsequently passed 25 Python tests. Its corrections and these
+  documentation changes do not match native build/upload path filters.
+- Release artifact inspection confirmed the local `.storekit` test catalog is absent
+  from the shipped app. Apple reported the product review screenshot **COMPLETE**.
+
+The remaining acceptance work is real Play sandbox purchase testing and signed
+device ad-fill checks. No Android device was attached in this session. Apple's
+first IAP still needs its normal App Review submission with a supported app build.
 
 ## Verification and acceptance
 

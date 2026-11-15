@@ -59,6 +59,11 @@ For iPhone/iPad builds, simulator installation, iOS ads and signing, see
 [the iOS setup guide](docs/ios-release.md). The iOS build workflow also creates
 unsigned device and simulator artifacts without an Apple Developer account.
 
+See [Remove Ads purchases](docs/in-app-purchases.md) for store setup, restore
+behavior, verification and testing. [GitHub credentials](docs/github-credentials.md)
+lists every stored secret/variable and its purpose, without exposing values.
+Documentation-only updates do not trigger app builds or store uploads.
+
 ## Checks
 
 ```bash

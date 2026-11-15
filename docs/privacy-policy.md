@@ -1,6 +1,6 @@
 # Garden Ninja Privacy Policy
 
-Effective date: November 14, 2026
+Effective date: November 15, 2026
 
 Garden Ninja is published by Corsair Labs. This policy covers Android package `com.gardenninja.garden_ninja` and iOS bundle `com.corsairlabs.gardenNinja`.
 
@@ -23,6 +23,14 @@ is separate: declining it does not block the game. You can change Apple's
 permission in the device's Privacy & Security settings under Tracking.
 Consent records are stored on the device and processed under InMobi's
 [CMP privacy policy](https://www.inmobi.com/privacy-policy).
+
+The optional one-time Remove Ads purchase is processed by Apple App Store or
+Google Play, under the store's terms and privacy policy. The app verifies store
+ownership and keeps the entitlement or signed purchase proof on the device so
+it can restore ad removal. Corsair Labs does not receive payment card or bank
+details or operate a purchase-verification server. Restoring requires the same
+store account; purchases do not transfer between Apple and Google. Store
+providers handle payment records, purchase history and refund requests.
 
 ## Google Play Games Services
 
