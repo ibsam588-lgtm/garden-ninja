@@ -45,7 +45,7 @@ final class RunnerTests: XCTestCase {
     XCTAssertTrue(restoredOwnership)
     XCTAssertEqual(session.allTransactions().count, 1)
 
-    try session.refundTransaction(identifier: Int(transaction.id))
+    try session.refundTransaction(identifier: UInt(transaction.id))
     var refunded = false
     for _ in 0..<30 {
       if !(await ownsRemoveAds()) { refunded = true; break }

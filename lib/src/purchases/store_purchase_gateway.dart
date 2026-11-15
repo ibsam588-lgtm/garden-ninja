@@ -131,7 +131,12 @@ class StorePurchaseGateway implements PurchaseGateway {
 
   Future<void> _complete(PurchaseDetails purchase) async {
     if (purchase.pendingCompletePurchase) {
-      await InAppPurchase.instance.completePurchase(purchase);
+      try {
+        await InAppPurchase.instance.completePurchase(purchase);
+      } catch (_) {
+        // A temporary acknowledgement failure does not invalidate verified
+        // ownership. The next ownership query/restore retries completion.
+      }
     }
   }
 

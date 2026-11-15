@@ -134,7 +134,7 @@ jobs:
           xcrun simctl terminate "$IOS_TEST_DEVICE_ID" com.corsairlabs.gardenNinja || true
           xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner \
             -destination "id=$IOS_TEST_DEVICE_ID" -only-testing:RunnerTests \
-            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO \
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES \
             -resultBundlePath build/ios/storekit-tests.xcresult \
             2>&1 | tee build/ios/storekit-tests.log
 
