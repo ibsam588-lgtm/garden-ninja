@@ -1,10 +1,11 @@
-# Proposed iOS App Privacy declaration
+# Published iOS App Privacy declaration
 
 App: Garden Ninja: Harvest & Slice (`com.corsairlabs.gardenNinja`).
-Prepared 2026-11-14 for Game Center and LevelPlay with ironSource, Unity Ads,
-Meta Audience Network and Chartboost. Publication awaits explicit approval.
+Approved by the owner and published in App Store Connect on 2026-11-14 for
+Game Center and LevelPlay with ironSource, Unity Ads, Meta Audience Network
+and Chartboost. All 13 data types below were configured before publication.
 
-Answer **Yes, we collect data from this app**, including third-party SDK data.
+Published answer: **Yes, we collect data from this app**, including third-party SDK data.
 The purpose names below are Apple's App Functionality, Analytics, and
 Third-Party Advertising. Tracking is subject to the player's ATT authorization;
 declaring tracking does not grant permission or override a refusal.

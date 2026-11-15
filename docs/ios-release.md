@@ -152,6 +152,23 @@ LevelPlay, but Meta reports **Missing app URL** until this iOS app is public:
 - Interstitial: `28274733552202027_28342553838753331`
 - Rewarded: `28274733552202027_28342600555415326`
 
+Chartboost's separate **Garden Ninja iOS** app is `6af8f452cb4558547efa93b3`.
+Its COPPA responsibility acknowledgment was accepted with the owner's approval;
+the app remains classified as not directed to children under 13. These bidding
+locations are saved in Chartboost and mapped to LevelPlay's All Countries groups:
+
+| Format | Chartboost location | LevelPlay instance |
+| --- | --- | --- |
+| Banner | `GardenNinja_iOS_Banner` | `Chartboost_iOS_Banner` |
+| Interstitial | `GardenNinja_iOS_Interstitial` | `Chartboost_iOS_Interstitial` |
+| Rewarded | `GardenNinja_iOS_Rewarded` | `Chartboost_iOS_Rewarded` |
+
+The app signature is stored in LevelPlay and must not be committed. LevelPlay
+now reports four configured networks for each iOS ad unit. Chartboost explicitly
+reports **Developer Mode** until this app is connected to a live App Store listing;
+configured inventory does not establish live delivery. The public developer
+seller file also includes the verified direct entry `ironsrc.com, 676359, DIRECT`.
+
 The Podfile includes LevelPlay SDK 9.4.0 through Flutter, Meta adapter 5.4.0.0
 (FAN 6.22.0), Chartboost adapter 5.10.0.0, and Unity Ads adapter 5.9.0.0
 (Unity Ads 4.19.0). Their native integration is separate from network approval
@@ -195,8 +212,9 @@ matching non-IAB vendor consent. US opt-outs are forwarded to LevelPlay.
 Info.plist contains 185 unique SKAdNetwork IDs from the official
 [Unity list](https://skan.mz.unity3d.com/v3/partner/skadnetworks.plist.json) and
 [Chartboost list](https://a3.chartboost.com/skadnetworkids.json), fetched on
-2026-11-14, including ironSource and Meta IDs. Apple's proposed privacy answers
-are recorded in `docs/ios-app-privacy.md`; their publication requires approval.
+2026-11-14, including ironSource and Meta IDs. The owner-approved Apple privacy
+answers in `docs/ios-app-privacy.md` were published in App Store Connect on
+2026-11-14. Device ID and Advertising Data are the two declared tracking types.
 Test all three ad formats and privacy-choice changes on a signed iPhone.
 
 ## When an Apple account is ready
