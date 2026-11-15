@@ -9,7 +9,11 @@ on:
       - 'lib/**'
       - 'assets/**'
       - 'pubspec.*'
+      - 'third_party/**/lib/**'
+      - 'third_party/**/pubspec.yaml'
+      - 'third_party/**/android/**'
       - 'fastlane/Fastfile'
+      - 'fastlane/android/**'
       - 'fastlane/Appfile'
       - 'fastlane/metadata/android/*/changelogs/**'
       - 'Gemfile*'
@@ -57,13 +61,13 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
 
@@ -209,7 +213,7 @@ jobs:
       GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
       PROMOTE_VERSION_CODE: ${{ inputs.version_code }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate production selection
         env:
           RELEASE_REF: ${{ github.ref }}

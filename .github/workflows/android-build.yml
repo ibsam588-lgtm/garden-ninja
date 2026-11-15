@@ -1,0 +1,48 @@
+name: Android build
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'lib/**'
+      - 'assets/**'
+      - 'pubspec.*'
+      - 'third_party/**/android/**'
+      - 'third_party/**/lib/**'
+      - 'third_party/**/pubspec.yaml'
+      - '.github/workflows/android-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.2'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Compile Android release and verify the Kotlin migration
+        run: |
+          flutter build appbundle --release 2>&1 | tee android-build.log
+          if rg 'plugins that apply Kotlin Gradle Plugin|Future versions of Flutter will fail' android-build.log; then
+            echo '::error::An Android plugin still applies the deprecated Kotlin Gradle Plugin'
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: android-build-log
+          path: android-build.log
+          retention-days: 14

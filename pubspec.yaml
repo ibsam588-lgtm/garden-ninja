@@ -36,12 +36,15 @@ dependencies:
   cupertino_icons: ^1.0.8
   audioplayers: ^6.8.1
   shared_preferences: ^2.5.5
-  in_app_update: ^4.2.5
+  in_app_update: ^5.0.0
   flutter_local_notifications: ^22.0.1
   timezone: ^0.11.1
-  unity_levelplay_mediation: 9.2.0
+  unity_levelplay_mediation:
+    path: third_party/unity_levelplay_mediation
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to

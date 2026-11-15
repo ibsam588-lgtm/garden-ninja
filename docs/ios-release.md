@@ -27,10 +27,16 @@ Automatic releases use the changed file paths:
 
 | Changed files | Android upload | iOS upload |
 | --- | --- | --- |
-| `android/**`, Android Fastlane settings/changelogs, Android release workflow | Yes | No |
-| `ios/**`, Apple release settings/workflow | No | Yes |
+| `android/**`, `fastlane/android/**`, Android settings/changelogs/workflow | Yes | No |
+| `ios/**`, `fastlane/ios/**`, Apple release settings/workflow | No | Yes |
 | Shared `lib/**`, `assets/**`, `pubspec.*`, `fastlane/Fastfile`, `Gemfile*` | Yes | Yes |
 | Documentation, tests, or store screenshots/listing text alone | No | No |
+
+The platform lane files are imported by the shared `fastlane/Fastfile`; edits to
+`fastlane/ios/**` therefore trigger only Apple uploads, and edits to
+`fastlane/android/**` trigger only Google uploads. Native files in the vendored
+LevelPlay package follow the same rule; its shared Dart/pubspec files affect both.
+The routing regression test covers 31 native, shared and non-release paths.
 
 An iOS-only pull request also skips Android deployment. The lightweight Flutter
 analysis/tests still run on pull requests; the native iOS build check runs only
@@ -48,6 +54,50 @@ the signing team, saves the IPA/dSYMs and uploads through Fastlane/Transporter.
 The API key avoids interactive Apple ID/2FA sessions on CI. An upload is not an
 App Store publication: Apple processes it for TestFlight first. External beta
 testing can require Beta App Review and export-compliance information.
+
+### Automatic external testing
+
+`testflight-distribution.yml` runs after a successful Apple upload and hourly
+while Apple processes or reviews builds. It attaches the latest valid build to
+Garden Ninja Playtest, enables Apple's post-approval notifications, and submits
+it for external beta review when the queue is free. A build already waiting for
+review is never cancelled or expired. The configured tester receives a first
+invitation only when an attached build is approved; invited/accepted testers
+are not emailed again. This never creates App Store Connect staff access.
+
+The workflow uses repository variables `IOS_TESTFLIGHT_GROUP_ID` and
+`IOS_TESTFLIGHT_TESTER_EMAILS`, in addition to the existing Apple CI key.
+The latter is an explicit comma-separated allowlist for first invitations.
+GitHub cron jobs can start late; Apple's `autoNotifyEnabled` is the immediate
+approval handoff. App Store production review remains the explicit operation
+in the release workflow.
+
+### Store screenshots and preview
+
+`store-assets/apple/manifest.json` maps current-game captures to 12 supported
+iPhone/iPad screenshot types, plus native Apple preview files when available.
+`publish-apple-media.yml` uploads media-only pushes without rebuilding either
+app, validates the bundle/version, preserves screenshot ordering, and verifies
+Apple's asset checksums and processing states. It does not submit App Review.
+
+Recreate the screenshots with:
+
+```powershell
+flutter test test/store_media/apple_store_capture_test.dart --dart-define=CAPTURE_APPLE_STORE=true --dart-define=STORE_SCREENSHOTS=true --dart-define=APP_STORE_ID=6834694197
+python tooling/prepare_apple_screenshots.py
+```
+
+The harness renders the shipped Flutter widgets/assets at each exact resolution.
+The explicit `Capture Apple store gameplay` workflow separately records actual
+iOS simulator play on iPhone and iPad via an integration test. No Android system
+UI or Google Play call to action is used in Apple's preview.
+
+The published Google Play video is
+[the Corsair Labs trailer](https://www.youtube.com/watch?v=fLmL-XDmO8c).
+Apple accepts uploaded 15–30 second App Preview files, not a YouTube URL in
+that slot. The existing YouTube trailer is also saved as the Apple listing’s Marketing URL.
+Native iOS recordings use the same harvest/arcade gameplay theme.
+[Apple's video requirements](https://developer.apple.com/help/app-store-connect/reference/app-information/app-preview-specifications).
 
 ### GitHub configuration
 
@@ -236,3 +286,14 @@ References: [Flutter iOS deployment](https://docs.flutter.dev/deployment/ios),
 [LevelPlay Flutter mediation](https://docs.unity.com/en-us/grow/levelplay/sdk/flutter/mediation-networks),
 [Unity's SKAdNetwork list](https://docs.unity.com/en-us/grow/levelplay/sdk/ios/skadnetwork-id-manager),
 [Apple review guidance](https://developer.apple.com/documentation/StoreKit/requesting-app-store-reviews).
+
+## Deprecation audit (2026-11-14)
+
+Upload logs identified Node 20 action runtimes and Flutter's old Kotlin-plugin
+warning. First-party actions use current Node 24 releases. The update plugin
+is upgraded to official `in_app_update 5.0.0`. The verified LevelPlay 9.2.0
+package is vendored with a small documented Gradle migration because even the
+official 9.5.0 package still applies KGP. Its native ad SDK versions are unchanged.
+Three deprecated `Color.value` conversions use `toARGB32()` with the same output.
+Android PR builds reject the original KGP warning; Apple PR builds still compile
+and launch the app. `pub outdated` upgrade suggestions are not deprecations.

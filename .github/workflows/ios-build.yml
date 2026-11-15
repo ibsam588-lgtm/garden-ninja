@@ -8,9 +8,13 @@ on:
       - 'lib/**'
       - 'assets/**'
       - 'pubspec.*'
+      - 'third_party/**/lib/**'
+      - 'third_party/**/pubspec.yaml'
+      - 'third_party/**/ios/**'
       - '.github/workflows/ios-build.yml'
       - '.github/workflows/deploy-app-store.yml'
       - 'fastlane/Fastfile'
+      - 'fastlane/ios/**'
       - 'tooling/ios_release_config.py'
   workflow_dispatch:
 
@@ -27,7 +31,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -66,7 +70,7 @@ jobs:
         run: tar -C build/ios/iphonesimulator -czf build/ios/garden-ninja-ios-simulator.tar.gz Runner.app
 
       - name: Upload iOS builds
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: garden-ninja-ios-${{ github.run_number }}
           path: |
@@ -124,7 +128,7 @@ jobs:
 
       - name: Upload launch screenshot
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: garden-ninja-ios-preview-${{ github.run_number }}
           path: build/ios/iphone-launch.png
@@ -133,7 +137,7 @@ jobs:
 
       - name: Upload Xcode diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: garden-ninja-ios-diagnostics
           path: |

@@ -1,0 +1,6 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # Public constant names are part of the upstream SDK API.
+    constant_identifier_names: false
