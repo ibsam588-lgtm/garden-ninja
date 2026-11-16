@@ -74,12 +74,6 @@ jobs:
           DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; phones=[d for r,items in devices.items() if r.endswith(".iOS-27-0") for d in items if d["name"].startswith("iPhone")]; assert phones, "The pinned iOS 27.0 simulator runtime is required"; print(next((d["udid"] for d in phones if d["name"] == "iPhone 18 Pro"), phones[0]["udid"]))')
           echo "IOS_TEST_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
 
-      - name: Configure simulator and diagnose destination
-        timeout-minutes: 20
-        run: |
-          flutter build ios --simulator --debug --config-only --dart-define=IOS_LAUNCH_PROBE=true
-          python3 tooling/diagnose_simulator_destination.py --device "$IOS_TEST_DEVICE_ID"
-
       - name: Build iPhone simulator
         env:
           APP_STORE_ID: ${{ vars.APP_STORE_ID }}
@@ -88,6 +82,7 @@ jobs:
             --dart-define="APP_STORE_ID=$APP_STORE_ID"
           # Fail before boot/install if a dependency forces an unusable Intel app.
           lipo -verify_arch arm64 build/ios/iphonesimulator/Runner.app/Runner
+          python3 tooling/check_apple_sdk.py --sdk-version "$(xcrun --sdk iphonesimulator --show-sdk-version)" --app-plist build/ios/iphonesimulator/Runner.app/Info.plist
 
       - name: Compile native StoreKit tests for Apple Silicon
         timeout-minutes: 12
@@ -98,8 +93,10 @@ jobs:
             -destination 'generic/platform=iOS Simulator' -testPlan RunnerTests -only-testing:RunnerTests \
             -derivedDataPath build/ios/storekit-derived-data \
             ARCHS=arm64 ONLY_ACTIVE_ARCH=NO SUPPORTED_PLATFORMS=iphonesimulator CODE_SIGNING_ALLOWED=NO \
+            SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) DEBUG NATIVE_STOREKIT_TEST' \
             2>&1 | tee build/ios/storekit-build.log
           lipo -verify_arch arm64 build/ios/storekit-derived-data/Build/Products/Debug-iphonesimulator/Runner.app/Runner
+          cp ios/RunnerTests/GardenNinjaPurchases.storekit build/ios/storekit-derived-data/Build/Products/Debug-iphonesimulator/Runner.app/GardenNinjaPurchases.storekit
           python3 - <<'PY'
           import os
           from pathlib import Path
@@ -111,7 +108,7 @@ jobs:
               output.write(f'IOS_XCTESTRUN={configs[0].resolve()}\n')
           PY
 
-      - name: Verify simulator destination before boot
+      - name: Verify effective simulator settings
         timeout-minutes: 3
         run: |
           xcodebuild -showBuildSettings -json -workspace ios/Runner.xcworkspace -scheme Runner \
@@ -133,12 +130,6 @@ jobs:
               if 'iphonesimulator' not in (item['SUPPORTED_PLATFORMS'] or '').split():
                   raise SystemExit(f"{item['target']} does not support the selected simulator platform")
           PY
-          # Resolve the concrete target only after recording effective settings.
-          xcodebuild -showBuildSettings -workspace ios/Runner.xcworkspace -scheme Runner \
-            -sdk iphonesimulator -configuration Debug \
-            -destination "platform=iOS Simulator,id=$IOS_TEST_DEVICE_ID,arch=arm64" \
-            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO SUPPORTED_PLATFORMS=iphonesimulator CODE_SIGNING_ALLOWED=NO \
-            > /dev/null
 
       - name: Package simulator build
         run: tar -C build/ios/iphonesimulator -czf build/ios/garden-ninja-ios-simulator.tar.gz Runner.app
@@ -205,17 +196,13 @@ jobs:
         run: |
           set -o pipefail
           xcrun simctl terminate "$IOS_TEST_DEVICE_ID" com.corsairlabs.gardenNinja || true
-          # The normal launch probe has no local StoreKit session. Start tests
-          # with a fresh app container and read the plan directly: .xctestrun
-          # exports omit its StoreKit configuration on Xcode 27.
+          # Use Apple's compiled-test runner. Its host initializes the local
+          # store before eager Flutter purchase clients register.
           xcrun simctl uninstall "$IOS_TEST_DEVICE_ID" com.corsairlabs.gardenNinja
-          xcodebuild test-without-building -workspace ios/Runner.xcworkspace -scheme Runner \
-            -testPlan RunnerTests -sdk iphonesimulator -configuration Debug \
-            -derivedDataPath build/ios/storekit-derived-data \
-            -destination "platform=iOS Simulator,id=$IOS_TEST_DEVICE_ID,arch=arm64" -only-testing:RunnerTests \
+          xcodebuild test-without-building -xctestrun "$IOS_XCTESTRUN" \
+            -destination "platform=iOS Simulator,id=$IOS_TEST_DEVICE_ID" -only-testing:RunnerTests \
             -parallel-testing-enabled NO \
             -resultBundlePath build/ios/storekit-tests.xcresult \
-            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO SUPPORTED_PLATFORMS=iphonesimulator CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee build/ios/storekit-tests.log
           python3 - <<'PY'
           import re
@@ -237,7 +224,6 @@ jobs:
             build/ios/simulator-launch.log
             build/ios/storekit-build.log
             build/ios/simulator-build-settings.json
-            build/ios/destination-probes/
             build/ios/storekit-tests.log
             build/ios/storekit-tests.xcresult
             build/ios/storekit-derived-data/Build/Products/*.xctestrun

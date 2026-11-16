@@ -345,18 +345,21 @@ before booting the device.
 [Flutter stable hotfixes](https://github.com/flutter/flutter/blob/3.47.9/CHANGELOG.md).
 All project configurations explicitly support iPhoneOS and iPhoneSimulator.
 Native StoreKit tests are built for the generic Apple Silicon simulator with
-`build-for-testing`, then executed with `test-without-building` against the same
-workspace, scheme, test plan and derived-data directory on the booted iPhone.
-The `.xctestrun` export alone omits StoreKit configuration in Xcode 27, so it is
-retained as diagnostic evidence rather than used as the execution input. The
-launch-probe app is uninstalled before XCTest to give purchases a fresh container.
+`build-for-testing`, then executed on the booted iPhone using Apple's compiled
+`.xctestrun` configuration and `test-without-building`. The launch-probe app is
+uninstalled before XCTest to give purchases a fresh container. The simulator
+test host initializes its local `SKTestSession` before registering Flutter
+plugins, so eager purchase clients select the test store before making requests.
+This initialization requires the explicit `NATIVE_STOREKIT_TEST` compiler flag
+and a simulator Debug build; regular app launches do not enable it.
 Binary architecture checks and the named purchase/restore/refund assertions must
 still execute and pass.
 [Apple's two-phase test workflow](https://developer.apple.com/library/archive/technotes/tn2339/_index.html).
 The native `RunnerTests.xctestplan` explicitly selects the local StoreKit file
 for XCTest launches. Debug Run selects the same fixture for interactive Xcode
-testing. The fixture belongs only to the test bundle; App Store archives continue
-using Apple's store. Native tests run serially and assert the `.xcode` transaction
+testing. CI also copies the fixture into the compiled simulator test host.
+Signed archive checks reject the fixture or a linked StoreKitTest framework in
+the shipping app. Native tests run serially and assert the `.xcode` transaction
 environment before checking purchase, restore and refund entitlements. A failed
 purchase assertion returns before restore can open an unrelated sandbox sign-in.
 [Apple's local StoreKit setup](https://developer.apple.com/documentation/xcode/setting-up-storekit-testing-in-xcode).

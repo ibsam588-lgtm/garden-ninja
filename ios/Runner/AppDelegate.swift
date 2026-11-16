@@ -1,11 +1,17 @@
 import Flutter
 import UIKit
 import StoreKit
+#if DEBUG && NATIVE_STOREKIT_TEST && targetEnvironment(simulator)
+import StoreKitTest
+#endif
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var gameCenter: GameCenterBridge?
   private var adPrivacy: AdPrivacyBridge?
+  #if DEBUG && NATIVE_STOREKIT_TEST && targetEnvironment(simulator)
+  private var nativeStoreKitSession: SKTestSession?
+  #endif
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -14,6 +20,20 @@ import StoreKit
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    #if DEBUG && NATIVE_STOREKIT_TEST && targetEnvironment(simulator)
+    // Hosted XCTest starts after plugin registration. Select the local store
+    // first, so eager purchase clients never cache the sandbox environment.
+    guard let fixture = Bundle.main.url(forResource: "GardenNinjaPurchases", withExtension: "storekit") else {
+      fatalError("Native StoreKit tests require their local product fixture")
+    }
+    do {
+      nativeStoreKitSession = try SKTestSession(contentsOf: fixture)
+      nativeStoreKitSession?.disableDialogs = true
+      NSLog("STOREKIT_FIXTURE_READY_BEFORE_PLUGINS")
+    } catch {
+      fatalError("Unable to initialize the native test store: \(error)")
+    }
+    #endif
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
 
     let messenger = engineBridge.applicationRegistrar.messenger()

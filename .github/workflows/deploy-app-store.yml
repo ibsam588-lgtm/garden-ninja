@@ -153,6 +153,11 @@ jobs:
               files[0].rename(destination)
           PY
           codesign --verify --deep --strict build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
+          # Local StoreKit fixtures/frameworks are exclusive to simulator tests.
+          test ! -e build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/GardenNinjaPurchases.storekit
+          if otool -L build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Runner | grep -q StoreKitTest; then
+            echo '::error::A test-only StoreKit framework must never ship'; exit 1
+          fi
           python3 tooling/check_apple_sdk.py --sdk-version "$(xcrun --sdk iphoneos --show-sdk-version)" --app-plist build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Info.plist
           test "$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:SigningIdentity' build/ios/archive/Runner.xcarchive/Info.plist)" != '-'
           SIGNING_TEAM=$(codesign -d --verbose=4 build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app 2>&1 | sed -n 's/^TeamIdentifier=//p')
