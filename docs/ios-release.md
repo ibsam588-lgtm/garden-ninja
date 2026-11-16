@@ -82,6 +82,9 @@ it for external beta review when the queue is free. A build already waiting for
 review is never cancelled or expired. The configured tester receives a first
 invitation only when an attached build is approved; invited/accepted testers
 are not emailed again. This never creates App Store Connect staff access.
+Apple's exact temporary “Please try again later” review response is recorded as
+an unconfirmed deferral for the next hourly sync. Other submission validation or
+authorization failures still fail the job; no unapproved build triggers invitations.
 
 The workflow uses repository variable `IOS_TESTFLIGHT_GROUP_ID` and encrypted
 secret `IOS_TESTFLIGHT_TESTER_EMAILS`, in addition to the existing Apple CI key.

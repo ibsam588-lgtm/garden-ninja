@@ -4,6 +4,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from testflight_sync import sync
+from apple_api import AppleError
 
 
 class FakeApple:
@@ -77,6 +78,32 @@ class TestFlightSyncTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "belong to Garden Ninja"):
             sync(api, "app", "wrong-group", set(), emit=lambda _: None)
         self.assertEqual(api.mutations, [])
+
+    def test_transient_review_response_defers_without_inviting_or_claiming_submission(self):
+        class DeferredApple(FakeApple):
+            def request(self, method, path, payload=None):
+                if method == "POST" and path == "/v1/betaAppReviewSubmissions":
+                    raise AppleError(422, "Please try again later.")
+                return super().request(method, path, payload)
+
+        api = DeferredApple({"3": "READY_FOR_BETA_SUBMISSION"})
+        messages = []
+        sync(api, "app", "group", {"approved@example.com"}, emit=messages.append)
+        self.assertTrue(any("Submission is not confirmed" in m for m in messages))
+        self.assertFalse(any("Submitted the processed build" in m for m in messages))
+        self.assertEqual(api.mutations, [])
+
+    def test_other_review_errors_are_not_treated_as_temporary_deferrals(self):
+        for status, detail in ((422, "Missing review contact"), (403, "Not authorized")):
+            class RejectedApple(FakeApple):
+                def request(self, method, path, payload=None):
+                    if method == "POST" and path == "/v1/betaAppReviewSubmissions":
+                        raise AppleError(status, detail)
+                    return super().request(method, path, payload)
+
+            with self.subTest(status=status, detail=detail):
+                with self.assertRaises(AppleError):
+                    self.run_sync(RejectedApple({"3": "READY_FOR_BETA_SUBMISSION"}))
 
 
 if __name__ == "__main__":
