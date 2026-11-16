@@ -328,11 +328,11 @@ References: [Flutter iOS deployment](https://docs.flutter.dev/deployment/ios),
 
 Validation and uploads pin the runner image's default Xcode 27.1, with native
 tests on its installed iOS 27.0 iPhone runtime. SDK/deployment guards still enforce
-SDK 27 or newer and an iOS 15 minimum. Xcode 27.2 rejected concrete iPhone
-destinations in this project despite correct effective simulator SDK/platform/
-architecture settings, while generic compilation and `simctl` launch succeeded.
-Keep the compiler/runtime pair reproducible rather than selecting a moving
-`latest-stable` toolchain. All native test assertions remain required.
+SDK 27 or newer and an iOS 15 minimum in both the compiled app/framework and the
+signed archive. Flutter derives framework deployment metadata during the build,
+so archive checks inspect the compiled framework instead of its source template.
+The compiler/runtime pair is pinned for reproducibility. All native test
+assertions remain required.
 [Runner image toolchains](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md).
 
 The iOS workers use Flutter 3.47.9, which includes upstream Xcode 27 simulator

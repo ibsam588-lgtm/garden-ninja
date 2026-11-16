@@ -7,7 +7,12 @@ bundle `com.corsairlabs.gardenNinja`.
 
 - Source minimum deployment target is iOS 15. New iOS validation/uploads use
   `xcode-27` and reject older SDKs; signed archive metadata is checked before
-  upload. See the latest Mobile Release run for actual compiled/uploaded evidence.
+  upload. Version 1.1.7 (9) was signed with SDK 27.1 and uploaded on 2026-11-16.
+  [Native validation passed](https://github.com/ibsam588-lgtm/garden-ninja/actions/runs/43853897778),
+  including launch and StoreKit purchase/restore/refund. The
+  [merged iOS-only delivery passed](https://github.com/ibsam588-lgtm/garden-ninja/actions/runs/43856969472);
+  Android and public App Review jobs were skipped. Apple accepted build 9 as
+  VALID with an iOS 15.0 minimum; its internal state is IN_BETA_TESTING.
 - LevelPlay is the mediation layer. All six providers have separate iOS mappings
   for banner, interstitial and rewarded. Public-listing/verification/test-mode
   restrictions remain provider-side; see `levelplay-ad-setup.md`.
