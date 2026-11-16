@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:garden_ninja/src/ads/ad_load_gate.dart';
+import 'package:garden_ninja/src/ads/ad_age_range.dart';
 import 'package:garden_ninja/src/ads/levelplay_config.dart';
 import 'package:unity_levelplay_mediation/unity_levelplay_mediation.dart';
 
@@ -45,6 +46,14 @@ class AdService {
   static const String _defaultPlacement = 'Default';
 
   static bool _runtimeEnabled = false;
+  static AdAgeRange? _ageRange;
+  static bool get requiresAgeChoice =>
+      _mobileSupported && !isSuppressedForStoreScreenshots;
+
+  // Set once by the startup gate, before the game or any SDK is created.
+  static void setAgeRange(AdAgeRange range) => _ageRange = range;
+  static bool get canOfferAdRemoval =>
+      !requiresAgeChoice || _ageRange?.allowsAds == true;
   static bool _initStarted = false;
   static bool _sdkInitialized = false;
   static bool _privacyPending = false;
@@ -64,6 +73,7 @@ class AdService {
       !isSuppressedForStoreScreenshots &&
       !levelPlayTestSuite &&
       _mobileSupported &&
+      _ageRange?.allowsAds == true &&
       _runtimeEnabled;
   static bool get hasBannerAds =>
       shouldShowAds &&
@@ -103,7 +113,10 @@ class AdService {
   }
 
   static Future<void> initialize() async {
-    if (_initStarted || isSuppressedForStoreScreenshots || !_mobileSupported) {
+    if (_initStarted ||
+        isSuppressedForStoreScreenshots ||
+        !_mobileSupported ||
+        _ageRange?.allowsAds != true) {
       return;
     }
     _initStarted = true;
@@ -153,6 +166,9 @@ class AdService {
       }
       await LevelPlayPrivacySettings.setCOPPA(levelPlayChildDirected);
       await LevelPlay.setMetaData({
+        'InMobi_AgeRestricted': [
+          _ageRange!.inMobiAgeRestricted ? 'true' : 'false',
+        ],
         'CHARTBOOST_COPPA': [levelPlayChildDirected ? 'YES' : 'NO'],
         'Vungle_coppa': [levelPlayChildDirected ? 'true' : 'false'],
       });
@@ -220,7 +236,11 @@ class AdService {
   }
 
   static Future<bool> showPrivacyOptions() async {
-    if (!Platform.isIOS || isSuppressedForStoreScreenshots) return false;
+    if (!Platform.isIOS ||
+        isSuppressedForStoreScreenshots ||
+        _ageRange?.allowsAds != true) {
+      return false;
+    }
     try {
       return await _iosPrivacy.invokeMethod<bool>('showPrivacyOptions', {
             'requestTracking': !levelPlayChildDirected,
