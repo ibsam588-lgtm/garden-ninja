@@ -2630,6 +2630,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             .toDouble();
     _lastElapsed = elapsed;
 
+    // A required store update must freeze an in-progress arcade round too.
+    if (_forceUpdateVisible) return;
+
     // The new garden owns its animation and lifecycle. Do not tick legacy
     // growth, weeds or daily rewards while playing harvest challenges.
     if (_phase == GamePhase.garden) return;
