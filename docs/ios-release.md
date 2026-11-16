@@ -324,6 +324,18 @@ References: [Flutter iOS deployment](https://docs.flutter.dev/deployment/ios),
 
 ## Deprecation audit (2026-11-14)
 
+### Apple Silicon simulator tool fix (2026-11-16)
+
+Flutter 3.44.2's architecture detection matches `arm64e` as if it were `arm64`.
+IronSourceAdQuality legitimately excludes arm64e; all six current ad SDKs remain
+included. The first Xcode 27 check compiled an Intel-only simulator app that the
+ARM-only iOS 27 simulator rejected. The iOS jobs now apply the exact one-line
+[upstream Flutter correction](https://github.com/flutter/flutter/pull/184057)
+to their ephemeral pinned SDK and invalidate its compiled tool cache. Real arm64
+exclusions still fail validation; the build asserts an arm64 app before install.
+No ad adapter or launch/purchase assertion is skipped. Local Macs using the same
+SDK can run `python3 tooling/fix_flutter_simulator_arch.py --flutter-root /path/to/flutter`.
+
 Upload logs identified Node 20 action runtimes and Flutter's old Kotlin-plugin
 warning. First-party actions use current Node 24 releases. The update plugin
 is upgraded to official `in_app_update 5.0.0`. The verified LevelPlay 9.2.0

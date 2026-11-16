@@ -110,6 +110,9 @@ jobs:
           channel: stable
           cache: false
 
+      - name: Apply upstream Flutter simulator architecture fix
+        run: python3 tooling/fix_flutter_simulator_arch.py --flutter-root "$FLUTTER_ROOT"
+
       - name: Verify Flutter game
         run: |
           flutter pub get

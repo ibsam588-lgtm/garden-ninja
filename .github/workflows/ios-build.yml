@@ -38,6 +38,9 @@ jobs:
           channel: stable
           cache: false
 
+      - name: Apply upstream Flutter simulator architecture fix
+        run: python3 tooling/fix_flutter_simulator_arch.py --flutter-root "$FLUTTER_ROOT"
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -59,6 +62,13 @@ jobs:
           ruby -c ios/Podfile
           ruby -c fastlane/Fastfile
 
+      - name: Start iPhone simulator while compiling
+        run: |
+          mkdir -p build/ios
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,re,sys; devices=json.load(sys.stdin)["devices"]; runtimes=sorted((r for r in devices if ".iOS-" in r), key=lambda r: tuple(map(int,re.findall(r"\d+",r))), reverse=True); print(next(d["udid"] for r in runtimes for d in devices[r] if d["name"].startswith("iPhone")))')
+          echo "IOS_TEST_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$DEVICE_ID" > build/ios/simulator-boot.log 2>&1 &
+
       - name: Build unsigned iPhone and iPad release
         run: flutter build ios --release --no-codesign
 
@@ -68,9 +78,11 @@ jobs:
       - name: Build iPhone simulator
         env:
           APP_STORE_ID: ${{ vars.APP_STORE_ID }}
-        run: >-
-          flutter build ios --simulator --debug --dart-define=IOS_LAUNCH_PROBE=true
-          --dart-define="APP_STORE_ID=$APP_STORE_ID"
+        run: |
+          flutter build ios --simulator --debug --dart-define=IOS_LAUNCH_PROBE=true \
+            --dart-define="APP_STORE_ID=$APP_STORE_ID"
+          # Fail before boot/install if a dependency forces an unusable Intel app.
+          lipo -verify_arch arm64 build/ios/iphonesimulator/Runner.app/Runner
 
       - name: Package simulator build
         run: tar -C build/ios/iphonesimulator -czf build/ios/garden-ninja-ios-simulator.tar.gz Runner.app
@@ -89,9 +101,7 @@ jobs:
       - name: Launch game on iPhone simulator
         timeout-minutes: 12
         run: |
-          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,re,sys; devices=json.load(sys.stdin)["devices"]; runtimes=sorted((r for r in devices if ".iOS-" in r), key=lambda r: tuple(map(int,re.findall(r"\d+",r))), reverse=True); print(next(d["udid"] for r in runtimes for d in devices[r] if d["name"].startswith("iPhone")))')
-          echo "IOS_TEST_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
-          xcrun simctl boot "$DEVICE_ID"
+          DEVICE_ID="$IOS_TEST_DEVICE_ID"
           xcrun simctl bootstatus "$DEVICE_ID" -b
           echo 'Installing the compiled simulator app'
           xcrun simctl install "$DEVICE_ID" build/ios/iphonesimulator/Runner.app
@@ -106,7 +116,7 @@ jobs:
             > build/ios/simulator-launch.log 2>&1 &
           SIMULATOR_CONSOLE_PID=$!
           trap 'kill "$SIMULATOR_CONSOLE_PID" 2>/dev/null || true' EXIT
-          # Cold iOS 26 runners can spend several minutes loading system
+          # Cold iOS 27 runners can spend several minutes loading system
           # frameworks before Dart starts. Still require the real frame marker.
           for attempt in {1..150}; do
             if [ -s "$FRAME_MARKER" ]; then break; fi
@@ -150,6 +160,7 @@ jobs:
           path: |
             /tmp/flutter_tools.*/flutter_ios_build_temp_dir/*.xcresult
             ios/Podfile.lock
+            build/ios/simulator-boot.log
             build/ios/simulator-launch.log
             build/ios/storekit-tests.log
             build/ios/storekit-tests.xcresult
