@@ -2,6 +2,25 @@ import StoreKit
 import StoreKitTest
 import XCTest
 
+// iOS 27 may bind the first purchase connection to Sandbox. Initialize the
+// local test daemon in a separate process, then run the full assertions in a
+// fresh process on the same installed app/simulator. No purchases are bypassed.
+@available(iOS 17.0, *)
+@MainActor
+final class StoreKitPreflightTests: XCTestCase {
+  func testInitializesLocalStoreKitSession() async throws {
+    let file = try XCTUnwrap(Bundle(for: Self.self).url(
+      forResource: "GardenNinjaPurchases", withExtension: "storekit"))
+    let session = try SKTestSession(contentsOf: file)
+    session.resetToDefaultState()
+    session.clearTransactions()
+    session.disableDialogs = true
+    let products = try await Product.products(for: ["garden_ninja_remove_ads"])
+    XCTAssertEqual(products.first?.id, "garden_ninja_remove_ads")
+    XCTAssertEqual(products.first?.type, .nonConsumable)
+  }
+}
+
 @available(iOS 17.0, *)
 @MainActor
 final class RunnerTests: XCTestCase {

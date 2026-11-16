@@ -347,17 +347,18 @@ All project configurations explicitly support iPhoneOS and iPhoneSimulator.
 Native StoreKit tests are built for the generic Apple Silicon simulator with
 `build-for-testing`, then executed on the booted iPhone using Apple's compiled
 `.xctestrun` configuration and `test-without-building`. The launch-probe app is
-uninstalled before XCTest to give purchases a fresh container. The simulator
-test host initializes its local `SKTestSession` before registering Flutter
-plugins, so eager purchase clients select the test store before making requests.
-This initialization requires the explicit `NATIVE_STOREKIT_TEST` compiler flag
-and a simulator Debug build; regular app launches do not enable it.
+uninstalled before XCTest to give purchases a fresh container. A separate
+preflight test process initializes `SKTestSession` and verifies the fixture's
+product. A second process on the same simulator runs all purchase assertions
+without uninstalling the app or resetting its store configuration. This follows
+[RevenueCat's iOS 27 CI setup](https://github.com/RevenueCat/purchases-ios/blob/main/fastlane/Fastfile)
+for the first process's cached Sandbox connection. App startup has no test hooks.
 Binary architecture checks and the named purchase/restore/refund assertions must
 still execute and pass.
 [Apple's two-phase test workflow](https://developer.apple.com/library/archive/technotes/tn2339/_index.html).
 The native `RunnerTests.xctestplan` explicitly selects the local StoreKit file
 for XCTest launches. Debug Run selects the same fixture for interactive Xcode
-testing. CI also copies the fixture into the compiled simulator test host.
+testing. The fixture is included only in the native test bundle.
 Signed archive checks reject the fixture or a linked StoreKitTest framework in
 the shipping app. Native tests run serially and assert the `.xcode` transaction
 environment before checking purchase, restore and refund entitlements. A failed

@@ -93,10 +93,8 @@ jobs:
             -destination 'generic/platform=iOS Simulator' -testPlan RunnerTests -only-testing:RunnerTests \
             -derivedDataPath build/ios/storekit-derived-data \
             ARCHS=arm64 ONLY_ACTIVE_ARCH=NO SUPPORTED_PLATFORMS=iphonesimulator CODE_SIGNING_ALLOWED=NO \
-            SWIFT_ACTIVE_COMPILATION_CONDITIONS='$(inherited) DEBUG NATIVE_STOREKIT_TEST' \
             2>&1 | tee build/ios/storekit-build.log
           lipo -verify_arch arm64 build/ios/storekit-derived-data/Build/Products/Debug-iphonesimulator/Runner.app/Runner
-          cp ios/RunnerTests/GardenNinjaPurchases.storekit build/ios/storekit-derived-data/Build/Products/Debug-iphonesimulator/Runner.app/GardenNinjaPurchases.storekit
           python3 - <<'PY'
           import os
           from pathlib import Path
@@ -191,16 +189,34 @@ jobs:
           # sending a signal. Avoid launchctl inside the simulated device.
           kill -0 "$APP_PID"
 
-      - name: Test native StoreKit purchase, restore and refund
+      - name: Initialize local StoreKit in a separate test process
         timeout-minutes: 12
         run: |
           set -o pipefail
           xcrun simctl terminate "$IOS_TEST_DEVICE_ID" com.corsairlabs.gardenNinja || true
-          # Use Apple's compiled-test runner. Its host initializes the local
-          # store before eager Flutter purchase clients register.
           xcrun simctl uninstall "$IOS_TEST_DEVICE_ID" com.corsairlabs.gardenNinja
           xcodebuild test-without-building -xctestrun "$IOS_XCTESTRUN" \
-            -destination "platform=iOS Simulator,id=$IOS_TEST_DEVICE_ID" -only-testing:RunnerTests \
+            -destination "platform=iOS Simulator,id=$IOS_TEST_DEVICE_ID" \
+            -only-testing:RunnerTests/StoreKitPreflightTests -parallel-testing-enabled NO \
+            -resultBundlePath build/ios/storekit-preflight.xcresult \
+            2>&1 | tee build/ios/storekit-preflight.log
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          log = Path('build/ios/storekit-preflight.log').read_text()
+          if not re.search(r"Test [Cc]ase .*testInitializesLocalStoreKitSession.* passed", log):
+              raise SystemExit('Local StoreKit initialization did not execute and pass')
+          PY
+
+      - name: Test native StoreKit purchase, restore and refund
+        timeout-minutes: 12
+        run: |
+          set -o pipefail
+          # Keep the installed app and simulator state from the preflight. A
+          # fresh process picks up XcodeTest instead of the cached Sandbox store.
+          xcodebuild test-without-building -xctestrun "$IOS_XCTESTRUN" \
+            -destination "platform=iOS Simulator,id=$IOS_TEST_DEVICE_ID" \
+            -only-testing:RunnerTests/RunnerTests \
             -parallel-testing-enabled NO \
             -resultBundlePath build/ios/storekit-tests.xcresult \
             2>&1 | tee build/ios/storekit-tests.log
@@ -226,6 +242,8 @@ jobs:
             build/ios/simulator-build-settings.json
             build/ios/storekit-tests.log
             build/ios/storekit-tests.xcresult
+            build/ios/storekit-preflight.log
+            build/ios/storekit-preflight.xcresult
             build/ios/storekit-derived-data/Build/Products/*.xctestrun
           if-no-files-found: ignore
           retention-days: 7

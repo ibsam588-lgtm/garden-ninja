@@ -33,7 +33,12 @@ def main():
     parser.add_argument('--sdk-version', required=True)
     parser.add_argument('--app-plist', type=Path)
     args = parser.parse_args()
-    framework = plistlib.loads((ROOT / 'ios/Flutter/AppFrameworkInfo.plist').read_bytes())
+    # Flutter 3.47 removes MinimumOSVersion from the source template and derives
+    # it from the deployment setting when building App.framework. Validate the
+    # compiled framework alongside the compiled app, never the migrated template.
+    framework_path = (args.app_plist.parent / 'Frameworks/App.framework/Info.plist'
+                      if args.app_plist else ROOT / 'ios/Flutter/AppFrameworkInfo.plist')
+    framework = plistlib.loads(framework_path.read_bytes())
     app = plistlib.loads(args.app_plist.read_bytes()) if args.app_plist else None
     validate(args.sdk_version, (ROOT / 'ios/Runner.xcodeproj/project.pbxproj').read_text(), framework, app)
     print(f'Apple SDK {args.sdk_version}: deployment targets and archive meet the SDK 27 / iOS 15 minimums.')
