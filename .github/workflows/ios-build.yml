@@ -75,7 +75,7 @@ jobs:
           echo "IOS_TEST_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
 
       - name: Configure simulator and diagnose destination
-        timeout-minutes: 15
+        timeout-minutes: 20
         run: |
           flutter build ios --simulator --debug --config-only --dart-define=IOS_LAUNCH_PROBE=true
           python3 tooling/diagnose_simulator_destination.py --device "$IOS_TEST_DEVICE_ID"
@@ -159,7 +159,8 @@ jobs:
         run: |
           # Boot after compilation to avoid memory contention on standard runners.
           DEVICE_ID="$IOS_TEST_DEVICE_ID"
-          xcrun simctl boot "$DEVICE_ID"
+          DEVICE_STATE=$(xcrun simctl list devices -j | python3 -c 'import json,os,sys; devices=json.load(sys.stdin)["devices"]; print(next(d["state"] for items in devices.values() for d in items if d["udid"] == os.environ["IOS_TEST_DEVICE_ID"]))')
+          if [ "$DEVICE_STATE" = Shutdown ]; then xcrun simctl boot "$DEVICE_ID"; fi
           xcrun simctl bootstatus "$DEVICE_ID" -b
           echo 'Installing the compiled simulator app'
           xcrun simctl install "$DEVICE_ID" build/ios/iphonesimulator/Runner.app

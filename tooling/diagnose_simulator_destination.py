@@ -57,7 +57,15 @@ def main():
     probe('generated-info', ['GENERATE_INFOPLIST_FILE=YES', 'INFOPLIST_FILE='])
     probe('without-signing-metadata', ['CODE_SIGN_ENTITLEMENTS=', 'DEVELOPMENT_TEAM=', 'CODE_SIGN_STYLE=Manual'])
     probe('without-game-center-capability', ['CODE_SIGN_ENTITLEMENTS='], without_game_center=True)
+    # A stock booted runtime is a valid prerequisite, not a metadata override.
+    # Only accept the unchanged baseline if runtime initialization fixes it.
+    if not any(item['success'] for item in results):
+        subprocess.run(['xcrun', 'simctl', 'boot', args.device], capture_output=True, text=True, timeout=90)
+        subprocess.run(['xcrun', 'simctl', 'bootstatus', args.device, '-b'], check=True, timeout=600)
+        probe('booted-baseline')
     (output / 'summary.json').write_text(json.dumps(results, indent=2) + '\n')
+    if results[-1]['probe'] == 'booted-baseline' and results[-1]['success']:
+        return
     raise SystemExit('Baseline simulator destination is unavailable; diagnostic variants never bypass validation')
 
 
