@@ -1,6 +1,0 @@
-2026-11-15: Publish the mixed-audience age gate for the completed InMobi and
-Liftoff iOS mappings. Provider production activation still needs the public
-Apple listing and device verification.
-
-Update this file with the next iOS release reason when shared code or assets
-should ship to iOS. This selects only iOS validation and TestFlight upload.

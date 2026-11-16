@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   swiftpm:
-    runs-on: macos-15
+    runs-on: xcode-27
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -65,7 +65,6 @@ jobs:
           if not nibs:
               raise RuntimeError('SwiftPM did not package the native-ad resource templates')
           print('SwiftPM bridge called the native SDK, rendered its first frame, and packaged native-ad resources')
-          subprocess.run(['xcrun', 'simctl', 'io', device, 'screenshot', 'spm-launch.png'], check=True)
           PY
       - uses: actions/upload-artifact@v7
         if: always()
@@ -73,5 +72,4 @@ jobs:
           name: levelplay-swiftpm-proof
           path: |
             build/levelplay-spm-smoke/spm-build.log
-            build/levelplay-spm-smoke/spm-launch.png
           retention-days: 14

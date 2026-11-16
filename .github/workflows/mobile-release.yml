@@ -1,0 +1,102 @@
+name: Mobile Release
+
+on:
+  pull_request:
+    branches: [main, master]
+    types: [opened, synchronize, reopened, labeled, unlabeled, closed]
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Select exactly one platform
+        type: choice
+        options: [ios, android]
+        required: true
+      operation:
+        description: Validate, upload to testing, or submit/promote an already tested build
+        type: choice
+        options: [validate, upload, submit_for_review, promote_production]
+        default: validate
+      version:
+        description: Tested Apple app version (App Review only)
+        type: string
+      build_number:
+        description: Tested Apple build number (App Review only)
+        type: string
+      version_code:
+        description: Tested Google internal version code (production promotion only)
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-release-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && !github.event.pull_request.merged }}
+
+jobs:
+  select:
+    name: Select one platform
+    runs-on: ubuntu-latest
+    outputs:
+      platform: ${{ steps.route.outputs.platform }}
+      operation: ${{ steps.route.outputs.operation }}
+      revision: ${{ steps.route.outputs.revision }}
+      branch: ${{ steps.route.outputs.branch }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - id: route
+        run: python tooling/mobile_release_route.py
+
+  validate-ios:
+    name: Validate iOS
+    needs: select
+    if: needs.select.outputs.platform == 'ios' && needs.select.outputs.operation == 'validate'
+    uses: ./.github/workflows/ios-build.yml
+    with:
+      checkout_ref: ${{ needs.select.outputs.revision }}
+
+  validate-android:
+    name: Validate Android
+    needs: select
+    if: needs.select.outputs.platform == 'android' && needs.select.outputs.operation == 'validate'
+    uses: ./.github/workflows/android-build.yml
+    with:
+      checkout_ref: ${{ needs.select.outputs.revision }}
+
+  release-ios:
+    name: Upload or submit iOS
+    needs: select
+    if: needs.select.outputs.platform == 'ios' && contains(fromJSON('["upload","submit_for_review"]'), needs.select.outputs.operation)
+    uses: ./.github/workflows/deploy-app-store.yml
+    with:
+      operation: ${{ needs.select.outputs.operation }}
+      checkout_ref: ${{ needs.select.outputs.revision }}
+      release_branch: ${{ needs.select.outputs.branch }}
+      version: ${{ inputs.version || '' }}
+      build_number: ${{ inputs.build_number || '' }}
+    secrets:
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      IOS_DISTRIBUTION_PRIVATE_KEY: ${{ secrets.IOS_DISTRIBUTION_PRIVATE_KEY }}
+      IOS_TESTFLIGHT_TESTER_EMAILS: ${{ secrets.IOS_TESTFLIGHT_TESTER_EMAILS }}
+
+  release-android:
+    name: Upload or promote Android
+    needs: select
+    if: needs.select.outputs.platform == 'android' && contains(fromJSON('["upload","promote_production"]'), needs.select.outputs.operation)
+    uses: ./.github/workflows/deploy-google-play.yml
+    permissions:
+      contents: write
+    with:
+      checkout_ref: ${{ needs.select.outputs.revision }}
+      release_branch: ${{ needs.select.outputs.branch }}
+      play_track: ${{ needs.select.outputs.operation == 'promote_production' && 'production' || 'internal' }}
+      version_code: ${{ inputs.version_code || '' }}
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}

@@ -22,6 +22,7 @@ import 'package:garden_ninja/src/purchases/remove_ads_panel.dart';
 import 'package:garden_ninja/src/review/play_review_gateway.dart';
 import 'package:garden_ninja/src/review/review_prompt_policy.dart';
 import 'package:garden_ninja/src/review/shared_preferences_review_prompt_store.dart';
+import 'package:garden_ninja/src/updates/ios_store_update.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -818,6 +819,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   bool _audioReady = false;
   bool _musicStartQueued = false;
   bool _forceUpdateCheckInFlight = false;
+  DateTime? _lastIosUpdateCheck;
+  final _iosStoreUpdates = IosStoreUpdateGateway();
   bool _interstitialAdShowing = false;
   bool _rewardedAdLoading = false;
   bool _rewardedAdShowing = false;
@@ -2211,7 +2214,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     unawaited(_initNotifications());
     unawaited(_loadGardenSave());
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_checkForcedPlayUpdate());
+      unawaited(_checkRequiredStoreUpdate());
     });
   }
 
@@ -2288,7 +2291,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         if (_musicEnabled && _phase != GamePhase.paused) {
           unawaited(_musicPlayer.resume());
         }
-        unawaited(_checkForcedPlayUpdate());
+        unawaited(_checkRequiredStoreUpdate());
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
@@ -2307,6 +2310,53 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         unawaited(_musicPlayer.stop());
         break;
     }
+  }
+
+  Future<void> _checkRequiredStoreUpdate() async {
+    if (IosStoreUpdateGateway.supported) {
+      if (_forceUpdateCheckInFlight) return;
+      final now = DateTime.now();
+      if (_forceUpdateState == ForceUpdateState.idle &&
+          _lastIosUpdateCheck != null &&
+          now.difference(_lastIosUpdateCheck!) < const Duration(minutes: 10)) {
+        return;
+      }
+      _forceUpdateCheckInFlight = true;
+      _lastIosUpdateCheck = now;
+      try {
+        final update = await _iosStoreUpdates.check();
+        if (!mounted) return;
+        setState(() {
+          _forceUpdateState = update == null
+              ? ForceUpdateState.idle
+              : ForceUpdateState.blocked;
+          if (update != null) {
+            _forceUpdateMessage =
+                'Garden Ninja ${update.version} is available. '
+                'Update from the App Store to keep playing.';
+          }
+        });
+        if (update != null) unawaited(_musicPlayer.pause());
+      } finally {
+        _forceUpdateCheckInFlight = false;
+      }
+      return;
+    }
+    await _checkForcedPlayUpdate();
+  }
+
+  Future<void> _openRequiredUpdate() async {
+    if (IosStoreUpdateGateway.supported) {
+      final opened = await _iosStoreUpdates.openStore();
+      if (!opened && mounted) {
+        setState(
+          () => _forceUpdateMessage =
+              'Could not open the App Store. Please open it and update Garden Ninja.',
+        );
+      }
+      return;
+    }
+    await _checkForcedPlayUpdate();
   }
 
   Future<void> _checkForcedPlayUpdate() async {
@@ -9987,7 +10037,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                       _PrimaryButton(
                         label: 'UPDATE NOW',
                         icon: Icons.system_update_alt_rounded,
-                        onPressed: _checkForcedPlayUpdate,
+                        onPressed: _openRequiredUpdate,
                       ),
                   ],
                 ),

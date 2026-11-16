@@ -16,50 +16,46 @@ checks that every original has a corresponding Apple file with the right contain
 
 ## Release pipelines
 
-There are two automatic app pipelines. Each pipeline owns its tests, native
-validation and store upload, so a platform update creates one Actions entry:
+**Mobile Release** is the only automatic native release workflow. It runs on
+pull requests to the repository's actual default branch (`main`, also supporting
+`master`). Changed paths never infer a platform, including shared resources.
 
-| Workflow | On main | Manual production operation |
+| PR labels at merge | Validation before merge | Automatic upload on merge |
 | --- | --- | --- |
-| Android pipeline | Analyze/test, build/sign and upload to internal testing | Promote a tested internal version code to production |
-| iOS pipeline | Analyze/test, build/sign and upload to App Store Connect/TestFlight | Submit an exact tested version/build for App Review |
+| `release:ios` | Flutter/Python tests, iOS device/simulator builds and StoreKit checks | iOS to App Store Connect/TestFlight only |
+| `release:android` | Flutter/Python tests, Android/native purchase checks | Android to Google Play internal testing only |
+| Neither label | Lightweight selection job only | None |
+| Both labels | Selection fails; remove one label | None |
 
-On pull requests, that same selected pipeline runs analysis, Flutter/Python
-tests and the native check, without store credentials or uploads. The native
-`ios-build.yml` and `android-build.yml` files are reusable jobs, not separately
-triggered workflows. Standalone **Flutter CI** and **LevelPlay SwiftPM
-compatibility** are manual tools and do not launch for platform pushes.
+Add the selected label **before merging**. The closed/merged PR event builds the
+immutable merge commit, even if later commits reach main while it queues. Closing
+without merging and changing labels after merge cannot upload. An iOS-labelled
+PR containing shared Dart, assets or dependency changes still runs only iOS.
+Ship the same shared change to the other store later with a separately selected
+release. Platform marker files are obsolete. Direct main pushes do not upload.
 
-Native validation and automatic releases use only platform-owned file paths.
-Shared changes do not select a platform:
+The existing native/build/deployment YAML files are reusable helpers called inside
+this one Actions entry. They have no independent push or PR triggers. Flutter CI
+and LevelPlay SwiftPM checks remain manual. TestFlight's hourly distribution
+maintenance can run separately but never compiles or uploads an app.
 
-| Changed files | Android upload | iOS upload |
-| --- | --- | --- |
-| `android/**`, Android native plugin files, `fastlane/android/**`, Android settings/changelogs | Yes | No |
-| `ios/**`, iOS native plugin files, `fastlane/ios/**`, Apple release settings | No | Yes |
-| Shared `lib/**`, `assets/**`, `pubspec.*`, shared plugin Dart/pubspec, `fastlane/Fastfile`, `Gemfile*` | No | No |
-| Workflow configuration, documentation, tests, or store screenshots/listing text alone | No | No |
+For manual operations, choose **Actions > Mobile Release > Run workflow**, select
+one platform and an operation. `validate` compiles/tests without store secrets.
+`upload` uploads the selected platform to testing. Store operations require the
+actual main/master default branch. `submit_for_review` is iOS-only and requires an
+exact tested Apple version/build; `promote_production` is Android-only and requires
+an existing tested internal version code. Neither production operation is automatic.
+Release concurrency never cancels a delivery Apple or Google may have received.
 
-To release shared changes to just one platform, include a change to that
-platform's release marker in the same pull request:
+### April 2027 build requirements
 
-- iOS: update `ios/release-trigger.txt` with the release reason.
-- Android: create or update `android/release-trigger.txt` with the release reason.
-
-An iOS marker plus shared files starts only the iOS native check and, after merge,
-the Apple upload. An Android marker selects only Android. Shared-only pull
-requests start no automatic app workflow; run **Flutter CI** manually for checks.
-Their merge uploads neither store. When ready, change one platform's marker or run its
-deployment workflow on `main`. Markers deliberately compile the latest shared
-code at the selected commit; they do not create separate copies of the game.
-Touch both platforms only when both releases are intended.
-
-An iOS-only pull request also skips Android deployment. Flutter analysis/tests
-run inside the selected platform pipeline. A manual **Run workflow** starts only
-the selected platform's workflow. Workflow-file edits do not select an app release;
-routing tests run inside platform validation (or manual Flutter CI). They cover both native
-pull-request checks and store upload filters, including combined shared/platform
-changes, shared-only changes, documentation and workflow-only changes.
+Apple requires SDK 27+ and a minimum deployment target of iOS/iPadOS 15+ from
+April 2027. The project and older CocoaPods targets are floored at 15.0, retaining
+any newer dependency minimum. iOS workers use GitHub's GA `xcode-27` image and
+`tooling/check_apple_sdk.py` rejects SDKs below 27 or any app target below 15.
+The signed archive is checked again using its compiled Info.plist before upload.
+[Apple requirements](https://developer.apple.com/app-store/submitting/),
+[GitHub Xcode 27 image](https://github.blog/changelog/2026-10-15-xcode-27-runner-image-generally-available/).
 
 The Apple app record is **Garden Ninja: Harvest & Slice**, app ID
 `6834694197`, on team `5MST9WC27Z`:
@@ -99,21 +95,33 @@ in the release workflow.
 12 supported iPhone/iPad display types. Two native iOS gameplay recordings supply
 three preview slots: the two modern iPhone display groups and 13-inch iPad. All 51 Apple
 asset resources were uploaded and verified COMPLETE on 2026-11-15.
-`publish-apple-media.yml` uploads media-only pushes without rebuilding either
-app, validates the bundle/version, preserves screenshot ordering, and verifies
-Apple's asset checksums and processing states. It does not submit App Review.
+All new screenshot rendering, video processing and media uploads are local;
+no GitHub runner creates screenshots or videos. The former media-capture and
+media-publish workflows have been removed. Existing native gameplay recordings
+remain the source for previews, with no Android UI or Google Play calls to action.
 
-Recreate the screenshots with:
+Recreate the screenshots locally:
 
 ```powershell
-flutter test test/store_media/apple_store_capture_test.dart --dart-define=CAPTURE_APPLE_STORE=true --dart-define=STORE_SCREENSHOTS=true --dart-define=APP_STORE_ID=6834694197
+flutter test test/store_media/apple_store_capture_test.dart --dart-define=CAPTURE_APPLE_STORE=true --dart-define=STORE_SCREENSHOTS=true
 python tooling/prepare_apple_screenshots.py
+python tooling/prepare_duo_media.py
 ```
 
 The harness renders the shipped Flutter widgets/assets at each exact resolution.
-The explicit `Capture Apple store gameplay` workflow separately records actual
-iOS simulator play on iPhone and iPad via an integration test. No Android system
-UI or Google Play call to action is used in Apple's preview.
+For just Duo, add `--plain-name "capture DUO_"` to the Flutter command. Its four
+screens per display use opaque RGB images: outer 1398x2034 and inner 2007x2853.
+`store-assets/apple/duo-manifest.json` records the local sources. App Store Connect
+has one Duo media group accepting both display sizes. Its preview uses Apple's
+accepted 886x1920 portrait resolution for **both** displays; do not stretch video
+to screenshot dimensions or upload duplicate clips into that shared group.
+[Apple screenshots](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/),
+[Apple previews](https://developer.apple.com/help/app-store-connect/reference/app-information/app-preview-specifications/).
+
+Upload via the visible App Store Connect media slots, preserving existing assets.
+Standard display types can also use the local `tooling/upload_apple_media.py`
+uploader. Do not guess undocumented Duo API enum values. Recheck Apple's
+processing status after uploading; a local file alone is not a completed upload.
 
 The published Google Play video is
 [the Corsair Labs trailer](https://www.youtube.com/watch?v=fLmL-XDmO8c).
@@ -123,10 +131,10 @@ that slot. The Apple Marketing URL points to
 that same trailer. Keeping the developer domain also preserves discovery of the
 root app-ads.txt seller file.
 Native iOS recordings use the same harvest/arcade gameplay theme.
-Download both capture artifacts, then run `tooling/encode_apple_previews.py` with
+On a local Mac, record with the existing integration-test scenario, then run `tooling/encode_apple_previews.py` with
 `--iphone` and `--ipad` paths. It removes the recorder's opening warm-up and
 encodes real gameplay as 15–30 second H.264/AAC clips without test crosshairs.
-The encoder also updates the media manifest for the automated uploader.
+The encoder also updates the media manifest for the local uploader.
 [Apple's video requirements](https://developer.apple.com/help/app-store-connect/reference/app-information/app-preview-specifications).
 
 ### GitHub configuration
@@ -161,20 +169,17 @@ Credentials are not exposed to pull-request workflows.
 
 ### Upload and submit
 
-1. Merge game changes into main. Once enabled, each relevant main change is
-   signed and sent to TestFlight automatically. Apple build numbers are chosen
-   from the latest uploaded build for that version; release jobs run serially.
-2. For the first upload, use **Actions > iOS pipeline > Run workflow**,
-   branch **main**, operation **upload_testflight**. Leave the version blank to
-   read it from `pubspec.yaml`. A missing configuration fails with field names
-   instead of silently producing an unsigned release.
-3. Confirm processing in App Store Connect and test the selected build on a
-   real device. Complete the store listing, screenshots, privacy disclosures,
-   age rating, review details and export compliance in the Apple portal.
-4. Run the same workflow with **submit_for_review**, entering the exact tested
-   version (for example `1.1.7`) and Apple build number. This submits that
-   existing build without rebuilding it. Release remains manual after Apple's
-   approval; CI does not publish a new version automatically.
+1. Add `release:ios` to the PR and wait for Mobile Release's iOS validation.
+   Merge into main. The merged-PR event signs/uploads that commit to TestFlight;
+   Apple build numbers are selected from the latest uploaded version and releases
+   run serially. No Android build is selected.
+2. For a manual upload, run **Mobile Release**, branch **main**, platform **ios**,
+   operation **upload**. Leave version blank to use `pubspec.yaml`.
+3. Confirm processing and test on a real device. Complete the listing, review
+   details, privacy/age/export declarations and initial Remove Ads IAP submission.
+4. Run **Mobile Release**, platform **ios**, operation **submit_for_review**, with
+   the exact tested version and build number. This submits an existing build,
+   without rebuilding. Release remains manual after Apple's approval.
 
 To reproduce an upload from a configured Mac, run the commands in
 `.github/workflows/deploy-app-store.yml`. The non-secret input validation is
@@ -182,7 +187,7 @@ covered by `python3 -m unittest discover -s tooling/tests -p test_ios_release_co
 
 ## Build and play without an Apple Developer membership
 
-On a Mac with Xcode 26 or later, CocoaPods and Flutter 3.44.2:
+On a Mac with Xcode 27 or later, CocoaPods and Flutter 3.44.2:
 
 ```sh
 flutter pub get
@@ -194,10 +199,10 @@ Open `ios/Runner.xcworkspace` to use Xcode. The project uses CocoaPods for
 LevelPlay and the native network adapters. Swift Package Manager is disabled
 for this project to avoid duplicate plug-in integration.
 
-The **iOS build** GitHub Actions workflow compiles a release for real devices
-without signing, compiles and launches the simulator app, and saves the two
-`.app` bundles, resolved `Podfile.lock`, and a launch screenshot as an artifact.
-It runs for relevant pull requests and can be started manually from Actions.
+The selected iOS validation job compiles a release for real devices without
+signing, compiles/launches the simulator app, and saves device/simulator bundles
+and Podfile.lock. It verifies the first rendered frame and native StoreKit
+purchase/restore/refund behaviour. It never captures screenshots on GitHub.
 On a Mac, extract `garden-ninja-ios-simulator.tar.gz` and install it with:
 
 ```sh
@@ -244,7 +249,7 @@ locations are saved in Chartboost and mapped to LevelPlay's All Countries groups
 | Rewarded | `GardenNinja_iOS_Rewarded` | `Chartboost_iOS_Rewarded` |
 
 The app signature is stored in LevelPlay and must not be committed. LevelPlay
-now reports four configured networks for each iOS ad unit. Chartboost explicitly
+reports six configured networks for each iOS ad unit, including the InMobi and Liftoff mappings documented in `levelplay-ad-setup.md`. Chartboost explicitly
 reports **Developer Mode** until this app is connected to a live App Store listing;
 configured inventory does not establish live delivery. The public developer
 seller file also includes the verified direct entry `ironsrc.com, 676359, DIRECT`.
@@ -344,3 +349,16 @@ passed. The iOS-only main merge automatically uploaded 1.1.7 (6), which Apple
 processed as VALID. Its upload log no longer contains the former SwiftPM,
 Kotlin-plugin or Node-runtime deprecation warnings. No warning suppression or
 placeholder manifest is used.
+
+## Required iOS store updates
+
+Release installs check Apple's public listing on startup and resume (at most once
+per ten minutes when idle). Only a verified production installation with a newer
+numeric version for this app/bundle and a compatible minimum OS shows the blocking
+**Update Required** screen. Its button opens this app's App Store listing; a new
+check on resume clears the gate once updated. TestFlight, debug/simulator builds,
+offline checks, unpublished listings and unsupported OS upgrades remain playable.
+StoreKit's signed AppTransaction environment identifies production on iOS 16+;
+iOS 15 uses the installed receipt's sandbox status. No login or receipt refresh is
+forced. The lookup uses the device region, falling back to US. Existing released
+builds without this code cannot acquire a force-update gate remotely.

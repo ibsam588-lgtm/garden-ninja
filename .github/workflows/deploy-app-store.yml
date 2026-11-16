@@ -1,34 +1,29 @@
-name: iOS pipeline
+name: iOS release worker
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'ios/**'
-      - 'third_party/**/ios/**'
-      - 'fastlane/ios/**'
-      - 'tooling/ios_release_config.py'
-  push:
-    branches: [main]
-    paths:
-      - 'ios/**'
-      - 'third_party/**/ios/**'
-      - 'fastlane/ios/**'
-      - 'tooling/ios_release_config.py'
-  workflow_dispatch:
+  workflow_call:
     inputs:
       operation:
-        description: Apple release operation
-        type: choice
-        default: upload_testflight
-        options: [upload_testflight, submit_for_review]
+        type: string
+        required: true
+      checkout_ref:
+        type: string
+        required: true
+      release_branch:
+        type: string
+        required: true
       version:
-        description: Version (optional for upload; required for App Review)
         type: string
-        required: false
+        default: ''
       build_number:
-        description: Existing tested build number (App Review only)
         type: string
+        default: ''
+    secrets:
+      APP_STORE_CONNECT_PRIVATE_KEY:
+        required: true
+      IOS_DISTRIBUTION_PRIVATE_KEY:
+        required: true
+      IOS_TESTFLIGHT_TESTER_EMAILS:
         required: false
 
 permissions:
@@ -36,8 +31,8 @@ permissions:
 
 # Never cancel an upload that Apple may already have received.
 concurrency:
-  group: garden-ninja-apple-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'release' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: garden-ninja-apple-release
+  cancel-in-progress: false
 
 env:
   IOS_BUNDLE_ID: com.corsairlabs.gardenNinja
@@ -48,19 +43,12 @@ env:
   REQUESTED_IOS_BUILD: ${{ inputs.build_number }}
 
 jobs:
-  validate-ios:
-    name: Validate iOS
-    if: github.event_name == 'pull_request'
-    uses: ./.github/workflows/ios-build.yml
-    permissions:
-      contents: read
-
   upload-testflight:
     name: Sign and upload to TestFlight
     if: >-
-      (github.event_name == 'push' && vars.IOS_RELEASE_ENABLED == 'true') ||
-      (github.event_name == 'workflow_dispatch' && inputs.operation == 'upload_testflight')
-    runs-on: macos-15
+      inputs.operation == 'upload' && vars.IOS_RELEASE_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true)
+    runs-on: xcode-27
     timeout-minutes: 45
     environment: ios-testflight
     env:
@@ -77,12 +65,16 @@ jobs:
       LEVELPLAY_CHILD_DIRECTED: ${{ vars.LEVELPLAY_CHILD_DIRECTED }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref }}
+          fetch-depth: 0
 
       - name: Validate release branch and settings
         env:
-          RELEASE_REF: ${{ github.ref }}
+          RELEASE_REF: refs/heads/${{ inputs.release_branch }}
         run: |
-          [ "$RELEASE_REF" = 'refs/heads/main' ] || { echo '::error::Apple releases must run from main'; exit 1; }
+          [[ "$RELEASE_REF" = refs/heads/main || "$RELEASE_REF" = refs/heads/master ]] || { echo '::error::Apple releases must run from main'; exit 1; }
+          git merge-base --is-ancestor HEAD "origin/${RELEASE_REF#refs/heads/}"
           IOS_RELEASE_DIR="$RUNNER_TEMP/garden-ninja-ios"
           echo "IOS_RELEASE_DIR=$IOS_RELEASE_DIR" >> "$GITHUB_ENV"
           python3 tooling/ios_release_config.py --mode upload --output "$IOS_RELEASE_DIR"
@@ -90,6 +82,9 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+
+      - name: Enforce Apple SDK 27 and iOS 15 minimum
+        run: python3 tooling/check_apple_sdk.py --sdk-version "$(xcrun --sdk iphoneos --show-sdk-version)"
 
       - uses: ruby/setup-ruby@v1
         with:
@@ -158,6 +153,7 @@ jobs:
               files[0].rename(destination)
           PY
           codesign --verify --deep --strict build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
+          python3 tooling/check_apple_sdk.py --sdk-version "$(xcrun --sdk iphoneos --show-sdk-version)" --app-plist build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Info.plist
           test "$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:SigningIdentity' build/ios/archive/Runner.xcarchive/Info.plist)" != '-'
           SIGNING_TEAM=$(codesign -d --verbose=4 build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app 2>&1 | sed -n 's/^TeamIdentifier=//p')
           [ "$SIGNING_TEAM" = "$APPLE_TEAM_ID" ] || { echo '::error::The IPA was signed by an unexpected Apple team'; exit 1; }
@@ -212,11 +208,15 @@ jobs:
       APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref }}
+          fetch-depth: 0
       - name: Validate tested build selection
         env:
-          RELEASE_REF: ${{ github.ref }}
+          RELEASE_REF: refs/heads/${{ inputs.release_branch }}
         run: |
-          [ "$RELEASE_REF" = 'refs/heads/main' ] || { echo '::error::Apple submissions must run from main'; exit 1; }
+          [[ "$RELEASE_REF" = refs/heads/main || "$RELEASE_REF" = refs/heads/master ]] || { echo '::error::Apple submissions must run from main'; exit 1; }
+          git merge-base --is-ancestor HEAD "origin/${RELEASE_REF#refs/heads/}"
           python3 tooling/ios_release_config.py --mode submit --output "$RUNNER_TEMP/garden-ninja-review"
       - uses: ruby/setup-ruby@v1
         with:
