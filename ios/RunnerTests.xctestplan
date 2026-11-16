@@ -1,0 +1,30 @@
+{
+  "configurations": [
+    {
+      "id": "3A3D96EB-6177-4DF9-B6CB-BE1C5390F616",
+      "name": "Local StoreKit",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "storeKitConfiguration": {
+      "identifier": "RunnerTests/GardenNinjaPurchases.storekit"
+    },
+    "targetForVariableExpansion": {
+      "containerPath": "container:Runner.xcodeproj",
+      "identifier": "97C146ED1CF9000F007C117D",
+      "name": "Runner"
+    }
+  },
+  "testTargets": [
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:Runner.xcodeproj",
+        "identifier": "331C8080294A63A400263BE5",
+        "name": "RunnerTests"
+      }
+    }
+  ],
+  "version": 1
+}

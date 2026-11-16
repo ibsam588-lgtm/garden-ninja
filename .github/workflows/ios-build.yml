@@ -83,7 +83,7 @@ jobs:
           set -o pipefail
           xcodebuild build-for-testing -workspace ios/Runner.xcworkspace -scheme Runner \
             -sdk iphonesimulator -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' -only-testing:RunnerTests \
+            -destination 'generic/platform=iOS Simulator' -testPlan RunnerTests -only-testing:RunnerTests \
             -derivedDataPath build/ios/storekit-derived-data \
             ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee build/ios/storekit-build.log
@@ -191,5 +191,6 @@ jobs:
             build/ios/storekit-build.log
             build/ios/storekit-tests.log
             build/ios/storekit-tests.xcresult
+            build/ios/storekit-derived-data/Build/Products/*.xctestrun
           if-no-files-found: ignore
           retention-days: 7
