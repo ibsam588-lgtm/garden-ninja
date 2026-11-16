@@ -164,11 +164,17 @@ jobs:
         run: |
           set -o pipefail
           xcrun simctl terminate "$IOS_TEST_DEVICE_ID" com.corsairlabs.gardenNinja || true
-          # Run the compiled simulator products, retaining the actual StoreKit assertions.
-          xcodebuild test-without-building -xctestrun "$IOS_XCTESTRUN" \
+          # The normal launch probe has no local StoreKit session. Start tests
+          # with a fresh app container and read the plan directly: .xctestrun
+          # exports omit its StoreKit configuration on Xcode 27.
+          xcrun simctl uninstall "$IOS_TEST_DEVICE_ID" com.corsairlabs.gardenNinja
+          xcodebuild test-without-building -workspace ios/Runner.xcworkspace -scheme Runner \
+            -testPlan RunnerTests -sdk iphonesimulator -configuration Debug \
+            -derivedDataPath build/ios/storekit-derived-data \
             -destination "platform=iOS Simulator,id=$IOS_TEST_DEVICE_ID" -only-testing:RunnerTests \
             -parallel-testing-enabled NO \
             -resultBundlePath build/ios/storekit-tests.xcresult \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee build/ios/storekit-tests.log
           python3 - <<'PY'
           import re

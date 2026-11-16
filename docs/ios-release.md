@@ -342,10 +342,13 @@ verify one native architecture on both Apple Silicon and Intel. Release device
 archives keep their normal architecture settings.
 All project configurations explicitly support iPhoneOS and iPhoneSimulator.
 Native StoreKit tests are built for the generic Apple Silicon simulator with
-`build-for-testing`, then executed from the generated `.xctestrun` using
-`test-without-building` on the booted iPhone. This avoids Xcode 27's project
-scheme destination filtering while retaining binary architecture checks and
-requiring the named purchase/restore/refund test to actually execute and pass.
+`build-for-testing`, then executed with `test-without-building` against the same
+workspace, scheme, test plan and derived-data directory on the booted iPhone.
+The `.xctestrun` export alone omits StoreKit configuration in Xcode 27, so it is
+retained as diagnostic evidence rather than used as the execution input. The
+launch-probe app is uninstalled before XCTest to give purchases a fresh container.
+Binary architecture checks and the named purchase/restore/refund assertions must
+still execute and pass.
 [Apple's two-phase test workflow](https://developer.apple.com/library/archive/technotes/tn2339/_index.html).
 The native `RunnerTests.xctestplan` explicitly selects the local StoreKit file
 for XCTest launches. Debug Run selects the same fixture for interactive Xcode
