@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:garden_ninja/src/ads/ad_age_range.dart';
 
 abstract class AppRewardedAd {
   Future<void> show({
@@ -24,6 +25,9 @@ class AdService {
   );
 
   static bool get shouldShowAds => false;
+  static bool get requiresAgeChoice => false;
+  static bool get canOfferAdRemoval => true;
+  static void setAgeRange(AdAgeRange range) {}
   static bool get hasBannerAds => false;
   static bool get hasInterstitialAds => false;
   static bool get hasRewardedAds => false;

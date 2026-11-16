@@ -8,6 +8,10 @@ Garden Ninja is published by Corsair Labs. This policy covers Android package `c
 
 Garden progress, coins, upgrades, unlocks, selected tools, audio preferences, and tutorial state are saved on your device. Garden Ninja does not operate a Corsair Labs player-account server or upload garden saves to cloud storage. Clearing app data or uninstalling removes these local saves.
 
+Age-gated releases also store an age range (under 13, 13–15, or 16 and older) on
+the device to determine advertising eligibility. The app does not collect a date
+of birth or send this age range to a Corsair Labs server.
+
 ## Ads, Analytics, and Purchases
 
 Garden Ninja uses Unity LevelPlay mediation for banners, interstitial ads at natural game breaks, and optional rewarded videos. Providers include ironSource Ads, Unity Ads, Liftoff Monetize / Vungle, and, when their mediation instances are enabled, Meta Audience Network, Chartboost and InMobi.
@@ -50,7 +54,13 @@ You can manage Game Center through your Apple account and device settings.
 
 ## Children's Privacy
 
-Garden Ninja is a general audience game. The app's child-directed setting is passed to LevelPlay and Chartboost before advertising initialization.
+Garden Ninja is a general audience game, including ages 13–15. Age-gated releases
+ask for an age range before starting the game. Players under 16 can play without
+advertising SDK initialization, ad requests or advertising consent/tracking
+prompts. No date of birth is requested. A missing age choice does not enable ads.
+For eligible players, the app configures InMobi's age-restriction signal and the
+existing child-directed network settings before initializing LevelPlay; consent
+and Apple's tracking permission remain separate choices.
 
 ## Data Sharing
 

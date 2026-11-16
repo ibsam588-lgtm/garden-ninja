@@ -1,23 +1,23 @@
-name: Deploy Android to Google Play
+name: Android pipeline
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'third_party/**/android/**'
+      - 'fastlane/android/**'
+      - 'fastlane/Appfile'
+      - 'fastlane/metadata/android/*/changelogs/**'
   push:
     branches:
       - main
     paths:
       - 'android/**'
-      - 'lib/**'
-      - 'assets/**'
-      - 'pubspec.*'
-      - 'third_party/**/lib/**'
-      - 'third_party/**/pubspec.yaml'
       - 'third_party/**/android/**'
-      - 'fastlane/Fastfile'
       - 'fastlane/android/**'
       - 'fastlane/Appfile'
       - 'fastlane/metadata/android/*/changelogs/**'
-      - 'Gemfile*'
-      - '.github/workflows/deploy-google-play.yml'
   workflow_dispatch:
     inputs:
       play_track:
@@ -37,8 +37,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: garden-ninja-google-play-release
-  cancel-in-progress: false
+  group: garden-ninja-google-play-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'release' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   ANDROID_PACKAGE_NAME: com.gardenninja.garden_ninja
@@ -46,9 +46,18 @@ env:
   PLAY_TRACK: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.play_track || 'internal' }}
 
 jobs:
+  validate-android:
+    name: Validate Android
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/android-build.yml
+    permissions:
+      contents: read
+
   deploy-android:
     name: Build and deploy Android
-    if: github.event_name != 'workflow_dispatch' || inputs.play_track != 'production'
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.play_track != 'production')
     runs-on: ubuntu-latest
     env:
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

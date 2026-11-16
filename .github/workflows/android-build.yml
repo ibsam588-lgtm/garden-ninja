@@ -1,18 +1,7 @@
 name: Android build
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'android/**'
-      - 'lib/**'
-      - 'assets/**'
-      - 'pubspec.*'
-      - 'third_party/**/android/**'
-      - 'third_party/**/lib/**'
-      - 'third_party/**/pubspec.yaml'
-      - '.github/workflows/android-build.yml'
-  workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -33,6 +22,16 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
+      - name: Analyze and test Flutter
+        run: |
+          flutter analyze
+          flutter test
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r tooling/apple-requirements.txt
+      - name: Validate release routing and store tooling
+        run: python -m unittest discover -s tooling/tests -p 'test_*.py' -v
       - name: Compile Android release and verify the Kotlin migration
         run: |
           flutter build appbundle --release 2>&1 | tee android-build.log

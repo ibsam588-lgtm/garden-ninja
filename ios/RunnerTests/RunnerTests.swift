@@ -17,6 +17,16 @@ final class RunnerTests: XCTestCase {
     return false
   }
 
+  // SKTestSession can return before StoreKit 2 publishes its entitlement update.
+  // Wait for the real verified state, with a bounded failure deadline.
+  private func waitForOwnership(_ expected: Bool) async throws -> Bool {
+    for _ in 0..<50 {
+      if await ownsRemoveAds() == expected { return true }
+      try await Task.sleep(for: .milliseconds(200))
+    }
+    return false
+  }
+
   func testNonConsumablePurchaseRestorationAndRefund() async throws {
     let file = try XCTUnwrap(Bundle(for: Self.self).url(
       forResource: "GardenNinjaPurchases", withExtension: "storekit"))
@@ -36,21 +46,17 @@ final class RunnerTests: XCTestCase {
 
     let transaction = try await session.buyProduct(identifier: productID)
     await transaction.finish()
-    let paidOwnership = await ownsRemoveAds()
-    XCTAssertTrue(paidOwnership)
+    let paidOwnership = try await waitForOwnership(true)
+    XCTAssertTrue(paidOwnership, "Purchase must publish the verified entitlement")
 
     // AppStore.sync is the same explicit restore operation used by the plugin.
     try await AppStore.sync()
-    let restoredOwnership = await ownsRemoveAds()
-    XCTAssertTrue(restoredOwnership)
+    let restoredOwnership = try await waitForOwnership(true)
+    XCTAssertTrue(restoredOwnership, "Restore must retain the verified entitlement")
     XCTAssertEqual(session.allTransactions().count, 1)
 
     try session.refundTransaction(identifier: UInt(transaction.id))
-    var refunded = false
-    for _ in 0..<30 {
-      if !(await ownsRemoveAds()) { refunded = true; break }
-      try await Task.sleep(for: .milliseconds(200))
-    }
+    let refunded = try await waitForOwnership(false)
     XCTAssertTrue(refunded, "Refund must remove the verified non-consumable entitlement")
   }
 }

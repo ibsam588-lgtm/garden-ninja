@@ -11,6 +11,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:garden_ninja/src/ads/ad_break_policy.dart';
 import 'package:garden_ninja/src/ads/ad_placement_config.dart';
 import 'package:garden_ninja/src/ads/ad_service.dart';
+import 'package:garden_ninja/src/ads/ad_age_gate.dart';
 import 'package:garden_ninja/src/audio/audio_assets.dart';
 import 'package:garden_ninja/src/garden/harvest_garden.dart';
 import 'package:garden_ninja/src/garden/harvest_model.dart';
@@ -38,7 +39,11 @@ class GardenNinjaApp extends StatelessWidget {
         fontFamily: 'Arial',
         useMaterial3: true,
       ),
-      home: GardenNinjaScreen(purchaseGateway: purchaseGateway),
+      home: AdAgeGate(
+        enabled: AdService.requiresAgeChoice,
+        onResolved: AdService.setAgeRange,
+        child: GardenNinjaScreen(purchaseGateway: purchaseGateway),
+      ),
     );
   }
 }
@@ -2251,6 +2256,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Future<void> _openPurchases() async {
+    if (!AdService.canOfferAdRemoval && !_purchases.ownsRemoveAds) return;
     if (_interstitialAdShowing || _rewardedAdShowing || _rewardedAdLoading) {
       return;
     }
@@ -6783,7 +6789,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                         textStyle: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
-                  if (_purchases.supported)
+                  if (_purchases.supported &&
+                      (AdService.canOfferAdRemoval || _purchases.ownsRemoveAds))
                     TextButton.icon(
                       key: const ValueKey('open-purchases'),
                       onPressed: _openPurchases,
@@ -10640,7 +10647,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           child: SingleChildScrollView(
             child: Column(
               children: [
-                if (_purchases.supported) ...[
+                if (_purchases.supported &&
+                    (AdService.canOfferAdRemoval ||
+                        _purchases.ownsRemoveAds)) ...[
                   RemoveAdsPanel(purchases: _purchases),
                   const SizedBox(height: 10),
                 ],

@@ -16,33 +16,50 @@ checks that every original has a corresponding Apple file with the right contain
 
 ## Release pipelines
 
-There are two store deployment workflows, alongside the pull-request checks:
+There are two automatic app pipelines. Each pipeline owns its tests, native
+validation and store upload, so a platform update creates one Actions entry:
 
 | Workflow | On main | Manual production operation |
 | --- | --- | --- |
-| Deploy Android to Google Play | Build/sign and upload to internal testing | Promote a tested internal version code to production |
-| Deploy iOS to Apple | Build/sign and upload to App Store Connect/TestFlight | Submit an exact tested version/build for App Review |
+| Android pipeline | Analyze/test, build/sign and upload to internal testing | Promote a tested internal version code to production |
+| iOS pipeline | Analyze/test, build/sign and upload to App Store Connect/TestFlight | Submit an exact tested version/build for App Review |
 
-Automatic releases use the changed file paths:
+On pull requests, that same selected pipeline runs analysis, Flutter/Python
+tests and the native check, without store credentials or uploads. The native
+`ios-build.yml` and `android-build.yml` files are reusable jobs, not separately
+triggered workflows. Standalone **Flutter CI** and **LevelPlay SwiftPM
+compatibility** are manual tools and do not launch for platform pushes.
+
+Native validation and automatic releases use only platform-owned file paths.
+Shared changes do not select a platform:
 
 | Changed files | Android upload | iOS upload |
 | --- | --- | --- |
-| `android/**`, `fastlane/android/**`, Android settings/changelogs/workflow | Yes | No |
-| `ios/**`, `fastlane/ios/**`, Apple release settings/workflow | No | Yes |
-| Shared `lib/**`, `assets/**`, `pubspec.*`, `fastlane/Fastfile`, `Gemfile*` | Yes | Yes |
-| Documentation, tests, or store screenshots/listing text alone | No | No |
+| `android/**`, Android native plugin files, `fastlane/android/**`, Android settings/changelogs | Yes | No |
+| `ios/**`, iOS native plugin files, `fastlane/ios/**`, Apple release settings | No | Yes |
+| Shared `lib/**`, `assets/**`, `pubspec.*`, shared plugin Dart/pubspec, `fastlane/Fastfile`, `Gemfile*` | No | No |
+| Workflow configuration, documentation, tests, or store screenshots/listing text alone | No | No |
 
-The platform lane files are imported by the shared `fastlane/Fastfile`; edits to
-`fastlane/ios/**` therefore trigger only Apple uploads, and edits to
-`fastlane/android/**` trigger only Google uploads. Native files in the vendored
-LevelPlay package follow the same rule; its shared Dart/pubspec files affect both.
-The routing regression test covers 31 native, shared and non-release paths.
+To release shared changes to just one platform, include a change to that
+platform's release marker in the same pull request:
 
-An iOS-only pull request also skips Android deployment. The lightweight Flutter
-analysis/tests still run on pull requests; the native iOS build check runs only
-for its relevant paths. A manual **Run workflow** starts only the selected
-platform's workflow. A change inside a shared Dart file affects both release
-filters, even if the edited code contains a platform condition.
+- iOS: update `ios/release-trigger.txt` with the release reason.
+- Android: create or update `android/release-trigger.txt` with the release reason.
+
+An iOS marker plus shared files starts only the iOS native check and, after merge,
+the Apple upload. An Android marker selects only Android. Shared-only pull
+requests start no automatic app workflow; run **Flutter CI** manually for checks.
+Their merge uploads neither store. When ready, change one platform's marker or run its
+deployment workflow on `main`. Markers deliberately compile the latest shared
+code at the selected commit; they do not create separate copies of the game.
+Touch both platforms only when both releases are intended.
+
+An iOS-only pull request also skips Android deployment. Flutter analysis/tests
+run inside the selected platform pipeline. A manual **Run workflow** starts only
+the selected platform's workflow. Workflow-file edits do not select an app release;
+routing tests run inside platform validation (or manual Flutter CI). They cover both native
+pull-request checks and store upload filters, including combined shared/platform
+changes, shared-only changes, documentation and workflow-only changes.
 
 The Apple app record is **Garden Ninja: Harvest & Slice**, app ID
 `6834694197`, on team `5MST9WC27Z`:
@@ -57,13 +74,17 @@ testing can require Beta App Review and export-compliance information.
 
 ### Automatic external testing
 
-`testflight-distribution.yml` runs after a successful Apple upload and hourly
+`testflight-distribution.yml` runs as a job inside the iOS pipeline after a
+successful Apple upload, keeping it in the same Actions entry. It also runs hourly
 while Apple processes or reviews builds. It attaches the latest valid build to
 Garden Ninja Playtest, enables Apple's post-approval notifications, and submits
 it for external beta review when the queue is free. A build already waiting for
 review is never cancelled or expired. The configured tester receives a first
 invitation only when an attached build is approved; invited/accepted testers
 are not emailed again. This never creates App Store Connect staff access.
+Apple's exact temporary “Please try again later” review response is recorded as
+an unconfirmed deferral for the next hourly sync. Other submission validation or
+authorization failures still fail the job; no unapproved build triggers invitations.
 
 The workflow uses repository variable `IOS_TESTFLIGHT_GROUP_ID` and encrypted
 secret `IOS_TESTFLIGHT_TESTER_EMAILS`, in addition to the existing Apple CI key.
@@ -143,7 +164,7 @@ Credentials are not exposed to pull-request workflows.
 1. Merge game changes into main. Once enabled, each relevant main change is
    signed and sent to TestFlight automatically. Apple build numbers are chosen
    from the latest uploaded build for that version; release jobs run serially.
-2. For the first upload, use **Actions > Deploy iOS to Apple > Run workflow**,
+2. For the first upload, use **Actions > iOS pipeline > Run workflow**,
    branch **main**, operation **upload_testflight**. Leave the version blank to
    read it from `pubspec.yaml`. A missing configuration fails with field names
    instead of silently producing an unsigned release.

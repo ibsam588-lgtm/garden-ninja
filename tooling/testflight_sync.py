@@ -52,9 +52,12 @@ def sync(api, app_id, group_id, allowed_emails, emit=print, apply=True):
                     "type": "betaAppReviewSubmissions", "relationships": {"build": relation("builds", bid)}}})
                 emit("Submitted the processed build for external TestFlight review.")
             except AppleError as error:
-                # Handle only Apple's explicit race with an existing submission.
+                # The hourly sync refreshes Apple's state before retrying. Do
+                # not resubmit immediately after an ambiguous service response.
                 if error.status == 422 and "another build" in str(error).lower() and "review" in str(error).lower():
                     emit("Another build entered beta review first; the next sync will retry.")
+                elif error.status == 422 and str(error).partition(": ")[2].strip() == "Please try again later.":
+                    emit("::warning::Apple temporarily deferred beta review. Submission is not confirmed; the next hourly sync will retry.")
                 else:
                     raise
     eligible = any(b["id"] in attached and details[b["id"]]["attributes"]["externalBuildState"] in AVAILABLE for b in builds)

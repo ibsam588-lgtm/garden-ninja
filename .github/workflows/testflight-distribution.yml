@@ -1,10 +1,12 @@
 name: Sync external TestFlight testing
 
 on:
-  workflow_run:
-    workflows: [Deploy iOS to Apple]
-    types: [completed]
-    branches: [main]
+  workflow_call:
+    secrets:
+      APP_STORE_CONNECT_PRIVATE_KEY:
+        required: true
+      IOS_TESTFLIGHT_TESTER_EMAILS:
+        required: false
   # Apple processing/review may finish long after the upload job exits.
   schedule:
     - cron: '23 * * * *'
@@ -19,9 +21,7 @@ concurrency:
 
 jobs:
   sync:
-    if: >-
-      vars.IOS_RELEASE_ENABLED == 'true' &&
-      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    if: vars.IOS_RELEASE_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: ios-testflight

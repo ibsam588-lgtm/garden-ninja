@@ -9,18 +9,67 @@ GDPR vendor consent is forwarded separately for InMobi (GVL 333) and Liftoff
 missing valid IDs added, giving 199 unique entries. Malformed nine-character IDs
 in InMobi's list were not copied into the app.
 
-SDK inclusion does not activate bidding. InMobi and Liftoff still require app
-registrations and three iOS placement mappings. The last verified dashboard had
-four configured iOS bidders. Meta requires a public Apple store URL; Chartboost
-remains in developer mode before release. Check serving on a registered iPhone.
+### InMobi and Liftoff iOS mappings completed (2026-11-15)
+
+Garden Ninja iOS (`2990d6595`) now has all six networks configured for banner,
+interstitial and rewarded. Both new bidders were saved, reopened, and verified
+in LevelPlay. Their instances belong to the existing **All Countries** groups.
+These are remote dashboard mappings; native adapters already exist in build 7.
+
+| Format | InMobi placement ID | Liftoff placement reference ID |
+| --- | --- | --- |
+| Banner | `10000882126` | `GARDENNINJA_IOS_BANNER-4809429` |
+| Interstitial | `10000882127` | `GARDENNINJA_INTERSTITIAL-9440450` |
+| Rewarded | `10000882128` | `GARDENNINJA_IOS_REWARDED-3701667` |
+
+InMobi app key: `10000255809`. Audience bidding is enabled with **Unity LevelPlay**
+as the partner for all three placements. The prelaunch app is declared mixed
+audience; location access is disabled and political, gambling and alcohol ads
+remain blocked. With no public App Store URL, InMobi forces **Global test mode**;
+the publisher account still shows **Pending Verification**.
+
+Liftoff iOS app/reporting API ID: `6a8dc801a308f75b0711934f`. The existing unconnected
+iOS record was reused and renamed **Garden Ninja iOS**; its original bidding
+interstitial was retained and the two missing placements added. Banner refresh
+is disabled at Liftoff so LevelPlay owns refresh. The app is in **Test Mode**;
+Active is disabled until the public Apple listing can be connected.
+
+Before live serving, connect **Apple app 6834694197**, bundle
+`com.corsairlabs.gardenNinja`, finish provider verification, and turn off provider
+test modes. Do this only with the new age-gated build distributed; build 7 has
+the adapters but lacks the age gate. Meta also requires a public Apple store URL;
+Chartboost remains in developer mode before release. Check all three formats on
+a registered iPhone; dashboard checkmarks do not demonstrate live fill.
+
+### Mixed-audience startup gate
+
+The owner confirmed that ages 13–15 are included. InMobi's child-privacy setting
+covers under 16, so the app now resolves an unselected age range before creating
+the game or initializing advertising. Only `under_13`, `13_to_15` or `16_plus`
+is stored in a separate local preference; no birthday is collected or uploaded.
+Missing, invalid or unreadable preferences cannot default to an ad-eligible age.
+
+Players under 16 play without any ad SDK initialization, ad requests, CMP/ATT
+prompts, rewarded videos or Remove Ads offers. This avoids relying on every
+mediated network's restricted-request support. For eligible users, LevelPlay
+receives `InMobi_AgeRestricted=false` before initialization; the existing consent
+flow still determines tracking permission. Age eligibility is not a consent grant.
+Store/screenshot builds remain ad-free and bypass the gate. The shared gate
+applies to Android and iOS. Eight focused startup/persistence tests and the full
+82-test Flutter suite passed (13 optional media captures skipped).
+The current release explicitly selects iOS via `ios/release-trigger.txt`.
+Android will receive the shared safeguard when its marker is updated or its
+deployment is manually run. Shared files alone no longer trigger either native
+build/upload workflow; see [platform release routing](ios-release.md#release-pipelines).
+
+References: [InMobi children's privacy](https://support.inmobi.com/monetize/privacy/coppa),
+[LevelPlay InMobi settings](https://docs.unity.com/en-us/grow/levelplay/sdk/ios/networks/guides/inmobi).
 
 The six-network iOS build compiled, launched in the simulator, uploaded through
 GitHub Actions as **1.1.7 (7)** and was processed by Apple as **VALID**. The signed
 app contains the native adapters; this does not demonstrate live ad fill.
-InMobi's account dashboard showed **Pending Verification**. InMobi/Liftoff app
-registrations and placement mappings were not completed: browser control was
-stopped with the physical Escape key after their sign-ins. No other apps'
-inventory or payout settings were changed.
+Provider registrations and mappings were completed after the owner resumed
+browser work. No other apps' inventory or payout settings were changed.
 
 The [Remove Ads purchase](in-app-purchases.md) disables banners and automatic
 interstitials, including preloaded ads. Rewarded videos remain optional. Startup
@@ -97,8 +146,8 @@ Interstitial placement: GARDENNINJA_INTERSTITIAL-8383039
 Rewarded placement: GARDENNINJA_REWARDED-1686088
 ```
 
-An accidental Liftoff iOS app was created during dashboard setup, but it is not
-wired into LevelPlay and should not be used for Garden Ninja Android mediation.
+The separate Liftoff iOS app is now mapped only to Garden Ninja iOS in LevelPlay.
+Do not use its iOS placement IDs for Android mediation.
 
 ## GitHub Repository Variables
 

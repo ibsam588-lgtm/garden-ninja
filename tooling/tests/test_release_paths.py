@@ -5,41 +5,48 @@ import re
 import unittest
 
 
-def push_paths(filename):
+def trigger_paths(filename, event):
     root = Path(__file__).resolve().parents[2]
     text = (root / ".github/workflows" / filename).read_text()
-    push = text.split("  push:\n", 1)[1].split("  workflow_dispatch:", 1)[0]
-    section = re.search(r"    paths:\n((?:      - .+\n)+)", push)
+    trigger = text.split(f"  {event}:\n", 1)[1].split("  workflow_dispatch:", 1)[0]
+    section = re.search(r"    paths:\n((?:      - .+\n)+)", trigger)
     return [line.strip().removeprefix("- ").strip("'\"") for line in section[1].splitlines()]
 
 
 class ReleasePathTests(unittest.TestCase):
+    workflows = (
+        ("deploy-google-play.yml", "deploy-app-store.yml", "push"),
+        ("deploy-google-play.yml", "deploy-app-store.yml", "pull_request"),
+    )
+
     def test_platform_specific_and_shared_changes(self):
-        android = push_paths("deploy-google-play.yml")
-        ios = push_paths("deploy-app-store.yml")
         cases = {
             "android/app/build.gradle.kts": (True, False),
             "android/app/src/main/kotlin/MainActivity.kt": (True, False),
             "fastlane/android/Fastfile": (True, False),
             "fastlane/Appfile": (True, False),
             "fastlane/metadata/android/en-US/changelogs/default.txt": (True, False),
-            ".github/workflows/deploy-google-play.yml": (True, False),
+            "android/release-trigger.txt": (True, False),
+            ".github/workflows/deploy-google-play.yml": (False, False),
+            ".github/workflows/android-build.yml": (False, False),
             "ios/Runner/AppDelegate.swift": (False, True),
             "ios/Podfile": (False, True),
             "fastlane/ios/Fastfile": (False, True),
             "tooling/ios_release_config.py": (False, True),
-            ".github/workflows/deploy-app-store.yml": (False, True),
+            "ios/release-trigger.txt": (False, True),
+            ".github/workflows/deploy-app-store.yml": (False, False),
+            ".github/workflows/ios-build.yml": (False, False),
             "third_party/unity_levelplay_mediation/android/build.gradle": (True, False),
             "third_party/unity_levelplay_mediation/ios/Classes/Plugin.m": (False, True),
-            "third_party/unity_levelplay_mediation/lib/plugin.dart": (True, True),
-            "third_party/unity_levelplay_mediation/pubspec.yaml": (True, True),
-            "lib/src/garden/harvest_garden.dart": (True, True),
-            "assets/images/splash/home.png": (True, True),
-            "pubspec.yaml": (True, True),
-            "pubspec.lock": (True, True),
-            "fastlane/Fastfile": (True, True),
-            "Gemfile": (True, True),
-            "Gemfile.lock": (True, True),
+            "third_party/unity_levelplay_mediation/lib/plugin.dart": (False, False),
+            "third_party/unity_levelplay_mediation/pubspec.yaml": (False, False),
+            "lib/src/garden/harvest_garden.dart": (False, False),
+            "assets/images/splash/home.png": (False, False),
+            "pubspec.yaml": (False, False),
+            "pubspec.lock": (False, False),
+            "fastlane/Fastfile": (False, False),
+            "Gemfile": (False, False),
+            "Gemfile.lock": (False, False),
             "README.md": (False, False),
             "docs/ios-release.md": (False, False),
             "test/widget_test.dart": (False, False),
@@ -50,11 +57,67 @@ class ReleasePathTests(unittest.TestCase):
             "fastlane/metadata/android/en-US/images/phoneScreenshots/01.png": (False, False),
             "public/app-version.json": (False, False),
         }
-        for path, expected in cases.items():
-            with self.subTest(path=path):
-                actual = (any(fnmatchcase(path, p) for p in android),
-                          any(fnmatchcase(path, p) for p in ios))
-                self.assertEqual(actual, expected)
+        for android_file, ios_file, event in self.workflows:
+            android = trigger_paths(android_file, event)
+            ios = trigger_paths(ios_file, event)
+            for path, expected in cases.items():
+                with self.subTest(event=event, path=path):
+                    actual = (any(fnmatchcase(path, p) for p in android),
+                              any(fnmatchcase(path, p) for p in ios))
+                    self.assertEqual(actual, expected)
+
+    def test_helpers_do_not_create_separate_automatic_runs(self):
+        root = Path(__file__).resolve().parents[2] / ".github/workflows"
+        for filename in ("android-build.yml", "ios-build.yml", "flutter-ci.yml",
+                         "levelplay-swiftpm.yml"):
+            text = (root / filename).read_text()
+            with self.subTest(filename=filename):
+                self.assertNotRegex(text, r"(?m)^  (pull_request|push|workflow_run):")
+        for filename, helper in (("deploy-app-store.yml", "ios-build.yml"),
+                                 ("deploy-google-play.yml", "android-build.yml")):
+            text = (root / filename).read_text()
+            with self.subTest(filename=filename):
+                self.assertIn(f"uses: ./.github/workflows/{helper}", text)
+                self.assertIn("if: github.event_name == 'pull_request'", text)
+                helper_text = (root / helper).read_text()
+                self.assertIn("  workflow_call:", helper_text)
+                self.assertIn("flutter analyze", helper_text)
+                self.assertIn("flutter test", helper_text)
+                self.assertIn("python -m unittest discover", helper_text)
+
+    def test_testflight_followup_is_inside_the_upload_run(self):
+        root = Path(__file__).resolve().parents[2] / ".github/workflows"
+        parent = (root / "deploy-app-store.yml").read_text()
+        helper = (root / "testflight-distribution.yml").read_text()
+        self.assertIn("needs: upload-testflight", parent)
+        self.assertIn("uses: ./.github/workflows/testflight-distribution.yml", parent)
+        self.assertIn("  workflow_call:", helper)
+        self.assertNotIn("  workflow_run:", helper)
+        self.assertIn("  schedule:", helper)
+
+    def test_shared_files_require_an_explicit_platform_selection(self):
+        shared = ["lib/src/app.dart", "assets/images/home.png", "pubspec.lock"]
+        cases = (
+            (shared, (False, False)),
+            (shared + ["ios/release-trigger.txt"], (False, True)),
+            (shared + ["android/release-trigger.txt"], (True, False)),
+            (shared + ["ios/Runner/AppDelegate.swift"], (False, True)),
+            (shared + ["android/app/build.gradle.kts"], (True, False)),
+            (shared + ["ios/release-trigger.txt", "android/release-trigger.txt"],
+             (True, True)),
+            ([".github/workflows/ios-build.yml",
+              ".github/workflows/android-build.yml",
+              ".github/workflows/deploy-app-store.yml",
+              ".github/workflows/deploy-google-play.yml"], (False, False)),
+        )
+        for android_file, ios_file, event in self.workflows:
+            android = trigger_paths(android_file, event)
+            ios = trigger_paths(ios_file, event)
+            for changed, expected in cases:
+                with self.subTest(event=event, changed=changed):
+                    actual = (any(fnmatchcase(path, p) for path in changed for p in android),
+                              any(fnmatchcase(path, p) for path in changed for p in ios))
+                    self.assertEqual(actual, expected)
 
 
 if __name__ == "__main__":
