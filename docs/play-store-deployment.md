@@ -9,6 +9,8 @@ See [release routing](ios-release.md#release-pipelines).
 
 Manual operations use Mobile Release with platform **android**. Store uploads and
 promotion must run on the actual main/master default branch.
+The new caller uses version codes `100000 + GITHUB_RUN_NUMBER`, reserving a range
+above the former Android workflow's 100xx series when its run counter restarts.
 
 ## GitHub Secrets
 

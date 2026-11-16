@@ -24,6 +24,8 @@ bundle `com.corsairlabs.gardenNinja`.
   The privacy URL is `https://corsairlabs.com/garden-ninja-privacy-policy`.
 - App Review contact and gameplay/IAP notes are now populated. Sign-in is optional
   and the version remains set to manual release after App Review.
+- Free/Paid Apps agreements, banking and the U.S. tax form show ACTIVE. No new
+  agreement or financial-account changes were made during this audit.
 - The requested existing Apple team member was added to Garden Ninja Internal;
   invitation state is INVITED. No staff role was created or expanded. This internal
   tester does not need external Beta App Review. Use the exact invited Apple ID
@@ -33,6 +35,10 @@ bundle `com.corsairlabs.gardenNinja`.
 
 - Complete the App Information age-rating questionnaire and Content Rights
   declaration; both currently show Set Up controls. DSA trader status is set.
+- App price and territory availability still show Add Pricing / Set Up
+  Availability and must be selected before submission.
+- Account-level Digital Services Act verification is IN REVIEW. Monitor Apple's
+  verification result before relying on distribution in the 27 EU territories.
 - Select the tested, processed build for the editable 1.1.7 App Store version.
   It initially had no build attached and remains PREPARE_FOR_SUBMISSION.
 - Include the first Remove Ads non-consumable with the initial App Review
