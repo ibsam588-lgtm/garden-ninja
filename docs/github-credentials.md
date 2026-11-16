@@ -1,6 +1,6 @@
 # GitHub credentials and release settings
 
-Inventory verified against `ibsam588-lgtm/garden-ninja` on 2026-11-15.
+Inventory verified against `ibsam588-lgtm/garden-ninja` on 2026-11-16.
 This document records names and purposes. Credential values, private keys,
 passwords, service-account JSON and tester email addresses stay out of source.
 
@@ -32,6 +32,21 @@ printing or attempting to retrieve secret values.
 Apple `.p8` API authentication and the Apple Distribution signing key have
 different purposes. Replacing one does not replace the other. Android's upload
 key is also separate from the app-signing key managed by Google Play App Signing.
+
+### Apple signing identity recovery
+
+On 2026-11-16 the stored signing key no longer matched an active Apple
+Distribution certificate. The existing encrypted secret was refreshed with a
+verified, active signing identity for the same Apple team. No certificate was
+created or revoked, and no private key was added to the repository.
+
+Distribution certificates belong to the Apple team and can sign several apps.
+Reuse a valid certificate and its matching private key across app profiles.
+Before replacing a signing secret, compare its derived public key with Apple's
+active certificate and verify the team and expiration. Revoking a certificate
+to make room for another app can break CI for every app using that identity.
+Keep credential values in the encrypted secret store; this document records
+only their purpose and recovery procedure.
 
 ## Repository variables
 
