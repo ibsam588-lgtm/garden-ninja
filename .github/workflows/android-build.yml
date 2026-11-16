@@ -5,13 +5,10 @@ on:
     branches: [main]
     paths:
       - 'android/**'
-      - 'lib/**'
-      - 'assets/**'
-      - 'pubspec.*'
       - 'third_party/**/android/**'
-      - 'third_party/**/lib/**'
-      - 'third_party/**/pubspec.yaml'
-      - '.github/workflows/android-build.yml'
+      - 'fastlane/android/**'
+      - 'fastlane/Appfile'
+      - 'fastlane/metadata/android/*/changelogs/**'
   workflow_dispatch:
 
 permissions:

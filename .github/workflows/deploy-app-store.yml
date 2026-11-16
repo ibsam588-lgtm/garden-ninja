@@ -5,17 +5,9 @@ on:
     branches: [main]
     paths:
       - 'ios/**'
-      - 'lib/**'
-      - 'assets/**'
-      - 'pubspec.*'
-      - 'third_party/**/lib/**'
-      - 'third_party/**/pubspec.yaml'
       - 'third_party/**/ios/**'
-      - 'fastlane/Fastfile'
       - 'fastlane/ios/**'
-      - 'Gemfile*'
       - 'tooling/ios_release_config.py'
-      - '.github/workflows/deploy-app-store.yml'
   workflow_dispatch:
     inputs:
       operation:

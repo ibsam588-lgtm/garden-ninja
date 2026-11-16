@@ -57,6 +57,10 @@ flow still determines tracking permission. Age eligibility is not a consent gran
 Store/screenshot builds remain ad-free and bypass the gate. The shared gate
 applies to Android and iOS. Eight focused startup/persistence tests and the full
 82-test Flutter suite passed (13 optional media captures skipped).
+The current release explicitly selects iOS via `ios/release-trigger.txt`.
+Android will receive the shared safeguard when its marker is updated or its
+deployment is manually run. Shared files alone no longer trigger either native
+build/upload workflow; see [platform release routing](ios-release.md#release-pipelines).
 
 References: [InMobi children's privacy](https://support.inmobi.com/monetize/privacy/coppa),
 [LevelPlay InMobi settings](https://docs.unity.com/en-us/grow/levelplay/sdk/ios/networks/guides/inmobi).

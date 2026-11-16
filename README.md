@@ -63,6 +63,10 @@ See [Remove Ads purchases](docs/in-app-purchases.md) for store setup, restore
 behavior, verification and testing. [GitHub credentials](docs/github-credentials.md)
 lists every stored secret/variable and its purpose, without exposing values.
 Documentation-only updates do not trigger app builds or store uploads.
+Native builds and uploads are selected by platform folders. Shared Dart/assets
+changes run analysis/tests only. To ship shared changes to one platform, update
+`ios/release-trigger.txt` or `android/release-trigger.txt` in that pull request,
+or manually run just that platform's deployment workflow on `main`.
 
 ## Checks
 

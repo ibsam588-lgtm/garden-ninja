@@ -23,26 +23,37 @@ There are two store deployment workflows, alongside the pull-request checks:
 | Deploy Android to Google Play | Build/sign and upload to internal testing | Promote a tested internal version code to production |
 | Deploy iOS to Apple | Build/sign and upload to App Store Connect/TestFlight | Submit an exact tested version/build for App Review |
 
-Automatic releases use the changed file paths:
+Native validation and automatic releases use only platform-owned file paths.
+Shared changes do not select a platform:
 
 | Changed files | Android upload | iOS upload |
 | --- | --- | --- |
-| `android/**`, `fastlane/android/**`, Android settings/changelogs/workflow | Yes | No |
-| `ios/**`, `fastlane/ios/**`, Apple release settings/workflow | No | Yes |
-| Shared `lib/**`, `assets/**`, `pubspec.*`, `fastlane/Fastfile`, `Gemfile*` | Yes | Yes |
-| Documentation, tests, or store screenshots/listing text alone | No | No |
+| `android/**`, Android native plugin files, `fastlane/android/**`, Android settings/changelogs | Yes | No |
+| `ios/**`, iOS native plugin files, `fastlane/ios/**`, Apple release settings | No | Yes |
+| Shared `lib/**`, `assets/**`, `pubspec.*`, shared plugin Dart/pubspec, `fastlane/Fastfile`, `Gemfile*` | No | No |
+| Workflow configuration, documentation, tests, or store screenshots/listing text alone | No | No |
 
-The platform lane files are imported by the shared `fastlane/Fastfile`; edits to
-`fastlane/ios/**` therefore trigger only Apple uploads, and edits to
-`fastlane/android/**` trigger only Google uploads. Native files in the vendored
-LevelPlay package follow the same rule; its shared Dart/pubspec files affect both.
-The routing regression test covers 31 native, shared and non-release paths.
+To release shared changes to just one platform, include a change to that
+platform's release marker in the same pull request:
+
+- iOS: update `ios/release-trigger.txt` with the release reason.
+- Android: create or update `android/release-trigger.txt` with the release reason.
+
+An iOS marker plus shared files starts only the iOS native check and, after merge,
+the Apple upload. An Android marker selects only Android. Shared-only pull
+requests run Flutter analysis/tests without native builds; their merge uploads
+neither store. When ready later, change one platform's marker or manually run its
+deployment workflow on `main`. Markers deliberately compile the latest shared
+code at the selected commit; they do not create separate copies of the game.
+Touch both platforms only when both releases are intended.
 
 An iOS-only pull request also skips Android deployment. The lightweight Flutter
 analysis/tests still run on pull requests; the native iOS build check runs only
 for its relevant paths. A manual **Run workflow** starts only the selected
-platform's workflow. A change inside a shared Dart file affects both release
-filters, even if the edited code contains a platform condition.
+platform's workflow. Workflow-file edits do not implicitly select an app release;
+Flutter CI validates routing regression tests. Those tests cover both native
+pull-request checks and store upload filters, including combined shared/platform
+changes, shared-only changes, documentation and workflow-only changes.
 
 The Apple app record is **Garden Ninja: Harvest & Slice**, app ID
 `6834694197`, on team `5MST9WC27Z`:
