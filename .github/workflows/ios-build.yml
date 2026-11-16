@@ -62,13 +62,6 @@ jobs:
           ruby -c ios/Podfile
           ruby -c fastlane/Fastfile
 
-      - name: Start iPhone simulator while compiling
-        run: |
-          mkdir -p build/ios
-          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,re,sys; devices=json.load(sys.stdin)["devices"]; runtimes=sorted((r for r in devices if ".iOS-" in r), key=lambda r: tuple(map(int,re.findall(r"\d+",r))), reverse=True); print(next(d["udid"] for r in runtimes for d in devices[r] if d["name"].startswith("iPhone")))')
-          echo "IOS_TEST_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
-          xcrun simctl boot "$DEVICE_ID" > build/ios/simulator-boot.log 2>&1 &
-
       - name: Build unsigned iPhone and iPad release
         run: flutter build ios --release --no-codesign
 
@@ -101,7 +94,10 @@ jobs:
       - name: Launch game on iPhone simulator
         timeout-minutes: 12
         run: |
-          DEVICE_ID="$IOS_TEST_DEVICE_ID"
+          # Boot after compilation to avoid memory contention on standard runners.
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,re,sys; devices=json.load(sys.stdin)["devices"]; runtimes=sorted((r for r in devices if ".iOS-" in r), key=lambda r: tuple(map(int,re.findall(r"\d+",r))), reverse=True); phones=[d for r in runtimes for d in devices[r] if d["name"].startswith("iPhone")]; print(next((d["udid"] for d in phones if "Duo" not in d["name"]), phones[0]["udid"]))')
+          echo "IOS_TEST_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$DEVICE_ID"
           xcrun simctl bootstatus "$DEVICE_ID" -b
           echo 'Installing the compiled simulator app'
           xcrun simctl install "$DEVICE_ID" build/ios/iphonesimulator/Runner.app

@@ -18,8 +18,8 @@ bundle `com.corsairlabs.gardenNinja`.
   uploads its immutable merged commit. Shared files cannot select both platforms.
 - Existing 48 screenshots and three gameplay previews were verified COMPLETE.
   Eight locally rendered Duo screenshots (four per display) have also completed.
-  A shared accepted-resolution native gameplay video was added to the Duo group;
-  verify final Apple processing before submission. No runner captures store media.
+  A shared accepted-resolution native gameplay video also completed in the Duo
+  group. Apple now has 56 screenshots and four previews, all COMPLETE. No runner captures store media.
 - App Privacy is published, including the approved ad SDK/Game Center disclosures.
   The privacy URL is `https://corsairlabs.com/garden-ninja-privacy-policy`.
 - App Review contact and gameplay/IAP notes are now populated. Sign-in is optional
@@ -43,6 +43,9 @@ bundle `com.corsairlabs.gardenNinja`.
   It initially had no build attached and remains PREPARE_FOR_SUBMISSION.
 - Include the first Remove Ads non-consumable with the initial App Review
   submission. Product `garden_ninja_remove_ads` is READY_TO_SUBMIT, not approved.
+- Include the two Game Center leaderboards and five achievements in that same
+  initial review submission; their release collections are currently empty.
+  [Apple instructions](https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-game-center-components/).
 - Run signed-device smoke tests: both games, Game Center, audio/resume, ads for
   eligible adults, under-16 ad exclusion, sandbox purchase and restore. Native
   StoreKit simulator tests are not a substitute for real-device/store validation.
