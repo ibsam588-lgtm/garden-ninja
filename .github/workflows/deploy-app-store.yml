@@ -81,7 +81,7 @@ jobs:
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: '27.1'
 
       - name: Enforce Apple SDK 27 and iOS 15 minimum
         run: python3 tooling/check_apple_sdk.py --sdk-version "$(xcrun --sdk iphoneos --show-sdk-version)"

@@ -326,6 +326,15 @@ References: [Flutter iOS deployment](https://docs.flutter.dev/deployment/ios),
 
 ### Apple Silicon simulator tool fix (2026-11-16)
 
+Validation and uploads pin the runner image's default Xcode 27.1, with native
+tests on its installed iOS 27.0 iPhone runtime. SDK/deployment guards still enforce
+SDK 27 or newer and an iOS 15 minimum. Xcode 27.2 rejected concrete iPhone
+destinations in this project despite correct effective simulator SDK/platform/
+architecture settings, while generic compilation and `simctl` launch succeeded.
+Keep the compiler/runtime pair reproducible rather than selecting a moving
+`latest-stable` toolchain. All native test assertions remain required.
+[Runner image toolchains](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md).
+
 Flutter 3.44.2's architecture detection matches `arm64e` as if it were `arm64`.
 IronSourceAdQuality legitimately excludes arm64e; all six current ad SDKs remain
 included. The first Xcode 27 check compiled an Intel-only simulator app that the
