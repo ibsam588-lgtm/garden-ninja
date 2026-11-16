@@ -16,7 +16,7 @@ def trigger_paths(filename, event):
 class ReleasePathTests(unittest.TestCase):
     workflows = (
         ("deploy-google-play.yml", "deploy-app-store.yml", "push"),
-        ("android-build.yml", "ios-build.yml", "pull_request"),
+        ("deploy-google-play.yml", "deploy-app-store.yml", "pull_request"),
     )
 
     def test_platform_specific_and_shared_changes(self):
@@ -65,6 +65,35 @@ class ReleasePathTests(unittest.TestCase):
                     actual = (any(fnmatchcase(path, p) for p in android),
                               any(fnmatchcase(path, p) for p in ios))
                     self.assertEqual(actual, expected)
+
+    def test_helpers_do_not_create_separate_automatic_runs(self):
+        root = Path(__file__).resolve().parents[2] / ".github/workflows"
+        for filename in ("android-build.yml", "ios-build.yml", "flutter-ci.yml",
+                         "levelplay-swiftpm.yml"):
+            text = (root / filename).read_text()
+            with self.subTest(filename=filename):
+                self.assertNotRegex(text, r"(?m)^  (pull_request|push|workflow_run):")
+        for filename, helper in (("deploy-app-store.yml", "ios-build.yml"),
+                                 ("deploy-google-play.yml", "android-build.yml")):
+            text = (root / filename).read_text()
+            with self.subTest(filename=filename):
+                self.assertIn(f"uses: ./.github/workflows/{helper}", text)
+                self.assertIn("if: github.event_name == 'pull_request'", text)
+                helper_text = (root / helper).read_text()
+                self.assertIn("  workflow_call:", helper_text)
+                self.assertIn("flutter analyze", helper_text)
+                self.assertIn("flutter test", helper_text)
+                self.assertIn("python -m unittest discover", helper_text)
+
+    def test_testflight_followup_is_inside_the_upload_run(self):
+        root = Path(__file__).resolve().parents[2] / ".github/workflows"
+        parent = (root / "deploy-app-store.yml").read_text()
+        helper = (root / "testflight-distribution.yml").read_text()
+        self.assertIn("needs: upload-testflight", parent)
+        self.assertIn("uses: ./.github/workflows/testflight-distribution.yml", parent)
+        self.assertIn("  workflow_call:", helper)
+        self.assertNotIn("  workflow_run:", helper)
+        self.assertIn("  schedule:", helper)
 
     def test_shared_files_require_an_explicit_platform_selection(self):
         shared = ["lib/src/app.dart", "assets/images/home.png", "pubspec.lock"]

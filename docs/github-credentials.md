@@ -75,10 +75,11 @@ encrypted repository secret. Its private signing counterpart stays with Google.
 
 ## Documentation changes do not start builds
 
-Flutter CI ignores `docs/**` and Markdown-only pull requests. Android/iOS build
-and deployment workflows already use positive code/platform path filters, so
-documentation-only main pushes start neither app builds nor store uploads.
-Mixed code/documentation changes still run the checks for the changed code.
+Android/iOS pipelines use positive platform path filters, so documentation-only
+pushes start neither app builds nor uploads. Each pipeline runs its Flutter and
+Python tests inline; native build files are reusable helpers. Standalone Flutter
+CI is manual-only and does not create a second Actions entry. Shared-only changes
+select no platform until a release marker or manual run selects one.
 
 Apple media is handled separately: changes under `store-assets/apple/**` run the
 media uploader. The hourly TestFlight follow-up can run independently of a push;

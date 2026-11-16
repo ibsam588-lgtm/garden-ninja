@@ -1,6 +1,13 @@
-name: Deploy iOS to Apple
+name: iOS pipeline
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - 'third_party/**/ios/**'
+      - 'fastlane/ios/**'
+      - 'tooling/ios_release_config.py'
   push:
     branches: [main]
     paths:
@@ -29,8 +36,8 @@ permissions:
 
 # Never cancel an upload that Apple may already have received.
 concurrency:
-  group: garden-ninja-apple-release
-  cancel-in-progress: false
+  group: garden-ninja-apple-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'release' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   IOS_BUNDLE_ID: com.corsairlabs.gardenNinja
@@ -41,6 +48,13 @@ env:
   REQUESTED_IOS_BUILD: ${{ inputs.build_number }}
 
 jobs:
+  validate-ios:
+    name: Validate iOS
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/ios-build.yml
+    permissions:
+      contents: read
+
   upload-testflight:
     name: Sign and upload to TestFlight
     if: >-
@@ -174,6 +188,15 @@ jobs:
         run: |
           if command -v keychain >/dev/null; then keychain use-login; fi
           if [ -n "${IOS_RELEASE_DIR:-}" ] && [ -f "$IOS_RELEASE_DIR/signing.keychain-db" ]; then security delete-keychain "$IOS_RELEASE_DIR/signing.keychain-db"; fi
+
+  sync-testflight:
+    name: Update external TestFlight testing
+    needs: upload-testflight
+    if: needs.upload-testflight.result == 'success'
+    uses: ./.github/workflows/testflight-distribution.yml
+    secrets:
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      IOS_TESTFLIGHT_TESTER_EMAILS: ${{ secrets.IOS_TESTFLIGHT_TESTER_EMAILS }}
 
   submit-for-review:
     name: Submit tested Apple build for review

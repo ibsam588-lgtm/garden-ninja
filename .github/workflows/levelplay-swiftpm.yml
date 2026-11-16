@@ -1,12 +1,8 @@
 name: LevelPlay SwiftPM compatibility
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'third_party/unity_levelplay_mediation/ios/**'
-      - 'tooling/prepare_levelplay_spm_smoke.py'
-      - '.github/workflows/levelplay-swiftpm.yml'
+  # Optional check for external SwiftPM consumers. The game uses CocoaPods,
+  # validated inside the single iOS pipeline.
   workflow_dispatch:
 
 permissions:

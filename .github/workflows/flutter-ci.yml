@@ -1,12 +1,9 @@
 name: Flutter CI
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
+  # Optional checks for shared-only changes. Platform pipelines already run
+  # these checks inline, so a platform update creates one Actions entry.
+  workflow_dispatch:
 
 permissions:
   contents: read
