@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import re
 import subprocess
 
 
@@ -35,10 +36,13 @@ def main():
         try:
             if without_game_center:
                 text = original_project.decode()
-                old = 'com.apple.GameCenter = { enabled = 1; };'
-                if text.count(old) != 1:
-                    raise ValueError('Unexpected capability layout; refusing an ambiguous probe')
-                project.write_text(text.replace(old, 'com.apple.GameCenter = { enabled = 0; };'))
+                pattern = r'("?com\.apple\.GameCenter"?\s*=\s*\{\s*enabled\s*=\s*)(1|YES)(;\s*\};)'
+                if len(list(re.finditer(pattern, text))) != 1:
+                    results.append({'probe': name, 'success': False,
+                                    'not_run': 'Capability entry has an unexpected layout'})
+                    print(json.dumps(results[-1]), flush=True)
+                    return
+                project.write_text(re.sub(pattern, r'\g<1>0\g<3>', text))
             process = subprocess.run(base + overrides, capture_output=True, text=True, timeout=90)
             (output / f'{name}.log').write_text(process.stderr, encoding='utf-8')
             results.append({'probe': name, 'success': process.returncode == 0,
