@@ -335,6 +335,11 @@ to their ephemeral pinned SDK and invalidate its compiled tool cache. Real arm64
 exclusions still fail validation; the build asserts an arm64 app before install.
 No ad adapter or launch/purchase assertion is skipped. Local Macs using the same
 SDK can run `python3 tooling/fix_flutter_simulator_arch.py --flutter-root /path/to/flutter`.
+Xcode 27 also rejects Flutter 3.44's combined multi-architecture `lipo` check
+([upstream issue](https://github.com/flutter/flutter/issues/188461)). Debug
+simulator builds select the host Mac's `NATIVE_ARCH_ACTUAL`, so they compile and
+verify one native architecture on both Apple Silicon and Intel. Release device
+archives keep their normal architecture settings.
 
 Upload logs identified Node 20 action runtimes and Flutter's old Kotlin-plugin
 warning. First-party actions use current Node 24 releases. The update plugin
