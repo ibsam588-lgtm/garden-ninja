@@ -45,9 +45,14 @@ final class RunnerTests: XCTestCase {
     XCTAssertEqual(product.price, Decimal(string: "2.99"))
 
     let transaction = try await session.buyProduct(identifier: productID)
+    XCTAssertEqual(transaction.environment, .xcode,
+                   "Native fixture purchases must stay in the local Xcode environment")
+    guard transaction.environment == .xcode else { return }
     await transaction.finish()
     let paidOwnership = try await waitForOwnership(true)
     XCTAssertTrue(paidOwnership, "Purchase must publish the verified entitlement")
+    // Do not open a sandbox account dialog after an already-failed local test.
+    guard paidOwnership else { return }
 
     // AppStore.sync is the same explicit restore operation used by the plugin.
     try await AppStore.sync()

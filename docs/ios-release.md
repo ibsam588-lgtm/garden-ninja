@@ -347,6 +347,13 @@ Native StoreKit tests are built for the generic Apple Silicon simulator with
 scheme destination filtering while retaining binary architecture checks and
 requiring the named purchase/restore/refund test to actually execute and pass.
 [Apple's two-phase test workflow](https://developer.apple.com/library/archive/technotes/tn2339/_index.html).
+The Debug Run scheme selects `RunnerTests/GardenNinjaPurchases.storekit` before
+the app starts, so StoreKit clients initialize against local test data. The
+fixture belongs only to the test bundle; App Store archives continue using
+Apple's store. Native tests run serially and assert the `.xcode` transaction
+environment before checking purchase, restore and refund entitlements. A failed
+purchase assertion returns before restore can open an unrelated sandbox sign-in.
+[Apple's local StoreKit setup](https://developer.apple.com/documentation/xcode/setting-up-storekit-testing-in-xcode).
 
 Upload logs identified Node 20 action runtimes and Flutter's old Kotlin-plugin
 warning. First-party actions use current Node 24 releases. The update plugin
