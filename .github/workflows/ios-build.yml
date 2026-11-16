@@ -77,6 +77,28 @@ jobs:
           # Fail before boot/install if a dependency forces an unusable Intel app.
           lipo -verify_arch arm64 build/ios/iphonesimulator/Runner.app/Runner
 
+      - name: Compile native StoreKit tests for Apple Silicon
+        timeout-minutes: 12
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing -workspace ios/Runner.xcworkspace -scheme Runner \
+            -sdk iphonesimulator -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -only-testing:RunnerTests \
+            -derivedDataPath build/ios/storekit-derived-data \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build/ios/storekit-build.log
+          lipo -verify_arch arm64 build/ios/storekit-derived-data/Build/Products/Debug-iphonesimulator/Runner.app/Runner
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          products = Path('build/ios/storekit-derived-data/Build/Products')
+          configs = list(products.glob('*.xctestrun'))
+          if len(configs) != 1:
+              raise SystemExit('Expected one real compiled native test configuration')
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f'IOS_XCTESTRUN={configs[0].resolve()}\n')
+          PY
+
       - name: Package simulator build
         run: tar -C build/ios/iphonesimulator -czf build/ios/garden-ninja-ios-simulator.tar.gz Runner.app
 
@@ -142,12 +164,19 @@ jobs:
         run: |
           set -o pipefail
           xcrun simctl terminate "$IOS_TEST_DEVICE_ID" com.corsairlabs.gardenNinja || true
-          xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner \
-            -sdk iphonesimulator -configuration Debug \
+          # Run the compiled simulator products, retaining the actual StoreKit assertions.
+          xcodebuild test-without-building -xctestrun "$IOS_XCTESTRUN" \
             -destination "platform=iOS Simulator,id=$IOS_TEST_DEVICE_ID" -only-testing:RunnerTests \
-            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES \
+            -parallel-testing-enabled NO \
             -resultBundlePath build/ios/storekit-tests.xcresult \
             2>&1 | tee build/ios/storekit-tests.log
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          log = Path('build/ios/storekit-tests.log').read_text()
+          if not re.search(r"Test [Cc]ase .*testNonConsumablePurchaseRestorationAndRefund.* passed", log):
+              raise SystemExit('Native purchase/restore/refund test did not execute and pass')
+          PY
 
       - name: Upload Xcode diagnostics
         if: failure()
@@ -159,6 +188,7 @@ jobs:
             ios/Podfile.lock
             build/ios/simulator-boot.log
             build/ios/simulator-launch.log
+            build/ios/storekit-build.log
             build/ios/storekit-tests.log
             build/ios/storekit-tests.xcresult
           if-no-files-found: ignore

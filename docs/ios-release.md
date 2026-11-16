@@ -340,9 +340,13 @@ Xcode 27 also rejects Flutter 3.44's combined multi-architecture `lipo` check
 simulator builds select the host Mac's `NATIVE_ARCH_ACTUAL`, so they compile and
 verify one native architecture on both Apple Silicon and Intel. Release device
 archives keep their normal architecture settings.
-Debug explicitly supports both iPhoneOS and iPhoneSimulator, and the native
-StoreKit command selects the simulator SDK/configuration/platform. Xcode 27
-otherwise rejected the simulator destination before executing any purchase test.
+All project configurations explicitly support iPhoneOS and iPhoneSimulator.
+Native StoreKit tests are built for the generic Apple Silicon simulator with
+`build-for-testing`, then executed from the generated `.xctestrun` using
+`test-without-building` on the booted iPhone. This avoids Xcode 27's project
+scheme destination filtering while retaining binary architecture checks and
+requiring the named purchase/restore/refund test to actually execute and pass.
+[Apple's two-phase test workflow](https://developer.apple.com/library/archive/technotes/tn2339/_index.html).
 
 Upload logs identified Node 20 action runtimes and Flutter's old Kotlin-plugin
 warning. First-party actions use current Node 24 releases. The update plugin
