@@ -2,6 +2,10 @@ name: iOS build
 
 on:
   workflow_call:
+    inputs:
+      checkout_ref:
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -13,19 +17,28 @@ concurrency:
 jobs:
   ios-build:
     name: Build and launch iOS
-    runs-on: macos-15
+    runs-on: xcode-27
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref }}
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: '27.1'
+
+      - name: Enforce Apple SDK 27 and iOS 15 minimum
+        run: python3 tooling/check_apple_sdk.py --sdk-version "$(xcrun --sdk iphoneos --show-sdk-version)"
+
+      - name: Initialize installed Xcode components
+        run: |
+          if ! xcodebuild -checkFirstLaunchStatus; then sudo xcodebuild -runFirstLaunch; fi
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.2'
+          flutter-version: '3.47.9'
           channel: stable
           cache: false
 
@@ -56,12 +69,65 @@ jobs:
       - name: Package unsigned device build
         run: tar -C build/ios/iphoneos -czf build/ios/garden-ninja-ios-unsigned.tar.gz Runner.app
 
+      - name: Select simulator destination
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; phones=[d for r,items in devices.items() if r.endswith(".iOS-27-0") for d in items if d["name"].startswith("iPhone")]; assert phones, "The pinned iOS 27.0 simulator runtime is required"; print(next((d["udid"] for d in phones if d["name"] == "iPhone 18 Pro"), phones[0]["udid"]))')
+          echo "IOS_TEST_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+
       - name: Build iPhone simulator
         env:
           APP_STORE_ID: ${{ vars.APP_STORE_ID }}
-        run: >-
-          flutter build ios --simulator --debug --dart-define=IOS_LAUNCH_PROBE=true
-          --dart-define="APP_STORE_ID=$APP_STORE_ID"
+        run: |
+          flutter build ios --simulator --debug --dart-define=IOS_LAUNCH_PROBE=true \
+            --dart-define="APP_STORE_ID=$APP_STORE_ID"
+          # Fail before boot/install if a dependency forces an unusable Intel app.
+          lipo -verify_arch arm64 build/ios/iphonesimulator/Runner.app/Runner
+          python3 tooling/check_apple_sdk.py --sdk-version "$(xcrun --sdk iphonesimulator --show-sdk-version)" --app-plist build/ios/iphonesimulator/Runner.app/Info.plist
+
+      - name: Compile native StoreKit tests for Apple Silicon
+        timeout-minutes: 12
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing -workspace ios/Runner.xcworkspace -scheme Runner \
+            -sdk iphonesimulator -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -testPlan RunnerTests -only-testing:RunnerTests \
+            -derivedDataPath build/ios/storekit-derived-data \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO SUPPORTED_PLATFORMS=iphonesimulator CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build/ios/storekit-build.log
+          lipo -verify_arch arm64 build/ios/storekit-derived-data/Build/Products/Debug-iphonesimulator/Runner.app/Runner
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          products = Path('build/ios/storekit-derived-data/Build/Products')
+          configs = list(products.glob('*.xctestrun'))
+          if len(configs) != 1:
+              raise SystemExit('Expected one real compiled native test configuration')
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f'IOS_XCTESTRUN={configs[0].resolve()}\n')
+          PY
+
+      - name: Verify effective simulator settings
+        timeout-minutes: 3
+        run: |
+          xcodebuild -showBuildSettings -json -workspace ios/Runner.xcworkspace -scheme Runner \
+            -sdk iphonesimulator -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO SUPPORTED_PLATFORMS=iphonesimulator CODE_SIGNING_ALLOWED=NO \
+            > "$RUNNER_TEMP/ios-effective-build-settings.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          settings = json.loads((Path(os.environ['RUNNER_TEMP']) / 'ios-effective-build-settings.json').read_text())
+          keys = ('SDKROOT', 'SUPPORTED_PLATFORMS', 'PLATFORM_NAME', 'SDK_VARIANT', 'ARCHS',
+                  'EXCLUDED_ARCHS', 'ONLY_ACTIVE_ARCH', 'TARGETED_DEVICE_FAMILY', 'IPHONEOS_DEPLOYMENT_TARGET')
+          report = [{'target': item['target'], **{key: item['buildSettings'].get(key) for key in keys}} for item in settings]
+          text = json.dumps(report, indent=2)
+          print(text)
+          Path('build/ios/simulator-build-settings.json').write_text(text)
+          for item in report:
+              if 'iphonesimulator' not in (item['SUPPORTED_PLATFORMS'] or '').split():
+                  raise SystemExit(f"{item['target']} does not support the selected simulator platform")
+          PY
 
       - name: Package simulator build
         run: tar -C build/ios/iphonesimulator -czf build/ios/garden-ninja-ios-simulator.tar.gz Runner.app
@@ -80,16 +146,10 @@ jobs:
       - name: Launch game on iPhone simulator
         timeout-minutes: 12
         run: |
-          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,re,sys; devices=json.load(sys.stdin)["devices"]; runtimes=sorted((r for r in devices if ".iOS-" in r), key=lambda r: tuple(map(int,re.findall(r"\d+",r))), reverse=True); print(next(d["udid"] for r in runtimes for d in devices[r] if d["name"].startswith("iPhone")))')
-          echo "IOS_TEST_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
-          capture_screen() {
-            python3 - "$DEVICE_ID" <<'PY'
-          import subprocess, sys
-          subprocess.run(['xcrun', 'simctl', 'io', sys.argv[1], 'screenshot',
-                          'build/ios/iphone-launch.png'], check=True, timeout=120)
-          PY
-          }
-          xcrun simctl boot "$DEVICE_ID"
+          # Boot after compilation to avoid memory contention on standard runners.
+          DEVICE_ID="$IOS_TEST_DEVICE_ID"
+          DEVICE_STATE=$(xcrun simctl list devices -j | python3 -c 'import json,os,sys; devices=json.load(sys.stdin)["devices"]; print(next(d["state"] for items in devices.values() for d in items if d["udid"] == os.environ["IOS_TEST_DEVICE_ID"]))')
+          if [ "$DEVICE_STATE" = Shutdown ]; then xcrun simctl boot "$DEVICE_ID"; fi
           xcrun simctl bootstatus "$DEVICE_ID" -b
           echo 'Installing the compiled simulator app'
           xcrun simctl install "$DEVICE_ID" build/ios/iphonesimulator/Runner.app
@@ -104,7 +164,7 @@ jobs:
             > build/ios/simulator-launch.log 2>&1 &
           SIMULATOR_CONSOLE_PID=$!
           trap 'kill "$SIMULATOR_CONSOLE_PID" 2>/dev/null || true' EXIT
-          # Cold iOS 26 runners can spend several minutes loading system
+          # Cold iOS 27 runners can spend several minutes loading system
           # frameworks before Dart starts. Still require the real frame marker.
           for attempt in {1..150}; do
             if [ -s "$FRAME_MARKER" ]; then break; fi
@@ -112,8 +172,6 @@ jobs:
           done
           cat build/ios/simulator-launch.log
           if [ ! -s "$FRAME_MARKER" ]; then
-            capture_screen || true
-            # Screenshot capture can complete after the first frame arrives.
             # Refresh the data-container path and check again before failing.
             APP_DATA=$(xcrun simctl get_app_container "$DEVICE_ID" com.corsairlabs.gardenNinja data)
             FRAME_MARKER="$APP_DATA/tmp/garden_ninja_first_frame"
@@ -130,27 +188,45 @@ jobs:
           # Simulator apps are host processes; signal 0 checks existence without
           # sending a signal. Avoid launchctl inside the simulated device.
           kill -0 "$APP_PID"
-          capture_screen
+
+      - name: Initialize local StoreKit in a separate test process
+        timeout-minutes: 12
+        run: |
+          set -o pipefail
+          xcrun simctl terminate "$IOS_TEST_DEVICE_ID" com.corsairlabs.gardenNinja || true
+          xcrun simctl uninstall "$IOS_TEST_DEVICE_ID" com.corsairlabs.gardenNinja
+          xcodebuild test-without-building -xctestrun "$IOS_XCTESTRUN" \
+            -destination "platform=iOS Simulator,id=$IOS_TEST_DEVICE_ID" \
+            -only-testing:RunnerTests/StoreKitPreflightTests -parallel-testing-enabled NO \
+            -resultBundlePath build/ios/storekit-preflight.xcresult \
+            2>&1 | tee build/ios/storekit-preflight.log
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          log = Path('build/ios/storekit-preflight.log').read_text()
+          if not re.search(r"Test [Cc]ase .*testInitializesLocalStoreKitSession.* passed", log):
+              raise SystemExit('Local StoreKit initialization did not execute and pass')
+          PY
 
       - name: Test native StoreKit purchase, restore and refund
         timeout-minutes: 12
         run: |
           set -o pipefail
-          xcrun simctl terminate "$IOS_TEST_DEVICE_ID" com.corsairlabs.gardenNinja || true
-          xcodebuild test -workspace ios/Runner.xcworkspace -scheme Runner \
-            -destination "id=$IOS_TEST_DEVICE_ID" -only-testing:RunnerTests \
-            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=YES \
+          # Keep the installed app and simulator state from the preflight. A
+          # fresh process picks up XcodeTest instead of the cached Sandbox store.
+          xcodebuild test-without-building -xctestrun "$IOS_XCTESTRUN" \
+            -destination "platform=iOS Simulator,id=$IOS_TEST_DEVICE_ID" \
+            -only-testing:RunnerTests/RunnerTests \
+            -parallel-testing-enabled NO \
             -resultBundlePath build/ios/storekit-tests.xcresult \
             2>&1 | tee build/ios/storekit-tests.log
-
-      - name: Upload launch screenshot
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: garden-ninja-ios-preview-${{ github.run_number }}
-          path: build/ios/iphone-launch.png
-          if-no-files-found: ignore
-          retention-days: 30
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          log = Path('build/ios/storekit-tests.log').read_text()
+          if not re.search(r"Test [Cc]ase .*testNonConsumablePurchaseRestorationAndRefund.* passed", log):
+              raise SystemExit('Native purchase/restore/refund test did not execute and pass')
+          PY
 
       - name: Upload Xcode diagnostics
         if: failure()
@@ -160,8 +236,14 @@ jobs:
           path: |
             /tmp/flutter_tools.*/flutter_ios_build_temp_dir/*.xcresult
             ios/Podfile.lock
+            build/ios/simulator-boot.log
             build/ios/simulator-launch.log
+            build/ios/storekit-build.log
+            build/ios/simulator-build-settings.json
             build/ios/storekit-tests.log
             build/ios/storekit-tests.xcresult
+            build/ios/storekit-preflight.log
+            build/ios/storekit-preflight.xcresult
+            build/ios/storekit-derived-data/Build/Products/*.xctestrun
           if-no-files-found: ignore
           retention-days: 7

@@ -1,0 +1,43 @@
+{
+  "locale": "en-US",
+  "capture": "Local Flutter renderer using shipped widgets and assets",
+  "preview_source": "Existing native iOS gameplay recording, copied without resampling",
+  "groups": [
+    {
+      "display": "DUO_OUTER",
+      "dimensions": [
+        1398,
+        2034
+      ],
+      "screenshots": [
+        "screenshots/en-US/DUO_OUTER/01-home.jpg",
+        "screenshots/en-US/DUO_OUTER/02-garden.jpg",
+        "screenshots/en-US/DUO_OUTER/03-harvest.jpg",
+        "screenshots/en-US/DUO_OUTER/04-arcade.jpg"
+      ],
+      "preview": "previews/en-US/duo_outer-gameplay.mp4",
+      "preview_dimensions": [
+        886,
+        1920
+      ]
+    },
+    {
+      "display": "DUO_INNER",
+      "dimensions": [
+        2007,
+        2853
+      ],
+      "screenshots": [
+        "screenshots/en-US/DUO_INNER/01-home.jpg",
+        "screenshots/en-US/DUO_INNER/02-garden.jpg",
+        "screenshots/en-US/DUO_INNER/03-harvest.jpg",
+        "screenshots/en-US/DUO_INNER/04-arcade.jpg"
+      ],
+      "preview": "previews/en-US/duo_inner-gameplay.mp4",
+      "preview_dimensions": [
+        886,
+        1920
+      ]
+    }
+  ]
+}

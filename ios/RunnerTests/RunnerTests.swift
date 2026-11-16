@@ -2,6 +2,25 @@ import StoreKit
 import StoreKitTest
 import XCTest
 
+// iOS 27 may bind the first purchase connection to Sandbox. Initialize the
+// local test daemon in a separate process, then run the full assertions in a
+// fresh process on the same installed app/simulator. No purchases are bypassed.
+@available(iOS 17.0, *)
+@MainActor
+final class StoreKitPreflightTests: XCTestCase {
+  func testInitializesLocalStoreKitSession() async throws {
+    let file = try XCTUnwrap(Bundle(for: Self.self).url(
+      forResource: "GardenNinjaPurchases", withExtension: "storekit"))
+    let session = try SKTestSession(contentsOf: file)
+    session.resetToDefaultState()
+    session.clearTransactions()
+    session.disableDialogs = true
+    let products = try await Product.products(for: ["garden_ninja_remove_ads"])
+    XCTAssertEqual(products.first?.id, "garden_ninja_remove_ads")
+    XCTAssertEqual(products.first?.type, .nonConsumable)
+  }
+}
+
 @available(iOS 17.0, *)
 @MainActor
 final class RunnerTests: XCTestCase {
@@ -45,9 +64,14 @@ final class RunnerTests: XCTestCase {
     XCTAssertEqual(product.price, Decimal(string: "2.99"))
 
     let transaction = try await session.buyProduct(identifier: productID)
+    XCTAssertEqual(transaction.environment, .xcode,
+                   "Native fixture purchases must stay in the local Xcode environment")
+    guard transaction.environment == .xcode else { return }
     await transaction.finish()
     let paidOwnership = try await waitForOwnership(true)
     XCTAssertTrue(paidOwnership, "Purchase must publish the verified entitlement")
+    // Do not open a sandbox account dialog after an already-failed local test.
+    guard paidOwnership else { return }
 
     // AppStore.sync is the same explicit restore operation used by the plugin.
     try await AppStore.sync()

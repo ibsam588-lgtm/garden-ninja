@@ -1,14 +1,16 @@
 # Google Play Deployment
 
-This repo deploys Android builds from GitHub Actions when Android or shared game
-changes are merged to `main`. Android files, Android Fastlane settings/changelogs,
-the Android release workflow, shared Flutter code/assets/dependencies and shared
-Fastlane dependencies trigger the upload. Changes confined to `ios/**`, Apple
-release configuration, documentation, tests or listing screenshots do not start
-an Android release. See the [platform trigger table](ios-release.md#release-pipelines).
+**Mobile Release** selects Android only when a PR has `release:android` before
+merging to the default `main` branch. Its native validation runs in the same
+workflow; on merge it signs/uploads that exact commit to internal testing.
+Shared files never select a second platform. `release:ios` never builds Android.
+No label uploads neither app; both labels fail instead of building both.
+See [release routing](ios-release.md#release-pipelines).
 
-The workflow runs analysis and tests before uploading to Google Play internal
-testing. Manual dispatch runs only this Android workflow.
+Manual operations use Mobile Release with platform **android**. Store uploads and
+promotion must run on the actual main/master default branch.
+The new caller uses version codes `100000 + GITHUB_RUN_NUMBER`, reserving a range
+above the former Android workflow's 100xx series when its run counter restarts.
 
 ## GitHub Secrets
 
@@ -22,7 +24,7 @@ Add these repository secrets in GitHub:
 
 Do not commit keystores, key properties, service account JSON, or copied secret values to the public repository.
 
-The Android upload keystore has been generated locally at `android/app/upload-keystore.jks`, with `android/key.properties` pointing to it. Both files are intentionally ignored by Git. The matching Android signing secrets are already configured in GitHub; `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` still must be created from the `ibsam588@gmail.com` Play Console account and added before CI can upload to Google Play.
+The Android upload keystore has been generated locally at `android/app/upload-keystore.jks`, with `android/key.properties` pointing to it. Both files are intentionally ignored by Git. The matching Android signing secrets are already configured in GitHub; `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` is also configured for the existing Play Console app.
 
 ## Create an Upload Keystore
 
@@ -56,13 +58,13 @@ In Play Console, enable Play App Signing and upload the first signed app bundle 
 The workflow deploys to `internal` by default.
 
 To promote a tested internal build to production, dispatch the workflow from
-`main`, set `play_track` to `production`, and provide its existing `version_code`
+`main`, select platform `android` and operation `promote_production`, and provide its existing `version_code`
 after the listing, app-content forms and testing requirements are complete.
 
 Example:
 
 ```bash
-gh workflow run deploy-google-play.yml --ref main -f play_track=production -f version_code=TESTED_VERSION_CODE
+gh workflow run mobile-release.yml --ref main -f platform=android -f operation=promote_production -f version_code=TESTED_VERSION_CODE
 ```
 
 ## LevelPlay Ads

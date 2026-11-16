@@ -63,11 +63,12 @@ See [Remove Ads purchases](docs/in-app-purchases.md) for store setup, restore
 behavior, verification and testing. [GitHub credentials](docs/github-credentials.md)
 lists every stored secret/variable and its purpose, without exposing values.
 Documentation-only updates do not trigger app builds or store uploads.
-Native builds and uploads are selected by platform folders, with tests inside
-that single pipeline. Shared-only Dart/assets changes start no automatic app
-workflow; **Flutter CI** is available manually. To ship to one platform, update
-`ios/release-trigger.txt` or `android/release-trigger.txt` in that pull request,
-or manually run just that platform's deployment workflow on `main`.
+**Mobile Release** is the single automatic app workflow. Label a PR
+`release:ios` or `release:android` before merging to `main`: it validates only
+that platform, then uploads only that platform on merge. Shared files follow
+the selected label; they never select both builds. Both labels together fail
+validation, and an unlabelled PR builds/uploads neither app. Manual release
+operations also select exactly one platform. See the iOS guide for details.
 
 ## Checks
 

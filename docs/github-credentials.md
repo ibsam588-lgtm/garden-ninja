@@ -25,7 +25,7 @@ printing or attempting to retrieve secret values.
 | `ANDROID_KEY_ALIAS` | Selects the upload-signing entry inside the keystore. | `deploy-google-play.yml` |
 | `ANDROID_KEY_PASSWORD` | Unlocks the selected Android signing key. | `deploy-google-play.yml` |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Google service-account credential used by Fastlane to authenticate to the Android Publisher API and upload/promote Garden Ninja releases; the manual product workflow also provisions the approved Remove Ads SKU. | `deploy-google-play.yml`, `fastlane/android/Fastfile`, `configure-store-purchases.yml` |
-| `APP_STORE_CONNECT_PRIVATE_KEY` | Complete Apple `.p8` API private key. Authenticates signing-resource lookup, TestFlight upload/distribution, store-media management and explicit App Review submission. Its companion issuer/key IDs are repository variables. The authorized Apple key has App Manager access at account level. | `deploy-app-store.yml`, `testflight-distribution.yml`, `publish-apple-media.yml`, Apple tooling |
+| `APP_STORE_CONNECT_PRIVATE_KEY` | Complete Apple `.p8` API private key. Authenticates signing-resource lookup, TestFlight upload/distribution, store-media management and explicit App Review submission. Its companion issuer/key IDs are repository variables. The authorized Apple key has App Manager access at account level. | `deploy-app-store.yml`, `testflight-distribution.yml`, Apple tooling |
 | `IOS_DISTRIBUTION_PRIVATE_KEY` | Reusable Apple Distribution signing private key. CI matches it to the existing certificate/profile instead of creating a new identity on every build. Passed to signing tools as `CERTIFICATE_PRIVATE_KEY`. | `deploy-app-store.yml` |
 | `IOS_TESTFLIGHT_TESTER_EMAILS` | Comma-separated allowlist of external testers eligible for a first invitation after Apple approves an attached beta build. It does not grant App Store Connect staff access. | `testflight-distribution.yml` |
 
@@ -43,7 +43,7 @@ These are SDK identifiers and release settings, not private signing credentials.
 | `APP_STORE_ID` | Identifies Garden Ninja's App Store Connect app and its store/review link. |
 | `APP_STORE_CONNECT_ISSUER_ID` | Apple account issuer paired with the API key. |
 | `APP_STORE_CONNECT_KEY_ID` | Identifies the `.p8` key. Workflows expose it to Apple tools as `APP_STORE_CONNECT_KEY_IDENTIFIER`. |
-| `IOS_RELEASE_ENABLED` | Enables automatic Apple uploads, media publishing and TestFlight follow-up when set to `true`. |
+| `IOS_RELEASE_ENABLED` | Enables selected Apple uploads and TestFlight follow-up when set to `true`. |
 | `IOS_TESTFLIGHT_GROUP_ID` | Selects Garden Ninja's external playtest group. The sync script checks that it belongs to this app. |
 | `LEVELPLAY_APP_KEY` | Android LevelPlay application identifier compiled into Android releases. |
 | `LEVELPLAY_BANNER_AD_UNIT_ID` | Android banner ad unit. |
@@ -98,3 +98,11 @@ Android production promotion and Apple App Review submission select an exact,
 tested build through their explicit workflow operations.
 
 See [the release guide](ios-release.md) for platform routing and workflow use.
+
+## Single release router
+
+`mobile-release.yml` selects one platform from `release:ios` or `release:android`.
+Only the chosen store worker receives its named secrets; PR validation receives
+no store secrets. The Apple and Google workers are workflow_call helpers, not
+independently triggered pipelines. No new credentials were needed for this change.
+Media processing/uploads run locally, with the owner-approved local Apple key.

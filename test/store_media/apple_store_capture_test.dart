@@ -13,6 +13,9 @@ import 'package:garden_ninja/src/garden/harvest_art.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const displays = <String, (int, int, double)>{
+  // Local capture folder names, not undocumented App Store Connect API enums.
+  'DUO_OUTER': (1398, 2034, 3),
+  'DUO_INNER': (2007, 2853, 3),
   'APP_IPHONE_67': (1320, 2868, 3),
   'APP_IPHONE_61': (1206, 2622, 3),
   'APP_IPHONE_65': (1242, 2688, 3),

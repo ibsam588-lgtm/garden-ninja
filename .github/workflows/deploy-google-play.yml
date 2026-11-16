@@ -1,63 +1,50 @@
-name: Android pipeline
+name: Android release worker
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'android/**'
-      - 'third_party/**/android/**'
-      - 'fastlane/android/**'
-      - 'fastlane/Appfile'
-      - 'fastlane/metadata/android/*/changelogs/**'
-  push:
-    branches:
-      - main
-    paths:
-      - 'android/**'
-      - 'third_party/**/android/**'
-      - 'fastlane/android/**'
-      - 'fastlane/Appfile'
-      - 'fastlane/metadata/android/*/changelogs/**'
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      play_track:
-        description: "Upload internal, or promote a tested internal build to production"
-        required: false
-        default: internal
-        type: choice
-        options:
-          - internal
-          - production
-      version_code:
-        description: "Existing tested internal version code (required for production)"
+      checkout_ref:
         type: string
+        required: true
+      release_branch:
+        type: string
+        required: true
+      play_track:
+        type: string
+        default: internal
+      version_code:
+        type: string
+        default: ''
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
         required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_KEY_ALIAS:
+        required: false
+      ANDROID_KEY_PASSWORD:
+        required: false
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON:
+        required: true
 
 permissions:
   contents: write
 
 concurrency:
-  group: garden-ninja-google-play-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'release' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: garden-ninja-google-play-release
+  cancel-in-progress: false
 
 env:
   ANDROID_PACKAGE_NAME: com.gardenninja.garden_ninja
   FLUTTER_VERSION: "3.44.2"
-  PLAY_TRACK: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.play_track || 'internal' }}
+  PLAY_TRACK: ${{ inputs.play_track }}
 
 jobs:
-  validate-android:
-    name: Validate Android
-    if: github.event_name == 'pull_request'
-    uses: ./.github/workflows/android-build.yml
-    permissions:
-      contents: read
-
   deploy-android:
     name: Build and deploy Android
     if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.play_track != 'production')
+      inputs.play_track != 'production' &&
+      (github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     env:
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -68,6 +55,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref }}
+          fetch-depth: 0
+
+      - name: Validate release checkout
+        env:
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
+        run: |
+          [[ "$RELEASE_BRANCH" = main || "$RELEASE_BRANCH" = master ]] || exit 1
+          git merge-base --is-ancestor HEAD "origin/$RELEASE_BRANCH"
 
       - name: Set up Java
         uses: actions/setup-java@v6
@@ -182,12 +179,10 @@ jobs:
           LEVELPLAY_CHILD_DIRECTED: ${{ vars.LEVELPLAY_CHILD_DIRECTED }}
           LEVELPLAY_TEST_SUITE: ${{ vars.LEVELPLAY_TEST_SUITE }}
         run: |
-          # GitHub run 51 was the latest observed workflow run. Keep its
-          # existing monotonic scheme, with a floor above the verified 10049.
-          build_number=$((10000 + GITHUB_RUN_NUMBER))
-          if [ "$build_number" -lt 10050 ]; then
-            build_number=10050
-          fi
+          # Mobile Release starts a new run counter. Reserve a fresh range above
+          # the former Android pipeline's 100xx codes to prevent reused codes.
+          # Reusable workers inherit the caller's monotonically increasing run.
+          build_number=$((100000 + GITHUB_RUN_NUMBER))
           echo "VERSION_CODE=$build_number" >> "$GITHUB_ENV"
           build_name=$(python3 -c 'import pathlib,re; print(re.search(r"^version:\s*(\d+\.\d+\.\d+)",pathlib.Path("pubspec.yaml").read_text(),re.M)[1])')
           flutter build appbundle --release \
@@ -223,11 +218,15 @@ jobs:
       PROMOTE_VERSION_CODE: ${{ inputs.version_code }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref }}
+          fetch-depth: 0
       - name: Validate production selection
         env:
-          RELEASE_REF: ${{ github.ref }}
+          RELEASE_REF: refs/heads/${{ inputs.release_branch }}
         run: |
-          [ "$RELEASE_REF" = 'refs/heads/main' ] || { echo '::error::Production promotion must run from main'; exit 1; }
+          [[ "$RELEASE_REF" = refs/heads/main || "$RELEASE_REF" = refs/heads/master ]] || { echo '::error::Production promotion must run from main'; exit 1; }
+          git merge-base --is-ancestor HEAD "origin/${{ inputs.release_branch }}"
           [[ "$PROMOTE_VERSION_CODE" =~ ^[1-9][0-9]*$ ]] || { echo '::error::Select a tested internal version code'; exit 1; }
           [ -n "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" ] || { echo '::error::Google Play credentials are missing'; exit 1; }
       - uses: ruby/setup-ruby@v1

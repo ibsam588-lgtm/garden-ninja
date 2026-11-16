@@ -1,2 +1,6 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
+
+// Build Debug simulators for the host Mac. Device release archives retain
+// their normal architecture settings.
+ARCHS[sdk=iphonesimulator*] = $(NATIVE_ARCH_ACTUAL)
