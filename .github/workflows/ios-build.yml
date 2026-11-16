@@ -109,7 +109,7 @@ jobs:
         run: |
           xcodebuild -showBuildSettings -json -workspace ios/Runner.xcworkspace -scheme Runner \
             -sdk iphonesimulator -configuration Debug \
-            -destination "platform=iOS Simulator,id=$IOS_TEST_DEVICE_ID,arch=arm64" \
+            -destination 'generic/platform=iOS Simulator' \
             ARCHS=arm64 ONLY_ACTIVE_ARCH=NO SUPPORTED_PLATFORMS=iphonesimulator CODE_SIGNING_ALLOWED=NO \
             > "$RUNNER_TEMP/ios-effective-build-settings.json"
           python3 - <<'PY'
@@ -126,6 +126,12 @@ jobs:
               if 'iphonesimulator' not in (item['SUPPORTED_PLATFORMS'] or '').split():
                   raise SystemExit(f"{item['target']} does not support the selected simulator platform")
           PY
+          # Resolve the concrete target only after recording effective settings.
+          xcodebuild -showBuildSettings -workspace ios/Runner.xcworkspace -scheme Runner \
+            -sdk iphonesimulator -configuration Debug \
+            -destination "platform=iOS Simulator,id=$IOS_TEST_DEVICE_ID,arch=arm64" \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO SUPPORTED_PLATFORMS=iphonesimulator CODE_SIGNING_ALLOWED=NO \
+            > /dev/null
 
       - name: Package simulator build
         run: tar -C build/ios/iphonesimulator -czf build/ios/garden-ninja-ios-simulator.tar.gz Runner.app
