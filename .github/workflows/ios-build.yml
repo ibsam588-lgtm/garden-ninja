@@ -34,12 +34,9 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.2'
+          flutter-version: '3.47.9'
           channel: stable
           cache: false
-
-      - name: Apply upstream Flutter simulator architecture fix
-        run: python3 tooling/fix_flutter_simulator_arch.py --flutter-root "$FLUTTER_ROOT"
 
       - name: Install dependencies
         run: flutter pub get

@@ -36,7 +36,7 @@ concurrency:
 
 env:
   IOS_BUNDLE_ID: com.corsairlabs.gardenNinja
-  FLUTTER_VERSION: '3.44.2'
+  FLUTTER_VERSION: '3.47.9'
   FASTLANE_SKIP_UPDATE_CHECK: 'true'
   FASTLANE_HIDE_CHANGELOG: 'true'
   REQUESTED_IOS_VERSION: ${{ inputs.version }}
@@ -109,9 +109,6 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: false
-
-      - name: Apply upstream Flutter simulator architecture fix
-        run: python3 tooling/fix_flutter_simulator_arch.py --flutter-root "$FLUTTER_ROOT"
 
       - name: Verify Flutter game
         run: |

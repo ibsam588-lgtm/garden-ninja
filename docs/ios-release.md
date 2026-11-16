@@ -187,7 +187,7 @@ covered by `python3 -m unittest discover -s tooling/tests -p test_ios_release_co
 
 ## Build and play without an Apple Developer membership
 
-On a Mac with Xcode 27 or later, CocoaPods and Flutter 3.44.2:
+On a Mac with Xcode 27.1, CocoaPods and Flutter 3.47.9:
 
 ```sh
 flutter pub get
@@ -324,7 +324,7 @@ References: [Flutter iOS deployment](https://docs.flutter.dev/deployment/ios),
 
 ## Deprecation audit (2026-11-14)
 
-### Apple Silicon simulator tool fix (2026-11-16)
+### Pinned iOS toolchain (2026-11-16)
 
 Validation and uploads pin the runner image's default Xcode 27.1, with native
 tests on its installed iOS 27.0 iPhone runtime. SDK/deployment guards still enforce
@@ -335,20 +335,14 @@ Keep the compiler/runtime pair reproducible rather than selecting a moving
 `latest-stable` toolchain. All native test assertions remain required.
 [Runner image toolchains](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md).
 
-Flutter 3.44.2's architecture detection matches `arm64e` as if it were `arm64`.
-IronSourceAdQuality legitimately excludes arm64e; all six current ad SDKs remain
-included. The first Xcode 27 check compiled an Intel-only simulator app that the
-ARM-only iOS 27 simulator rejected. The iOS jobs now apply the exact one-line
-[upstream Flutter correction](https://github.com/flutter/flutter/pull/184057)
-to their ephemeral pinned SDK and invalidate its compiled tool cache. Real arm64
-exclusions still fail validation; the build asserts an arm64 app before install.
-No ad adapter or launch/purchase assertion is skipped. Local Macs using the same
-SDK can run `python3 tooling/fix_flutter_simulator_arch.py --flutter-root /path/to/flutter`.
-Xcode 27 also rejects Flutter 3.44's combined multi-architecture `lipo` check
-([upstream issue](https://github.com/flutter/flutter/issues/188461)). Debug
-simulator builds select the host Mac's `NATIVE_ARCH_ACTUAL`, so they compile and
-verify one native architecture on both Apple Silicon and Intel. Release device
-archives keep their normal architecture settings.
+The iOS workers use Flutter 3.47.9, which includes upstream Xcode 27 simulator
+and debugger fixes. No downloaded SDK files are patched. Android retains its
+separate existing Flutter 3.44.2 pin and does not build when the PR selects iOS.
+All six ad adapters remain included. Debug simulators select the host Mac's
+native architecture; device release archives retain normal architecture settings.
+The build checks the actual arm64 binary and records effective simulator settings
+before booting the device.
+[Flutter stable hotfixes](https://github.com/flutter/flutter/blob/3.47.9/CHANGELOG.md).
 All project configurations explicitly support iPhoneOS and iPhoneSimulator.
 Native StoreKit tests are built for the generic Apple Silicon simulator with
 `build-for-testing`, then executed with `test-without-building` against the same
