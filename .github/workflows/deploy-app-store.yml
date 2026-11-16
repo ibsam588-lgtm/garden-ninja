@@ -116,7 +116,7 @@ jobs:
           flutter analyze
           flutter test
 
-      - name: Fetch App Store signing files
+      - name: Fetch existing shared App Store signing files
         run: |
           CI_KEYCHAIN_PASSWORD=$(openssl rand -hex 32)
           echo "::add-mask::$CI_KEYCHAIN_PASSWORD"
@@ -127,9 +127,14 @@ jobs:
           app-store-connect fetch-signing-files "$IOS_BUNDLE_ID" \
             --certificates-dir "$IOS_RELEASE_DIR/certificates" \
             --profiles-dir "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" \
-            --platform IOS --type IOS_APP_STORE --strict-match-identifier --create
+            --platform IOS --type IOS_APP_STORE --strict-match-identifier
           keychain add-certificates --path "$IOS_RELEASE_DIR/signing.keychain-db" \
             --certificate "$IOS_RELEASE_DIR/certificates/*.p12"
+          if ! security find-identity -v -p codesigning "$IOS_RELEASE_DIR/signing.keychain-db" \
+            | grep -Fq '64B50605905CF75BCFA0906D63B86657045124B7'; then
+            echo '::error::The signing key must match shared Apple Distribution certificate 3VL35NY5JS.'
+            exit 1
+          fi
           xcode-project use-profiles --project ios/Runner.xcodeproj \
             --profile "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/*.mobileprovision" \
             --export-options-plist "$IOS_RELEASE_DIR/ExportOptions.plist" \
