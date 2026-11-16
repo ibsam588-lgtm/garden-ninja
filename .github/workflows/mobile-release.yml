@@ -3,7 +3,9 @@ name: Mobile Release
 on:
   pull_request:
     branches: [main, master]
-    types: [opened, synchronize, reopened, labeled, unlabeled, closed]
+    # Creating a labelled PR emits both opened and labeled. Listen to labeled
+    # only, so creation does not produce a duplicate Actions entry.
+    types: [synchronize, reopened, labeled, unlabeled, closed]
   workflow_dispatch:
     inputs:
       platform:
