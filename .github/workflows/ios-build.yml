@@ -32,6 +32,10 @@ jobs:
       - name: Enforce Apple SDK 27 and iOS 15 minimum
         run: python3 tooling/check_apple_sdk.py --sdk-version "$(xcrun --sdk iphoneos --show-sdk-version)"
 
+      - name: Initialize installed Xcode components
+        run: |
+          if ! xcodebuild -checkFirstLaunchStatus; then sudo xcodebuild -runFirstLaunch; fi
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.9'
@@ -65,6 +69,17 @@ jobs:
       - name: Package unsigned device build
         run: tar -C build/ios/iphoneos -czf build/ios/garden-ninja-ios-unsigned.tar.gz Runner.app
 
+      - name: Select simulator destination
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; phones=[d for r,items in devices.items() if r.endswith(".iOS-27-0") for d in items if d["name"].startswith("iPhone")]; assert phones, "The pinned iOS 27.0 simulator runtime is required"; print(next((d["udid"] for d in phones if d["name"] == "iPhone 18 Pro"), phones[0]["udid"]))')
+          echo "IOS_TEST_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+
+      - name: Configure simulator and diagnose destination
+        timeout-minutes: 15
+        run: |
+          flutter build ios --simulator --debug --config-only --dart-define=IOS_LAUNCH_PROBE=true
+          python3 tooling/diagnose_simulator_destination.py --device "$IOS_TEST_DEVICE_ID"
+
       - name: Build iPhone simulator
         env:
           APP_STORE_ID: ${{ vars.APP_STORE_ID }}
@@ -73,11 +88,6 @@ jobs:
             --dart-define="APP_STORE_ID=$APP_STORE_ID"
           # Fail before boot/install if a dependency forces an unusable Intel app.
           lipo -verify_arch arm64 build/ios/iphonesimulator/Runner.app/Runner
-
-      - name: Select simulator destination
-        run: |
-          DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; phones=[d for r,items in devices.items() if r.endswith(".iOS-27-0") for d in items if d["name"].startswith("iPhone")]; assert phones, "The pinned iOS 27.0 simulator runtime is required"; print(next((d["udid"] for d in phones if d["name"] == "iPhone 18 Pro"), phones[0]["udid"]))')
-          echo "IOS_TEST_DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
 
       - name: Compile native StoreKit tests for Apple Silicon
         timeout-minutes: 12
@@ -226,6 +236,7 @@ jobs:
             build/ios/simulator-launch.log
             build/ios/storekit-build.log
             build/ios/simulator-build-settings.json
+            build/ios/destination-probes/
             build/ios/storekit-tests.log
             build/ios/storekit-tests.xcresult
             build/ios/storekit-derived-data/Build/Products/*.xctestrun
