@@ -1,22 +1,17 @@
 name: Mobile Release
 
 on:
-  pull_request:
-    branches: [main, master]
-    # Creating a labelled PR emits both opened and labeled. Listen to labeled
-    # only, so creation does not produce a duplicate Actions entry.
-    types: [synchronize, reopened, labeled, unlabeled, closed]
   workflow_dispatch:
     inputs:
       platform:
         description: Select exactly one platform
         type: choice
-        options: [ios, android]
+        options: [ ios, android ]
         required: true
       operation:
         description: Validate, upload to testing, or submit/promote an already tested build
         type: choice
-        options: [validate, upload, submit_for_review, promote_production]
+        options: [ validate, upload, submit_for_review, promote_production ]
         default: validate
       version:
         description: Tested Apple app version (App Review only)
@@ -27,51 +22,74 @@ on:
       version_code:
         description: Tested Google internal version code (production promotion only)
         type: string
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
-  group: mobile-release-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' && !github.event.pull_request.merged }}
+  group: mobile-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   select:
-    name: Select one platform
+    name: Select one platform from main
     runs-on: ubuntu-latest
     outputs:
-      platform: ${{ steps.route.outputs.platform }}
-      operation: ${{ steps.route.outputs.operation }}
-      revision: ${{ steps.route.outputs.revision }}
-      branch: ${{ steps.route.outputs.branch }}
+      platform: ${{ steps.select.outputs.platform }}
+      upload: ${{ steps.select.outputs.upload }}
+      release: ${{ steps.select.outputs.release }}
+      operation: ${{ steps.select.outputs.operation }}
+      revision: ${{ steps.select.outputs.revision }}
+      ref: ${{ steps.select.outputs.ref }}
+      commit_sha: ${{ steps.select.outputs.commit_sha }}
+      branch: ${{ steps.select.outputs.branch }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@v6
         with:
-          python-version: '3.12'
-      - id: route
-        run: python tooling/mobile_release_route.py
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Test main-only release selection
+        run: node --test .github/scripts/main-release-route.test.cjs
+      - name: Read labels of the PR merged into this main commit
+        id: select
+        uses: actions/github-script@v8
+        env:
+          RELEASE_INPUTS_JSON: ${{ toJSON(inputs) }}
+        with:
+          script: >-
+            const select = require('./.github/scripts/main-release-route.cjs');
 
+            await select({ github, context, core, inputs: JSON.parse(process.env.RELEASE_INPUTS_JSON || '{}'),
+            defaultUpload: false });
+    if: github.ref == 'refs/heads/main'
   validate-ios:
     name: Validate iOS
     needs: select
-    if: needs.select.outputs.platform == 'ios' && needs.select.outputs.operation == 'validate'
+    if: github.ref == 'refs/heads/main' && (needs.select.outputs.platform == 'ios' && needs.select.outputs.operation ==
+      'validate')
     uses: ./.github/workflows/ios-build.yml
     with:
       checkout_ref: ${{ needs.select.outputs.revision }}
-
   validate-android:
     name: Validate Android
     needs: select
-    if: needs.select.outputs.platform == 'android' && needs.select.outputs.operation == 'validate'
+    if: github.ref == 'refs/heads/main' && (needs.select.outputs.platform == 'android' && needs.select.outputs.operation ==
+      'validate')
     uses: ./.github/workflows/android-build.yml
     with:
       checkout_ref: ${{ needs.select.outputs.revision }}
-
   release-ios:
     name: Upload or submit iOS
     needs: select
-    if: needs.select.outputs.platform == 'ios' && contains(fromJSON('["upload","submit_for_review"]'), needs.select.outputs.operation)
+    if: github.ref == 'refs/heads/main' && (needs.select.outputs.platform == 'ios' &&
+      contains(fromJSON('["upload","submit_for_review"]'), needs.select.outputs.operation))
     uses: ./.github/workflows/deploy-app-store.yml
     with:
       operation: ${{ needs.select.outputs.operation }}
@@ -83,11 +101,11 @@ jobs:
       APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
       IOS_DISTRIBUTION_PRIVATE_KEY: ${{ secrets.IOS_DISTRIBUTION_PRIVATE_KEY }}
       IOS_TESTFLIGHT_TESTER_EMAILS: ${{ secrets.IOS_TESTFLIGHT_TESTER_EMAILS }}
-
   release-android:
     name: Upload or promote Android
     needs: select
-    if: needs.select.outputs.platform == 'android' && contains(fromJSON('["upload","promote_production"]'), needs.select.outputs.operation)
+    if: github.ref == 'refs/heads/main' && (needs.select.outputs.platform == 'android' &&
+      contains(fromJSON('["upload","promote_production"]'), needs.select.outputs.operation))
     uses: ./.github/workflows/deploy-google-play.yml
     permissions:
       contents: write

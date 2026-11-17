@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.checkout_ref }}
+          ref: ${{ github.sha }}
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -54,3 +54,4 @@ jobs:
       - name: Test native Google purchase-proof verification
         working-directory: android
         run: ./gradlew :app:testDebugUnitTest
+    if: github.ref == 'refs/heads/main'
