@@ -30,7 +30,7 @@ target 'Runner' do
   # The Flutter plug-in pins IronSourceSDK 9.4.0.0. These adapters support 9.x.
   pod 'IronSourceFacebookAdapter', '5.4.0.0'
   pod 'IronSourceChartboostAdapter', '5.10.0.0'
-  pod 'IronSourceUnityAdsAdapter', '5.9.0.0'
+  pod 'IronSourceUnityAdsAdapter', '5.14.0.0'
   pod 'IronSourceInMobiAdapter', '5.10.0.0'
   pod 'IronSourceVungleAdapter', '5.17.0.0'
   pod 'InMobiCMP', '2.4.2'
