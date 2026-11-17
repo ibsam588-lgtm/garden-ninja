@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.checkout_ref }}
+          ref: ${{ github.sha }}
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -247,3 +247,4 @@ jobs:
             build/ios/storekit-derived-data/Build/Products/*.xctestrun
           if-no-files-found: ignore
           retention-days: 7
+    if: github.ref == 'refs/heads/main'
