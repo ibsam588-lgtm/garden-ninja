@@ -4,7 +4,7 @@ Keep the LevelPlay SDK/plugin. The retiring ironSource Ads/iSX demand network is
 
 ## Dependencies
 
-- Android: `com.unity3d.ads-mediation:unityads-adapter:5.16.0`. It brings Unity Ads SDK 4.22.0 transitively; do not pin a conflicting older SDK.
+- Android: `com.unity3d.ads-mediation:unityads-adapter:5.16.0`. It brings Unity Ads SDK 4.21.0 transitively; do not pin a conflicting older SDK.
 - iOS CocoaPods: `IronSourceUnityAdsAdapter`, `5.14.0.0`, which depends on UnityAds 4.22.0 and LevelPlay 9.x.
 - iOS Swift Package Manager: `LevelPlay-UnityAds-Adapter-Swift-Package` 5.14.0, product `UnityAdsAdapter`. Keep `UnityMediationSDK` linked.
 - Include Unity's `4dzt52r2t5.skadnetwork` attribution ID. Preserve IDs used by the other mediated networks.
