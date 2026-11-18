@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' hide Priority;
 import 'package:flutter/services.dart';
@@ -22,6 +23,8 @@ import 'package:garden_ninja/src/purchases/remove_ads_panel.dart';
 import 'package:garden_ninja/src/review/play_review_gateway.dart';
 import 'package:garden_ninja/src/review/review_prompt_policy.dart';
 import 'package:garden_ninja/src/review/shared_preferences_review_prompt_store.dart';
+import 'package:garden_ninja/src/slicer/slicer_effects.dart';
+import 'package:garden_ninja/src/slicer/slicer_plant_art.dart';
 import 'package:garden_ninja/src/updates/ios_store_update.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -227,6 +230,7 @@ class GardenTarget {
   final int id;
   final TargetType type;
   final String asset;
+  late final SlicerPlantKind? kind = SlicerPlantKind.forAsset(asset);
   Offset position;
   Offset velocity;
   double size;
@@ -237,8 +241,19 @@ class GardenTarget {
   double angle;
   double cooldown = 0;
   double walkPhase;
-  double splitAngle = 0;
-  double splitAmount = 0;
+  double age = 0;
+  double animationClock = 0;
+  double hitAge = double.infinity;
+  double hitAngle = 0;
+
+  void animate(double dt, bool iceActive) {
+    final animationScale = iceActive && type == TargetType.weed ? .18 : 1.0;
+    cooldown = max(0, cooldown - dt);
+    age += dt;
+    hitAge += dt;
+    animationClock += dt * animationScale;
+    walkPhase += dt * (type == TargetType.weed ? 8.5 : 2.2) * animationScale;
+  }
 }
 
 class PlayerGardenPlot {
@@ -316,9 +331,17 @@ class SliceShard {
     required this.spin,
     required this.cutAngle,
     required this.keepPositiveSide,
+    required this.frozen,
+    required this.sprite,
+    required this.pose,
+    required this.gravity,
   });
 
+  static const duration = .43;
   final String asset;
+  final SlicerPlantSprite? sprite;
+  final SlicerPlantPose? pose;
+  final bool frozen;
   Offset position;
   Offset velocity;
   final double size;
@@ -326,7 +349,8 @@ class SliceShard {
   final double spin;
   final double cutAngle;
   final bool keepPositiveSide;
-  double life = 0.56;
+  final double gravity;
+  double life = duration;
 }
 
 class FloatingBurst {
@@ -655,6 +679,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   final List<SliceShard> _shards = [];
   final List<SlashTrail> _slashes = [];
   final List<FloatingBurst> _bursts = [];
+  final SlicerEffects _slicerEffects = SlicerEffects();
+  final List<GardenTarget> _sweptPlants = [];
+  SlicerPlantArt? _slicerArt;
+  bool _slicerArtRequested = false;
+  double _roundEndDelay = 0;
   final List<PlayerGardenPlot> _playerGardenPlots = [
     PlayerGardenPlot(
       id: 0,
@@ -2663,6 +2692,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   void _startRun({bool restartLevel = false}) {
     _ensureMusicStarted();
+    _loadSlicerArt();
     setState(() {
       if (!restartLevel) {
         _level = max(1, _level);
@@ -2684,17 +2714,55 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _flowerPenaltyCooldown = 0;
       _gardenDamageFlash = 0;
       _gardenDamageCooldown = 0;
-      _lastSlashPoint = null;
-      _targets.clear();
-      _shards.clear();
-      _slashes.clear();
-      _bursts.clear();
+      _clearSlicerRound();
       _spawnOpeningWave();
     });
     unawaited(_musicPlayer.setVolume(0.46));
   }
 
+  void _loadSlicerArt() {
+    if (_slicerArtRequested) return;
+    _slicerArtRequested = true;
+    _slicerArt = SlicerPlantArt.decoded;
+    if (_slicerArt != null) return;
+    unawaited(
+      SlicerPlantArt.load().then((art) {
+        if (mounted) setState(() => _slicerArt = art);
+      }),
+    );
+  }
+
+  void _clearSlicerRound() {
+    _lastSlashPoint = null;
+    _targets.clear();
+    _shards.clear();
+    _slashes.clear();
+    _bursts.clear();
+    _sweptPlants.clear();
+    _slicerEffects.clear();
+    _roundEndDelay = 0;
+  }
+
+  bool get _reducedSlicerMotion => MediaQuery.disableAnimationsOf(context);
+
+  bool get _slicerInputEnabled =>
+      _phase == GamePhase.playing &&
+      !_forceUpdateVisible &&
+      _roundEndDelay == 0;
+
   void _step(double dt) {
+    _stepSlicerVisuals(dt);
+    if (_roundEndDelay > 0) {
+      _roundEndDelay = max(0, _roundEndDelay - dt);
+      if (_roundEndDelay == 0) {
+        if (_tutorialMode) {
+          _completeTutorial();
+        } else {
+          _finishRun(won: true);
+        }
+      }
+      return;
+    }
     if (_tutorialMode) {
       _stepTutorial(dt);
       return;
@@ -2714,12 +2782,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
     final bool iceActive = _iceTime > 0;
     final double speedScale = iceActive ? 0.08 : 1;
-    final double animationScale = iceActive ? 0.18 : 1;
     for (final target in List<GardenTarget>.from(_targets)) {
-      target.cooldown = max(0, target.cooldown - dt);
-      target.splitAmount = max(0, target.splitAmount - dt * 2.8);
-      target.walkPhase +=
-          dt * (target.type == TargetType.weed ? 8.5 : 2.2) * animationScale;
+      target.animate(dt, iceActive);
 
       if (target.type == TargetType.weed) {
         target.angle =
@@ -2756,28 +2820,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           (1.05 - min(_level * 0.055, 0.35)) *
           (0.75 + _random.nextDouble() * 0.65);
     }
-
-    for (final slash in _slashes) {
-      slash.life -= dt * 2.8;
-    }
-    _slashes.removeWhere((slash) => slash.life <= 0);
-
-    for (final shard in _shards) {
-      shard.life -= dt * 1.55;
-      shard.position += shard.velocity * dt;
-      shard.velocity = Offset(
-        shard.velocity.dx * 0.96,
-        shard.velocity.dy + 280 * dt,
-      );
-      shard.angle += shard.spin * dt;
-    }
-    _shards.removeWhere((shard) => shard.life <= 0);
-
-    for (final burst in _bursts) {
-      burst.life -= dt;
-      burst.position -= Offset(0, 42 * dt);
-    }
-    _bursts.removeWhere((burst) => burst.life <= 0);
   }
 
   void _stepTutorial(double dt) {
@@ -2792,13 +2834,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _tutorialStep == TutorialStep.frozenSlash;
     final bool iceActive = _iceTime > 0;
     final double speedScale = movingLesson ? (iceActive ? 0.08 : 0.7) : 0.0;
-    final double animationScale = iceActive ? 0.18 : 1;
 
     for (final target in List<GardenTarget>.from(_targets)) {
-      target.cooldown = max(0, target.cooldown - dt);
-      target.splitAmount = max(0, target.splitAmount - dt * 2.8);
-      target.walkPhase +=
-          dt * (target.type == TargetType.weed ? 8.5 : 2.2) * animationScale;
+      target.animate(dt, iceActive);
 
       if (target.type == TargetType.weed) {
         target.angle =
@@ -2819,19 +2857,20 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         }
       }
     }
+  }
 
+  void _stepSlicerVisuals(double dt) {
+    _slicerEffects.tick(dt);
     for (final slash in _slashes) {
-      slash.life -= dt * 2.8;
+      slash.life -= dt / .21;
     }
     _slashes.removeWhere((slash) => slash.life <= 0);
 
     for (final shard in _shards) {
-      shard.life -= dt * 1.55;
-      shard.position += shard.velocity * dt;
-      shard.velocity = Offset(
-        shard.velocity.dx * 0.96,
-        shard.velocity.dy + 280 * dt,
-      );
+      shard.life -= dt;
+      shard.position +=
+          shard.velocity * dt + Offset(0, shard.gravity * dt * dt / 2);
+      shard.velocity += Offset(0, shard.gravity * dt);
       shard.angle += shard.spin * dt;
     }
     _shards.removeWhere((shard) => shard.life <= 0);
@@ -2841,6 +2880,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       burst.position -= Offset(0, 42 * dt);
     }
     _bursts.removeWhere((burst) => burst.life <= 0);
+    _advanceWaterSweep(dt);
   }
 
   void _spawnTarget() {
@@ -2949,6 +2989,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   void _startTutorial() {
     _ensureMusicStarted();
+    _loadSlicerArt();
     setState(() {
       _tutorialMode = true;
       _tutorialStep = TutorialStep.slashWeed;
@@ -2965,11 +3006,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _iceTime = 0;
       _sunTime = 0;
       _iceCharges = max(_iceCharges, 1);
-      _lastSlashPoint = null;
-      _targets.clear();
-      _shards.clear();
-      _slashes.clear();
-      _bursts.clear();
+      _clearSlicerRound();
       _spawnTutorialTargets();
     });
     unawaited(_musicPlayer.setVolume(0.46));
@@ -3081,21 +3118,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _lives = 3;
     _gardenDamage = 0;
     _iceTime = 0;
-    _lastSlashPoint = null;
-    _targets.clear();
-    _shards.clear();
-    _slashes.clear();
+    _clearSlicerRound();
     _spawnTutorialTargets();
   }
 
   void _handleSlash(Offset localPosition, Size size) {
-    if (_phase != GamePhase.playing || !mounted) {
+    if (!_slicerInputEnabled || !mounted) {
       return;
     }
     setState(() {
-      if (_phase != GamePhase.playing) {
-        return;
-      }
       _handleSlashInState(localPosition, size);
     });
   }
@@ -3113,9 +3144,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return;
     }
 
-    _slashes.add(SlashTrail(start, world, previous == null ? 0.45 : 0.65));
-    if (_slashes.length > _maxSlashTrails) {
-      _slashes.removeRange(0, _slashes.length - _maxSlashTrails);
+    if (previous != null) {
+      _slashes.add(SlashTrail(start, world, 1));
+      if (_slashes.length > _maxSlashTrails) {
+        _slashes.removeAt(0);
+      }
     }
     _lastSlashPoint = world;
     _checkHits(start, world);
@@ -3143,6 +3176,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   void _checkHits(Offset start, Offset end) {
     final Offset direction = end - start;
+    final TutorialStep startingStep = _tutorialStep;
     int hitCount = 0;
     for (final target in List<GardenTarget>.from(_targets)) {
       if (target.cooldown > 0) {
@@ -3151,7 +3185,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       if (_distanceToSegment(target.position, start, end) <= target.radius) {
         _hitTarget(target, direction);
         hitCount += 1;
-        if (_phase != GamePhase.playing || hitCount >= 3) {
+        if (!_slicerInputEnabled ||
+            hitCount >= 3 ||
+            (_tutorialMode && _tutorialStep != startingStep)) {
           break;
         }
       }
@@ -3177,16 +3213,30 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void _hitTarget(GardenTarget target, Offset direction) {
     switch (target.type) {
       case TargetType.weed:
-        _spawnSliceShards(target, direction);
+        final slash = _safeDirection(direction);
+        final angle = atan2(slash.dy, slash.dx);
+        final pose = _plantPose(target);
+        final frozen = _iceTime > 0;
         _combo += 1;
         _maxCombo = max(_maxCombo, _combo);
         target.cutsRemaining -= 1;
         target.cooldown = 0.22;
         final bool defeated = target.cutsRemaining <= 0;
+        _slicerEffects.cut(
+          position: target.position + (pose?.body ?? Offset.zero),
+          ground: target.position.dy + (pose?.ground ?? target.size * .31),
+          angle: angle,
+          kind: target.kind,
+          defeated: defeated,
+          frozen: frozen,
+          reducedMotion: _reducedSlicerMotion,
+        );
+        target.hitAge = 0;
+        target.hitAngle = angle;
         final int base = defeated ? 140 + (_combo * 15) : 70 + (_combo * 12);
         final int earned = _sunTime > 0 ? base * 2 : base;
         _score += earned;
-        if (_iceTime > 0) {
+        if (frozen) {
           _playSfx(_sfxFrozenWeed, volume: 0.86);
         } else if (_combo > 1 && _combo % 5 == 0) {
           _playSfx(_sfxComboSpark, volume: 0.82);
@@ -3198,19 +3248,20 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           _playSfx(_sfxBambooBlade, volume: 0.78);
         }
         if (defeated) {
+          _spawnSliceShards(target, angle: angle, pose: pose, frozen: frozen);
           _targets.remove(target);
           _weedsSlashed += 1;
           _addBurst(target.position, '+$earned Weed', const Color(0xFFEFFF94));
           if (_tutorialMode) {
             _handleTutorialWeedDefeated();
           } else if (_weedsSlashed >= _goalWeeds) {
-            _finishRun(won: true);
+            _roundEndDelay = max(
+              SliceShard.duration,
+              _slicerEffects.waterRemaining + .18,
+            );
           }
         } else {
           target.size *= 0.91;
-          final Offset slash = _safeDirection(direction);
-          target.splitAngle = atan2(slash.dy, slash.dx);
-          target.splitAmount = 1;
           final Offset shove = slash * 26;
           target.position += shove;
           target.velocity += shove * 0.8;
@@ -3222,6 +3273,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         }
       case TargetType.flower:
         target.cooldown = 0.7;
+        target.hitAge = 0;
+        target.hitAngle = atan2(direction.dy, direction.dx);
+        _slicerEffects.flower(target.position, _reducedSlicerMotion);
         _playSfx(_sfxCrispLeaf, volume: 0.56);
         if (_tutorialMode) {
           _tutorialMistake = true;
@@ -3257,30 +3311,50 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     return direction / direction.distance;
   }
 
-  void _spawnSliceShards(GardenTarget target, Offset direction) {
+  SlicerPlantPose? _plantPose(GardenTarget target) {
+    final kind = target.kind;
+    if (kind == null) return null;
+    return SlicerPlantPose.sample(
+      kind: kind,
+      id: target.id,
+      diameter: target.size,
+      clock: target.animationClock,
+      age: target.age,
+      hitAge: target.hitAge,
+      hitAngle: target.hitAngle,
+      reducedMotion: _reducedSlicerMotion,
+    );
+  }
+
+  void _spawnSliceShards(
+    GardenTarget target, {
+    required double angle,
+    required SlicerPlantPose? pose,
+    required bool frozen,
+  }) {
     if (_shards.length > _maxSliceShards - 2) {
       _shards.removeRange(0, _shards.length - (_maxSliceShards - 2));
     }
 
-    final Offset slash = _safeDirection(direction);
-    final Offset normal = Offset(-slash.dy, slash.dx);
-    final double cutAngle = atan2(slash.dy, slash.dx);
-    for (int i = 0; i < 2; i += 1) {
-      final double side = i == 0 ? 1 : -1;
-      final double jitter = (_random.nextDouble() - 0.5) * 36;
+    final normal = Offset(-sin(angle), cos(angle));
+    final reducedMotion = _reducedSlicerMotion;
+    final sprite = _slicerArt?.sprite(target.kind);
+    for (final side in [-1, 1]) {
       _shards.add(
         SliceShard(
           asset: target.asset,
-          position: target.position + normal * side * 5,
-          velocity:
-              slash * (55 + _random.nextDouble() * 45) +
-              normal * side * (150 + _random.nextDouble() * 80) +
-              Offset(jitter, -80 - _random.nextDouble() * 45),
-          size: target.size * 0.95,
-          angle: target.angle,
-          spin: side * (4.8 + _random.nextDouble() * 3.4),
-          cutAngle: cutAngle,
+          position:
+              target.position + (sprite == null ? Offset.zero : pose!.body),
+          velocity: normal * side.toDouble() * (reducedMotion ? 14 : 79),
+          size: target.size,
+          angle: 0,
+          spin: reducedMotion ? 0 : side * 1.55,
+          cutAngle: angle,
           keepPositiveSide: side > 0,
+          frozen: frozen,
+          sprite: sprite,
+          pose: pose,
+          gravity: reducedMotion ? 60 : 348,
         ),
       );
     }
@@ -3327,7 +3401,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         }
       case TutorialStep.frozenSlash:
         if (!anyWeedsLeft) {
-          _completeTutorial();
+          _roundEndDelay = SliceShard.duration;
         }
     }
   }
@@ -3337,9 +3411,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _tutorialMistake = false;
     _iceTime = step == TutorialStep.frozenSlash ? _iceTime : 0;
     _lastSlashPoint = null;
-    _targets.clear();
-    _shards.clear();
-    _slashes.clear();
     _spawnTutorialTargets();
   }
 
@@ -3352,30 +3423,52 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   void _activateWater() {
-    if (_phase != GamePhase.playing || _waterCharges <= 0) {
+    if (!_slicerInputEnabled ||
+        _waterCharges <= 0 ||
+        _slicerEffects.waterActive) {
       return;
     }
     _playSfx(_sfxWetVine, volume: 0.86);
     setState(() {
       _waterCharges -= 1;
       final weeds = _targets.where((t) => t.type == TargetType.weed).toList();
-      for (final weed in weeds) {
-        _spawnSliceShards(weed, const Offset(0, -1));
-        _targets.remove(weed);
-        _weedsSlashed += 1;
-        _score += 90;
-        _addBurst(weed.position, 'Splash', const Color(0xFF8DEBFF));
-      }
+      // Resolve the hit at cast time. The original targets stay visible until
+      // the crest reaches them, without being hittable or damaging the bed.
+      _sweptPlants.addAll(weeds);
+      _targets.removeWhere((target) => target.type == TargetType.weed);
+      _slicerEffects.castWater();
+      _weedsSlashed += weeds.length;
+      _score += 90 * weeds.length;
       _combo += weeds.length;
       _maxCombo = max(_maxCombo, _combo);
-      if (_weedsSlashed >= _goalWeeds) {
-        _finishRun(won: true);
+      if (!_tutorialMode && _weedsSlashed >= _goalWeeds) {
+        _roundEndDelay = SlicerEffects.waveDuration + .18;
       }
     });
   }
 
+  void _advanceWaterSweep(double dt) {
+    if (_sweptPlants.isEmpty) return;
+    const arena = Size(_worldWidth, _worldHeight);
+    final frozen = _iceTime > 0;
+    final reducedMotion = _reducedSlicerMotion;
+    _sweptPlants.removeWhere((weed) {
+      weed.animate(dt, frozen);
+      final pose = _plantPose(weed);
+      final ground = weed.position.dy + (pose?.ground ?? weed.size * .31);
+      final crest = _slicerEffects.waterCrest(weed.position.dx, arena);
+      if (crest > ground - 6) return false;
+      final position = weed.position + (pose?.body ?? Offset.zero);
+      _slicerEffects.splashWater(position, ground, reducedMotion);
+      _spawnSliceShards(weed, angle: -.74, pose: pose, frozen: false);
+      _addBurst(position, '+90', const Color(0xFFDDFFFF));
+      return true;
+    });
+    if (_tutorialMode && _sweptPlants.isEmpty) _handleTutorialWeedDefeated();
+  }
+
   void _activateSun() {
-    if (_phase != GamePhase.playing || _sunDrops <= 0) {
+    if (!_slicerInputEnabled || _sunDrops <= 0) {
       return;
     }
     _playSfx(_sfxComboSpark, volume: 0.8);
@@ -3392,13 +3485,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   void _activateIce() {
-    if (_phase != GamePhase.playing || _iceCharges <= 0) {
+    if (!_slicerInputEnabled || _iceCharges <= 0) {
       return;
     }
     _playSfx(_sfxFrozenWeed, volume: 0.82);
     setState(() {
       _iceCharges -= 1;
       _iceTime = max(_iceTime, 6.5);
+      _slicerEffects.castIce(const Offset(_worldWidth / 2, _worldHeight * .47));
       if (_tutorialMode && _tutorialStep == TutorialStep.useIce) {
         _tutorialStep = TutorialStep.frozenSlash;
         _tutorialMistake = false;
@@ -3433,10 +3527,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       }
     }
     _queueGardenSave();
-    _targets.clear();
-    _shards.clear();
-    _slashes.clear();
-    _bursts.clear();
+    _clearSlicerRound();
     _phase = GamePhase.results;
     _resultsShownAt = _gardenNow;
     _rewardedAdClaimedForRun = false;
@@ -4205,6 +4296,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       }
       _phase = GamePhase.home;
       _tutorialMode = false;
+      _clearSlicerRound();
     });
     if (leavingGarden) {
       _restoreMusicAfterGarden();
@@ -5831,15 +5923,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget _buildGameSurface(Size size) {
-    final bool acceptsSlashInput =
-        _phase == GamePhase.playing && !_forceUpdateVisible;
+    final bool reducedMotion = _reducedSlicerMotion;
     final Widget surface = ClipRect(
       child: Stack(
         fit: StackFit.expand,
         children: [
           _buildBackdrop(),
           if (_phase == GamePhase.playing || _phase == GamePhase.paused) ...[
-            if (!MediaQuery.disableAnimationsOf(context))
+            if (!reducedMotion)
               Positioned.fill(
                 child: IgnorePointer(
                   child: CustomPaint(
@@ -5851,18 +5942,22 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                 ),
               ),
             _buildGardenHealthBed(),
+            if (_slicerEffects.hasGround) _buildSlicerEffects(ground: true),
             ..._targets.map((target) => _buildTarget(target, size)),
+            for (final weed in _sweptPlants)
+              _buildTarget(weed, size, swept: true),
             ..._shards.map((shard) => _buildShard(shard, size)),
-            Positioned.fill(
-              child: IgnorePointer(
-                child: CustomPaint(
-                  painter: SlashPainter(
-                    trails: List<SlashTrail>.from(_slashes),
-                    worldSize: const Size(_worldWidth, _worldHeight),
+            if (_slicerEffects.hasAction) _buildSlicerEffects(ground: false),
+            if (_slashes.isNotEmpty)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: SlashPainter(
+                      trails: List<SlashTrail>.of(_slashes),
+                    ),
                   ),
                 ),
               ),
-            ),
             ..._bursts.map((burst) => _buildBurst(burst, size)),
             if (_gardenDamageFlash > 0) _buildGardenDamageFlash(),
             _buildHud(),
@@ -5879,19 +5974,39 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       ),
     );
 
-    if (!acceptsSlashInput) {
+    if (!_slicerInputEnabled) {
       return surface;
     }
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      dragStartBehavior: DragStartBehavior.down,
       onPanStart: (details) => _handleSlash(details.localPosition, size),
       onPanUpdate: (details) => _handleSlash(details.localPosition, size),
       onPanEnd: (_) => _endSlash(),
-      onTapDown: (details) => _handleSlash(details.localPosition, size),
+      onPanCancel: _endSlash,
+      onTapUp: (details) {
+        _handleSlash(details.localPosition, size);
+        _endSlash();
+      },
       child: surface,
     );
   }
+
+  Widget _buildSlicerEffects({required bool ground}) => Positioned.fill(
+    key: ValueKey(ground ? 'slicer-puddles' : 'slicer-effects'),
+    child: IgnorePointer(
+      child: RepaintBoundary(
+        child: CustomPaint(
+          painter: SlicerEffectsPainter(
+            _slicerEffects,
+            ground: ground,
+            reducedMotion: _reducedSlicerMotion,
+          ),
+        ),
+      ),
+    ),
+  );
 
   Widget? _buildBottomAdBar() {
     if (!AdService.hasBannerAds || _forceUpdateVisible || _tutorialMode) {
@@ -5999,7 +6114,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget _buildShard(SliceShard shard, Size size) {
-    final double pixelSize = shard.size / _worldWidth * size.width;
+    final sprite = shard.sprite;
+    final pose = shard.pose;
+    final double pixelSize =
+        shard.size / _worldWidth * size.width * (sprite == null ? 1 : 1.66);
     final double left =
         shard.position.dx / _worldWidth * size.width - pixelSize / 2;
     final double top =
@@ -6010,7 +6128,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       width: pixelSize,
       height: pixelSize,
       child: Opacity(
-        opacity: shard.life.clamp(0.0, 1.0),
+        opacity: (shard.life / SliceShard.duration).clamp(0.0, 1.0),
         child: Transform.rotate(
           angle: shard.angle,
           child: ClipPath(
@@ -6018,250 +6136,244 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               cutAngle: shard.cutAngle,
               keepPositiveSide: shard.keepPositiveSide,
             ),
-            child: Image.asset(shard.asset, fit: BoxFit.contain),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTarget(GardenTarget target, Size size) {
-    final double pixelSize = target.size / _worldWidth * size.width;
-    final double left =
-        target.position.dx / _worldWidth * size.width - pixelSize / 2;
-    final double top =
-        target.position.dy / _worldHeight * size.height - pixelSize / 2;
-    final bool flowerCooling =
-        target.type == TargetType.flower && target.cooldown > 0;
-    final double pulse =
-        1 + (flowerCooling ? sin(target.cooldown * 18) * 0.08 : 0);
-    final bool isWeed = target.type == TargetType.weed;
-    final bool isFrozen =
-        _iceTime > 0 &&
-        target.type != TargetType.flower &&
-        target.type != TargetType.reward;
-    final bool weedCooling = isWeed && target.cooldown > 0;
-    final double hitPulse = weedCooling
-        ? 1 + sin(target.cooldown * 42).abs() * 0.12
-        : 1;
-    final double walkBob = isWeed ? sin(target.walkPhase) * 4 : 0;
-    final double walkHop = isWeed ? -sin(target.walkPhase * 2).abs() * 2.4 : 0;
-    final double walkSide = isWeed ? cos(target.walkPhase * 0.75) * 2.5 : 0;
-    final double walkLean = isWeed ? target.angle : 0;
-    final double walkSquash = isWeed
-        ? 1 + sin(target.walkPhase * 2.2) * 0.05
-        : 1;
-
-    return Positioned(
-      key: ValueKey('target-${target.id}'),
-      left: left,
-      top: top,
-      width: pixelSize,
-      height: pixelSize,
-      child: Transform.translate(
-        offset: Offset(walkSide, walkBob + walkHop),
-        child: Transform.scale(
-          scale: hitPulse,
-          child: Transform.rotate(
-            angle: walkLean,
-            child: Transform.scale(
-              scaleX: walkSquash,
-              scaleY: pulse / walkSquash,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (isWeed)
-                    Positioned(
-                      left: pixelSize * 0.2,
-                      right: pixelSize * 0.2,
-                      bottom: pixelSize * 0.06,
-                      height: pixelSize * 0.12,
-                      child: Transform.scale(
-                        scaleX: 1.1 + sin(target.walkPhase * 2).abs() * 0.16,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: const Color(0x66081507),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                      ),
+            child: sprite != null && pose != null
+                ? CustomPaint(
+                    painter: SlicerCutFramePainter(
+                      sprite: sprite,
+                      pose: pose,
+                      frozen: shard.frozen,
                     ),
-                  if (target.type == TargetType.flower)
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(
-                              0xFFB6F2FF,
-                            ).withValues(alpha: 0.5),
-                            blurRadius: 22,
-                            spreadRadius: 6,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ColorFiltered(
-                    colorFilter: isFrozen
-                        ? const ColorFilter.mode(
-                            Color(0xFFBDEFFF),
-                            BlendMode.modulate,
-                          )
+                  )
+                : ColorFiltered(
+                    colorFilter: shard.frozen
+                        ? slicerFrostFilter
                         : const ColorFilter.mode(
                             Colors.white,
                             BlendMode.modulate,
                           ),
-                    child: _buildTargetImage(target),
+                    child: Image.asset(shard.asset, fit: BoxFit.contain),
                   ),
-                  if (isFrozen)
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xAA8EF5FF),
-                              width: 3,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(
-                                  0xFF8EF5FF,
-                                ).withValues(alpha: 0.42),
-                                blurRadius: 20,
-                                spreadRadius: 4,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (isFrozen)
-                    Positioned(
-                      right: 0,
-                      top: 4,
-                      child: Container(
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          color: const Color(0xEE163E4D),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: const Color(0xFFBDF8FF),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.ac_unit_rounded,
-                          color: Color(0xFFBDF8FF),
-                          size: 15,
-                        ),
-                      ),
-                    ),
-                  if (isWeed && target.maxCuts > 1)
-                    Positioned(
-                      left: pixelSize * 0.2,
-                      right: pixelSize * 0.2,
-                      top: 0,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(
-                            target.maxCuts,
-                            (index) => Container(
-                              width: 7,
-                              height: 7,
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 1.4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: index < target.cutsRemaining
-                                    ? const Color(0xFFFFE66B)
-                                    : const Color(0x88412713),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: const Color(0xFF3B260C),
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (weedCooling)
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xAAEEFF79),
-                          width: 3,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTargetImage(GardenTarget target) {
-    final double split = target.type == TargetType.weed
-        ? target.splitAmount.clamp(0.0, 1.0)
-        : 0;
-    if (split <= 0) {
-      return Image.asset(target.asset, fit: BoxFit.contain);
-    }
-
-    final double easedSplit = Curves.easeOutCubic.transform(split);
-    final Offset normal = Offset(
-      -sin(target.splitAngle),
-      cos(target.splitAngle),
+  Widget _buildTarget(GardenTarget target, Size size, {bool swept = false}) {
+    final sprite = _slicerArt?.sprite(target.kind);
+    final pose = sprite == null ? null : _plantPose(target);
+    final double pixelSize =
+        target.size / _worldWidth * size.width * (pose == null ? 1 : 1.66);
+    final double left =
+        target.position.dx / _worldWidth * size.width - pixelSize / 2;
+    final double top =
+        target.position.dy / _worldHeight * size.height - pixelSize / 2;
+    final bool isFrozen =
+        _iceTime > 0 &&
+        target.type != TargetType.flower &&
+        target.type != TargetType.reward;
+    return Positioned(
+      key: ValueKey(
+        swept ? 'water-target-${target.id}' : 'target-${target.id}',
+      ),
+      left: left,
+      top: top,
+      width: pixelSize,
+      height: pixelSize,
+      child: sprite != null && pose != null
+          ? CustomPaint(
+              painter: SlicerPlantPainter(
+                sprite: sprite,
+                pose: pose,
+                hitAge: target.hitAge,
+                cuts: target.cutsRemaining,
+                maxCuts: target.maxCuts,
+                frozen: isFrozen,
+                frost: isFrozen ? _slicerEffects.frost : 0,
+                reducedMotion: _reducedSlicerMotion,
+              ),
+            )
+          : _buildStaticTarget(target, pixelSize, isFrozen),
     );
-    final double gap = 18 * easedSplit;
-    final double tilt = 0.16 * easedSplit;
+  }
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Transform.translate(
-          offset: normal * gap,
-          child: Transform.rotate(
-            angle: tilt,
-            child: ClipPath(
-              clipper: SliceHalfClipper(
-                cutAngle: target.splitAngle,
-                keepPositiveSide: true,
-              ),
-              child: Image.asset(target.asset, fit: BoxFit.contain),
+  Widget _buildStaticTarget(
+    GardenTarget target,
+    double pixelSize,
+    bool isFrozen,
+  ) {
+    final bool reducedMotion = _reducedSlicerMotion;
+    final bool flowerCooling =
+        target.type == TargetType.flower && target.cooldown > 0;
+    final double pulse =
+        1 +
+        (flowerCooling && !reducedMotion
+            ? sin(target.cooldown * 18) * 0.08
+            : 0);
+    final bool isWeed = target.type == TargetType.weed;
+    final bool weedCooling = isWeed && target.cooldown > 0;
+    final bool walking = isWeed && !reducedMotion;
+    final double hitPulse = weedCooling && !reducedMotion
+        ? 1 + sin(target.cooldown * 42).abs() * 0.12
+        : 1;
+    final double walkBob = walking ? sin(target.walkPhase) * 4 : 0;
+    final double walkHop = walking ? -sin(target.walkPhase * 2).abs() * 2.4 : 0;
+    final double walkSide = walking ? cos(target.walkPhase * 0.75) * 2.5 : 0;
+    final double walkLean = walking ? target.angle : 0;
+    final double walkSquash = walking
+        ? 1 + sin(target.walkPhase * 2.2) * 0.05
+        : 1;
+    final double flowerSway = target.type == TargetType.flower && !reducedMotion
+        ? sin(target.animationClock * 2.2 + target.id) * .034
+        : 0;
+
+    return Transform.translate(
+      offset: Offset(walkSide, walkBob + walkHop),
+      child: Transform.scale(
+        scale: hitPulse,
+        child: Transform.rotate(
+          alignment: target.type == TargetType.flower
+              ? Alignment.bottomCenter
+              : Alignment.center,
+          angle: walkLean + flowerSway,
+          child: Transform.scale(
+            scaleX: walkSquash,
+            scaleY: pulse / walkSquash,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (isWeed)
+                  Positioned(
+                    left: pixelSize * 0.2,
+                    right: pixelSize * 0.2,
+                    bottom: pixelSize * 0.06,
+                    height: pixelSize * 0.12,
+                    child: Transform.scale(
+                      scaleX: 1.1 + sin(target.walkPhase * 2).abs() * 0.16,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: const Color(0x66081507),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (target.type == TargetType.flower)
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFB6F2FF).withValues(alpha: 0.5),
+                          blurRadius: 22,
+                          spreadRadius: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                ColorFiltered(
+                  colorFilter: isFrozen
+                      ? const ColorFilter.mode(
+                          Color(0xFFBDEFFF),
+                          BlendMode.modulate,
+                        )
+                      : const ColorFilter.mode(
+                          Colors.white,
+                          BlendMode.modulate,
+                        ),
+                  child: Image.asset(target.asset, fit: BoxFit.contain),
+                ),
+                if (isFrozen)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xAA8EF5FF),
+                            width: 3,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFF8EF5FF,
+                              ).withValues(alpha: 0.42),
+                              blurRadius: 20,
+                              spreadRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                if (isFrozen)
+                  Positioned(
+                    right: 0,
+                    top: 4,
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: const Color(0xEE163E4D),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFFBDF8FF),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.ac_unit_rounded,
+                        color: Color(0xFFBDF8FF),
+                        size: 15,
+                      ),
+                    ),
+                  ),
+                if (isWeed && target.maxCuts > 1)
+                  Positioned(
+                    left: pixelSize * 0.2,
+                    right: pixelSize * 0.2,
+                    top: 0,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          target.maxCuts,
+                          (index) => Container(
+                            width: 7,
+                            height: 7,
+                            margin: const EdgeInsets.symmetric(horizontal: 1.4),
+                            decoration: BoxDecoration(
+                              color: index < target.cutsRemaining
+                                  ? const Color(0xFFFFE66B)
+                                  : const Color(0x88412713),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFF3B260C),
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (weedCooling)
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xAAEEFF79),
+                        width: 3,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
-        Transform.translate(
-          offset: normal * -gap,
-          child: Transform.rotate(
-            angle: -tilt,
-            child: ClipPath(
-              clipper: SliceHalfClipper(
-                cutAngle: target.splitAngle,
-                keepPositiveSide: false,
-              ),
-              child: Image.asset(target.asset, fit: BoxFit.contain),
-            ),
-          ),
-        ),
-        CustomPaint(
-          painter: SliceEdgePainter(
-            cutAngle: target.splitAngle,
-            opacity: easedSplit,
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -6355,7 +6467,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               label: 'Sun',
               count: _sunDrops,
               active: _sunTime > 0,
-              onTap: _activateSun,
+              onTap: _slicerInputEnabled ? _activateSun : null,
             ),
           ),
           const SizedBox(width: 8),
@@ -6364,8 +6476,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               asset: 'assets/images/icons/water_drop.png',
               label: 'Water',
               count: _waterCharges,
-              active: false,
-              onTap: _activateWater,
+              active: _slicerEffects.waterActive,
+              onTap: _slicerInputEnabled && !_slicerEffects.waterActive
+                  ? _activateWater
+                  : null,
             ),
           ),
           const SizedBox(width: 8),
@@ -6375,7 +6489,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               label: _iceTime > 0 ? 'Ice ${_iceTime.ceil()}s' : 'Ice',
               count: _iceCharges,
               active: _iceTime > 0,
-              onTap: _activateIce,
+              onTap: _slicerInputEnabled ? _activateIce : null,
             ),
           ),
         ],
@@ -6426,10 +6540,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               setState(() {
                 _tutorialMode = false;
                 _phase = GamePhase.home;
-                _targets.clear();
-                _shards.clear();
-                _slashes.clear();
-                _bursts.clear();
+                _clearSlicerRound();
               });
               unawaited(_musicPlayer.setVolume(0.34));
             },
@@ -11027,79 +11138,31 @@ class SliceHalfClipper extends CustomClipper<Path> {
   }
 }
 
-class SliceEdgePainter extends CustomPainter {
-  const SliceEdgePainter({required this.cutAngle, required this.opacity});
-
-  final double cutAngle;
-  final double opacity;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Offset center = Offset(size.width / 2, size.height / 2);
-    final Offset cutLine = Offset(cos(cutAngle), sin(cutAngle));
-    final double span = max(size.width, size.height) * 0.54;
-    final Offset start = center - cutLine * span;
-    final Offset end = center + cutLine * span;
-    final Paint glow = Paint()
-      ..color = const Color(0xFF9AFF56).withValues(alpha: opacity * 0.55)
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 9
-      ..style = PaintingStyle.stroke;
-    final Paint core = Paint()
-      ..color = Colors.white.withValues(alpha: opacity * 0.95)
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawLine(start, end, glow);
-    canvas.drawLine(start, end, core);
-  }
-
-  @override
-  bool shouldRepaint(covariant SliceEdgePainter oldDelegate) {
-    return oldDelegate.cutAngle != cutAngle || oldDelegate.opacity != opacity;
-  }
-}
-
 class SlashPainter extends CustomPainter {
-  SlashPainter({required this.trails, required this.worldSize});
+  SlashPainter({required this.trails});
 
   final List<SlashTrail> trails;
-  final Size worldSize;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final halo = Paint()..strokeCap = StrokeCap.round;
+    final core = Paint()
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 1.35;
     for (final trail in trails) {
-      final double opacity = trail.life.clamp(0.0, 1.0);
-      final Offset start = Offset(
-        trail.start.dx / worldSize.width * size.width,
-        trail.start.dy / worldSize.height * size.height,
+      final opacity = trail.life.clamp(0.0, 1.0);
+      canvas.drawLine(
+        trail.start,
+        trail.end,
+        halo
+          ..color = const Color(0xFFD9EC8E).withValues(alpha: opacity * .64)
+          ..strokeWidth = 1.9 + opacity * 4.3,
       );
-      final Offset end = Offset(
-        trail.end.dx / worldSize.width * size.width,
-        trail.end.dy / worldSize.height * size.height,
+      canvas.drawLine(
+        trail.start,
+        trail.end,
+        core..color = const Color(0xFFFBFFE9).withValues(alpha: opacity),
       );
-      final Offset control = Offset(
-        (start.dx + end.dx) / 2,
-        (start.dy + end.dy) / 2 - 24,
-      );
-      final Path path = Path()
-        ..moveTo(start.dx, start.dy)
-        ..quadraticBezierTo(control.dx, control.dy, end.dx, end.dy);
-
-      final Paint glow = Paint()
-        ..color = const Color(0xFF9AFF56).withValues(alpha: opacity * 0.45)
-        ..strokeWidth = 18
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke;
-      final Paint core = Paint()
-        ..color = Colors.white.withValues(alpha: opacity)
-        ..strokeWidth = 6
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke;
-
-      canvas.drawPath(path, glow);
-      canvas.drawPath(path, core);
     }
   }
 
@@ -18896,11 +18959,11 @@ class _PowerButton extends StatelessWidget {
   final String label;
   final int count;
   final bool active;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final bool enabled = count > 0;
+    final bool enabled = count > 0 && onTap != null;
     return InkWell(
       onTap: enabled ? onTap : null,
       borderRadius: BorderRadius.circular(8),
