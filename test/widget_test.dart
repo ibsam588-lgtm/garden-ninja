@@ -30,6 +30,23 @@ Future<void> advanceSlicer(WidgetTester tester, int frames) async {
   }
 }
 
+Future<int> waitForGardenBite(WidgetTester tester) async {
+  for (var frame = 0; frame < 420; frame++) {
+    await advanceSlicer(tester, 1);
+    for (var patch = 0; patch < 3; patch++) {
+      if (find.byKey(ValueKey('garden-bite-$patch')).evaluate().isNotEmpty) {
+        return patch;
+      }
+    }
+  }
+  throw TestFailure('A weed should reach a flower and begin a bite.');
+}
+
+Finder slicerLives(int lives) => find.descendant(
+  of: find.byKey(const ValueKey('slicer-life-count')),
+  matching: find.text('$lives'),
+);
+
 SlicerPlantPainter plantPainter(WidgetTester tester, Finder target) {
   final paintedPlant = find.descendant(
     of: target,
@@ -208,23 +225,73 @@ void main() {
     }
   });
 
-  testWidgets('escaped weeds visibly damage the garden', (tester) async {
+  testWidgets('a weed bites the garden flower it reaches and costs one life', (
+    tester,
+  ) async {
     await pumpGardenNinja(tester);
-
     await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
     await tester.pump(const Duration(milliseconds: 64));
 
-    var gardenWasDamaged = false;
-    for (var i = 0; i < 420 && !gardenWasDamaged; i += 1) {
-      await tester.pump(const Duration(milliseconds: 50));
-      gardenWasDamaged = find
-          .byKey(const ValueKey('garden-damage-0'))
-          .evaluate()
-          .isNotEmpty;
+    final patch = await waitForGardenBite(tester);
+    final flower = find.byKey(ValueKey('garden-plant-$patch'));
+    expect(flower, findsOneWidget);
+    expect(slicerLives(3), findsOneWidget);
+
+    await advanceSlicer(tester, 8);
+    expect(find.byKey(ValueKey('garden-damage-$patch')), findsOneWidget);
+    expect(flower, findsNothing);
+    expect(slicerLives(2), findsOneWidget);
+    expect(find.text('Plant eaten!'), findsWidgets);
+    for (final other in [0, 1, 2].where((index) => index != patch)) {
+      expect(find.byKey(ValueKey('garden-plant-$other')), findsOneWidget);
+    }
+  });
+
+  testWidgets('Ice stalls a bite and Water saves the flower', (tester) async {
+    await pumpGardenNinja(tester);
+    await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
+    await tester.pump(const Duration(milliseconds: 64));
+
+    final patch = await waitForGardenBite(tester);
+    final bite = find.byKey(ValueKey('garden-bite-$patch'));
+    final flower = find.byKey(ValueKey('garden-plant-$patch'));
+    await tester.tap(find.text('Ice x2'));
+    await advanceSlicer(tester, 14);
+    expect(bite, findsOneWidget);
+    expect(flower, findsOneWidget);
+    expect(slicerLives(3), findsOneWidget);
+
+    await tester.tap(find.text('Water x3'));
+    await advanceSlicer(tester, 24);
+    expect(bite, findsNothing);
+    expect(flower, findsOneWidget);
+    expect(slicerLives(3), findsOneWidget);
+  });
+
+  testWidgets('a weed in contact eats a flower in the playfield', (
+    tester,
+  ) async {
+    await pumpGardenNinja(tester);
+    await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
+    await tester.pump(const Duration(milliseconds: 64));
+
+    final weed = find.byKey(const ValueKey('target-1'));
+    final flower = find.byKey(const ValueKey('target-2'));
+    // An angled cut sends the opening Thorn toward the opening flower.
+    final center = tester.getCenter(weed);
+    await tester.dragFrom(
+      center + const Offset(52, -17.5),
+      const Offset(-104, 35),
+    );
+    await advanceSlicer(tester, 1);
+    expect(find.text('+82 | 1 cuts'), findsOneWidget);
+    expect(flower, findsOneWidget);
+    for (var frame = 0; frame < 210 && flower.evaluate().isNotEmpty; frame++) {
+      await advanceSlicer(tester, 1);
     }
 
-    expect(gardenWasDamaged, isTrue);
-    expect(find.byIcon(Icons.favorite_rounded), findsOneWidget);
+    expect(flower, findsNothing);
+    expect(find.text('Plant eaten!'), findsWidgets);
   });
 
   testWidgets('ice power visibly freezes active weeds', (tester) async {
@@ -286,8 +353,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 64));
 
     Future<void> cut(int id) async {
-        final target = find.byKey(ValueKey('target-$id'));
-        await tester.tapAt(tester.getCenter(target));
+      final target = find.byKey(ValueKey('target-$id'));
+      await tester.tapAt(tester.getCenter(target));
       await advanceSlicer(tester, 5);
     }
 

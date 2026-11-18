@@ -49,6 +49,23 @@ enum SlicerPlantKind {
 
   bool get flower => this == daisy || this == shield;
   double get anchor => (frameSize * .899).round() / frameSize;
+
+  Offset mouthOffset(double diameter) {
+    // The jaw centers use the same cropped-art coordinates as the sprite rig.
+    final jaw = switch (this) {
+      thorn => const Offset(.485, .743),
+      gobbler => const Offset(.570, .385),
+      bramble => const Offset(.394, .714),
+      seed => const Offset(.528, .625),
+      leaf => const Offset(.420, .769),
+      spike => const Offset(.603, .714),
+      purple => const Offset(.610, .549),
+      daisy || shield => const Offset(.5, .54),
+    };
+    final extent = diameter / .86;
+    return Offset((jaw.dx - .5) * widthRatio, (jaw.dy - .54) * heightRatio) *
+        extent;
+  }
 }
 
 class SlicerPlantArt {
@@ -202,14 +219,18 @@ class SlicerPlantPose {
     required double hitAge,
     required double hitAngle,
     required bool reducedMotion,
+    double? biteProgress,
   }) {
     final extent = diameter / .86;
     final height = kind.heightRatio * extent;
     final ground = height * .46;
     if (reducedMotion) {
+      final poseFrame = biteProgress == null
+          ? min(2, kind.frames - 1)
+          : (kind.frames * (biteProgress < 1 ? .56 : .80)).floor();
       return SlicerPlantPose._(
         extent: extent,
-        frame: min(2, kind.frames - 1),
+        frame: poseFrame,
         feet: Offset(0, ground),
         body: Offset.zero,
         ground: ground,
@@ -230,20 +251,32 @@ class SlicerPlantPose {
     final direction = cos(hitAngle) >= 0 ? 1 : -1;
     final shift = sin(phase - .38);
     final scale = extent / 139;
-    final lift = kind.lift * pow(max(0, sin(phase * 2 + .56)), 2) * scale;
+    final lift = biteProgress == null
+        ? kind.lift * pow(max(0, sin(phase * 2 + .56)), 2) * scale
+        : 0.0;
+    final crouch = biteProgress == null ? 0.0 : sin(biteProgress * pi);
+    final biteFrame = biteProgress == null
+        ? null
+        : ((biteProgress < 1 ? .07 + .49 * min(1.0, biteProgress / .78) : .80) *
+                  kind.frames)
+              .floor();
     final feet = Offset(
       (shift * (kind.flower ? .7 : 2.6) + direction * reaction * 13) * scale,
       ground + (1 - entry) * 3 * scale - lift - reaction.abs() * 3.4 * scale,
     );
     final scaleX =
-        (.92 + entry * .08) * (1 + shift * .019 + reaction.abs() * .09);
+        (.92 + entry * .08) *
+        (1 + shift * .019 + reaction.abs() * .09 + crouch * .06);
     final scaleY =
-        (.91 + entry * .09) * (1 - shift * .028 - reaction.abs() * .07);
+        (.91 + entry * .09) *
+        (1 - shift * .028 - reaction.abs() * .07 - crouch * .045);
     return SlicerPlantPose._(
       extent: extent,
-      frame: hitAge < .15
-          ? min((kind.frames * .785).round(), kind.frames - 1)
-          : (cycle * kind.frames).floor() % kind.frames,
+      frame:
+          biteFrame ??
+          (hitAge < .15
+              ? min((kind.frames * .785).round(), kind.frames - 1)
+              : (cycle * kind.frames).floor() % kind.frames),
       feet: feet,
       body: feet - Offset(0, ground * scaleY),
       ground: ground,
