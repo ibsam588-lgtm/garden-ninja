@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_ninja/src/app.dart';
+import 'package:garden_ninja/src/slicer/slicer_plant_art.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> pumpGardenNinja(
@@ -23,7 +24,36 @@ Future<void> pumpGardenNinja(
   await tester.pump(const Duration(milliseconds: 20));
 }
 
+Future<void> advanceSlicer(WidgetTester tester, int frames) async {
+  for (var frame = 0; frame < frames; frame++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
+SlicerPlantPainter plantPainter(WidgetTester tester, Finder target) {
+  final paintedPlant = find.descendant(
+    of: target,
+    matching: find.byWidgetPredicate(
+      (widget) => widget is CustomPaint && widget.painter is SlicerPlantPainter,
+    ),
+  );
+  return tester.widget<CustomPaint>(paintedPlant).painter!
+      as SlicerPlantPainter;
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() async {
+    final art = await SlicerPlantArt.load();
+    for (final kind in SlicerPlantKind.values) {
+      expect(
+        art.sprite(kind),
+        isNotNull,
+        reason: '${kind.assetName} must decode',
+      );
+    }
+  });
+
   testWidgets('Garden Ninja shows home and can start play', (tester) async {
     await pumpGardenNinja(tester);
 
@@ -42,18 +72,22 @@ void main() {
 
     final weed = find.byKey(const ValueKey('target-1'));
     expect(weed, findsOneWidget);
+    final firstFrame = plantPainter(tester, weed).pose.frame;
 
-    await tester.tap(weed);
-    await tester.pump(const Duration(milliseconds: 300));
+    final center = tester.getCenter(weed);
+    await tester.dragFrom(center + const Offset(-46, 18), const Offset(92, 0));
+    await advanceSlicer(tester, 3);
 
     expect(find.text('82'), findsOneWidget);
     expect(weed, findsOneWidget);
     expect(find.text('+82 | 1 cuts'), findsOneWidget);
+    expect(plantPainter(tester, weed).pose.frame, isNot(firstFrame));
+    expect(find.byKey(const ValueKey('slicer-effects')), findsOneWidget);
     expect(
       find.byWidgetPredicate(
         (widget) => widget is ClipPath && widget.clipper is SliceHalfClipper,
       ),
-      findsAtLeastNWidgets(2),
+      findsNothing,
     );
 
     final flower = find.byKey(const ValueKey('target-2'));
@@ -65,6 +99,49 @@ void main() {
     expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
     expect(find.text('-150 Plant'), findsAtLeastNWidgets(1));
     expect(find.text('Garden Saved'), findsNothing);
+  });
+
+  testWidgets('Water sweeps out weeds on contact and leaves flowers', (
+    tester,
+  ) async {
+    await pumpGardenNinja(tester);
+    await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
+    await tester.pump(const Duration(milliseconds: 64));
+
+    final weed = find.byKey(const ValueKey('target-1'));
+    final sweptWeed = find.byKey(const ValueKey('water-target-1'));
+    final flower = find.byKey(const ValueKey('target-2'));
+    await tester.tap(find.text('Water x3'));
+    await tester.pump();
+
+    expect(weed, findsNothing);
+    expect(sweptWeed, findsOneWidget);
+    expect(find.text('90'), findsOneWidget);
+    expect(find.text('+90'), findsNothing);
+    expect(flower, findsOneWidget);
+
+    await tester.tap(find.text('Water x2'));
+    await advanceSlicer(tester, 8);
+    expect(find.text('Water x2'), findsOneWidget);
+    expect(sweptWeed, findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.pause_rounded));
+    await advanceSlicer(tester, 20);
+    expect(sweptWeed, findsOneWidget);
+    await tester.tap(find.text('RESUME'));
+    await advanceSlicer(tester, 8);
+
+    expect(sweptWeed, findsNothing);
+    expect(find.text('+90'), findsOneWidget);
+    expect(flower, findsOneWidget);
+    expect(find.byKey(const ValueKey('slicer-puddles')), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CustomPaint && widget.painter is SlicerCutFramePainter,
+      ),
+      findsNWidgets(2),
+    );
   });
 
   testWidgets('forced Play update blocks app after cancelled update', (
@@ -161,13 +238,30 @@ void main() {
     await tester.tap(find.text('Ice x2'));
     await tester.pump();
 
+    final weed = find.byKey(const ValueKey('target-1'));
     expect(find.text('Freeze!'), findsOneWidget);
     expect(find.text('Ice 7s x1'), findsOneWidget);
-    expect(find.byIcon(Icons.ac_unit_rounded), findsAtLeastNWidgets(1));
+    expect(plantPainter(tester, weed).frozen, isTrue);
+    expect(find.byKey(const ValueKey('slicer-effects')), findsOneWidget);
 
-    await tester.pump(const Duration(milliseconds: 1100));
+    await advanceSlicer(tester, 10);
+    expect(plantPainter(tester, weed).frost, 1);
+    await tester.tapAt(tester.getCenter(weed) + const Offset(0, 18));
+    await advanceSlicer(tester, 5);
+    expect(plantPainter(tester, weed).cuts, 1);
+    await tester.tapAt(tester.getCenter(weed) + const Offset(0, 18));
+    await tester.pump();
 
-    expect(find.byIcon(Icons.ac_unit_rounded), findsAtLeastNWidgets(1));
+    expect(weed, findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CustomPaint &&
+            widget.painter is SlicerCutFramePainter &&
+            (widget.painter! as SlicerCutFramePainter).frozen,
+      ),
+      findsNWidgets(2),
+    );
   });
 
   testWidgets('new players can start the interactive tutorial', (tester) async {
@@ -182,6 +276,40 @@ void main() {
     expect(find.text('Swipe through the weed to cut it.'), findsOneWidget);
     expect(find.byKey(const ValueKey('target-1')), findsOneWidget);
     expect(find.byIcon(Icons.swipe_rounded), findsOneWidget);
+  });
+
+  testWidgets('a partial Bramble hit keeps the damaged plant in play', (
+    tester,
+  ) async {
+    await pumpGardenNinja(tester);
+    await tester.tap(find.text('Tutorial'));
+    await tester.pump(const Duration(milliseconds: 64));
+
+    Future<void> cut(int id) async {
+        final target = find.byKey(ValueKey('target-$id'));
+        await tester.tapAt(tester.getCenter(target));
+      await advanceSlicer(tester, 5);
+    }
+
+    await cut(1);
+    await cut(3);
+    await cut(4);
+    await cut(4);
+    await cut(4);
+    await advanceSlicer(tester, 5);
+
+    final bramble = find.byKey(const ValueKey('target-6'));
+    expect(plantPainter(tester, bramble).sprite.kind, SlicerPlantKind.bramble);
+    expect(plantPainter(tester, bramble).cuts, 2);
+    await cut(6);
+    expect(plantPainter(tester, bramble).cuts, 1);
+    expect(find.byKey(const ValueKey('slicer-effects')), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is ClipPath && widget.clipper is SliceHalfClipper,
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('players can continue after a completed run', (tester) async {
