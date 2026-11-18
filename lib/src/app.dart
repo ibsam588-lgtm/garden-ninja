@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:ui' as ui show Image;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
@@ -23,6 +24,7 @@ import 'package:garden_ninja/src/purchases/remove_ads_panel.dart';
 import 'package:garden_ninja/src/review/play_review_gateway.dart';
 import 'package:garden_ninja/src/review/review_prompt_policy.dart';
 import 'package:garden_ninja/src/review/shared_preferences_review_prompt_store.dart';
+import 'package:garden_ninja/src/slicer/planter_chew.dart';
 import 'package:garden_ninja/src/slicer/planter_rescue.dart';
 import 'package:garden_ninja/src/slicer/planter_rescue_paint.dart';
 import 'package:garden_ninja/src/slicer/slicer_effects.dart';
@@ -281,9 +283,8 @@ class _WeedBite {
     this.windup = .32,
     this.patch,
     this.flower,
+    this.chew,
   });
-
-  static const recovery = .32;
 
   final Offset from;
   final Offset contact;
@@ -291,11 +292,46 @@ class _WeedBite {
   final double windup;
   final int? patch;
   final GardenTarget? flower;
+  final PlanterChew? chew;
   double elapsed = 0;
+  int contacts = 0;
 
+  double get recovery => chew == null ? .32 : PlanterChew.recovery;
   bool get landed => elapsed >= windup;
   double get progress => (elapsed / windup).clamp(0.0, 1.0);
   double get fade => (1 - (elapsed - windup) / recovery).clamp(0.0, 1.0);
+}
+
+class _SlicerPlanter {
+  _SlicerPlanter(this.crop);
+
+  final PlanterCrop crop;
+  double damage = 0;
+  double hitAge = double.infinity;
+
+  bool get eaten => damage >= 1;
+
+  void reset() {
+    damage = 0;
+    hitAge = double.infinity;
+  }
+}
+
+class _PlanterPiece {
+  _PlanterPiece({
+    required this.weed,
+    required this.patch,
+    required this.before,
+    required this.after,
+    required this.direction,
+  });
+
+  final GardenTarget weed;
+  final int patch;
+  final double before;
+  final double after;
+  final double direction;
+  double age = 0;
 }
 
 class PlayerGardenPlot {
@@ -446,11 +482,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const int _notifIdNextBloom = 1;
   static const int _notifIdMorningGift = 2;
   static const int _notifIdComeback = 3;
-  static const List<String> _gardenPatchAssets = [
-    'assets/images/sprites/flower_shield.png',
-    'assets/images/sprites/flower_daisy.png',
-    'assets/images/sprites/cherry_blossom_sapling.png',
-  ];
   static const List<GardenPlantOption> _gardenPlantOptions = [
     GardenPlantOption(
       name: 'Daisy',
@@ -708,7 +739,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   final List<FloatingBurst> _bursts = [];
   final SlicerEffects _slicerEffects = SlicerEffects();
   final List<GardenTarget> _sweptPlants = [];
-  final Set<int> _eatenGardenPatches = {};
+  final List<_SlicerPlanter> _slicerPlanters = PlanterCrop.values
+      .map(_SlicerPlanter.new)
+      .toList(growable: false);
+  final List<_PlanterPiece> _planterPieces = [];
   SlicerPlantArt? _slicerArt;
   bool _slicerArtRequested = false;
   double _roundEndDelay = 0;
@@ -2787,7 +2821,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _slashes.clear();
     _bursts.clear();
     _sweptPlants.clear();
-    _eatenGardenPatches.clear();
+    _planterPieces.clear();
+    for (final planter in _slicerPlanters) {
+      planter.reset();
+    }
     _gardenDamageFlash = 0;
     _gardenDamageCooldown = 0;
     _roundWater = 0;
@@ -2903,6 +2940,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void _stepSlicerVisuals(double dt) {
     _slicerEffects.tick(dt);
     _advanceBiteRecovery(dt);
+    for (final planter in _slicerPlanters) {
+      planter.hitAge += dt;
+    }
+    for (final piece in _planterPieces) {
+      piece.age += dt;
+    }
+    _planterPieces.removeWhere(
+      (piece) => piece.age >= PlanterChew.fragmentDuration,
+    );
     for (final slash in _slashes) {
       slash.life -= dt / .21;
     }
@@ -2932,8 +2978,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       index: index,
       level: _level,
       livePlanters: [
-        for (var bed = 0; bed < _gardenPatchAssets.length; bed++)
-          if (!_eatenGardenPatches.contains(bed)) bed,
+        for (var bed = 0; bed < _slicerPlanters.length; bed++)
+          if (!_slicerPlanters[bed].eaten) bed,
       ],
     );
     for (final attack in attacks) {
@@ -3278,6 +3324,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   SlicerPlantPose? _plantPose(GardenTarget target) {
     final kind = target.kind;
     if (kind == null) return null;
+    final bite = target._bite;
     return SlicerPlantPose.sample(
       kind: kind,
       id: target.id,
@@ -3286,7 +3333,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       age: target.age,
       hitAge: target.hitAge,
       hitAngle: target.hitAngle,
-      biteProgress: target._bite?.progress,
+      biteProgress: bite?.progress,
+      chew: bite?.chew == null ? null : PlanterChew.frameAt(bite!.progress),
       reducedMotion: _reducedSlicerMotion,
     );
   }
@@ -3325,25 +3373,35 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
   }
 
-  Offset _gardenPatchFlower(int index) {
+  Rect _gardenPatchCrop(int index) {
     final spacing =
         (_worldWidth - 2 * _slicerBedInset - _GardenPatch.width) /
-        (_gardenPatchAssets.length - 1);
-    return Offset(
-      _slicerBedInset + _GardenPatch.width / 2 + index * spacing,
-      _worldHeight -
-          _slicerBedBottom -
-          _GardenPatch.flowerBottom -
-          _GardenPatch.flowerHeight / 2 -
-          4,
+        (_slicerPlanters.length - 1);
+    final height = _GardenPatch.flowerHeight;
+    return Rect.fromCenter(
+      center: Offset(
+        _slicerBedInset + _GardenPatch.width / 2 + index * spacing,
+        _worldHeight -
+            _slicerBedBottom -
+            _GardenPatch.flowerBottom -
+            height / 2,
+      ),
+      width: height * _slicerPlanters[index].crop.widthRatio,
+      height: height,
     );
   }
+
+  Offset _gardenPatchFlower(int index) =>
+      _gardenPatchCrop(index).center - const Offset(0, 4);
+
+  Offset _weedMouthOffset(GardenTarget weed) =>
+      weed.kind?.mouthOffset(weed.size) ?? Offset(0, weed.size * .13);
 
   int? _nearestLivingPatch(double x) {
     int? nearest;
     double distance = double.infinity;
-    for (var index = 0; index < _gardenPatchAssets.length; index++) {
-      if (_eatenGardenPatches.contains(index)) continue;
+    for (var index = 0; index < _slicerPlanters.length; index++) {
+      if (_slicerPlanters[index].eaten) continue;
       final gap = (_gardenPatchFlower(index).dx - x).abs();
       if (gap < distance) {
         nearest = index;
@@ -3373,8 +3431,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
     if (speedScale == 0) return;
 
-    final mouth =
-        weed.kind?.mouthOffset(weed.size) ?? Offset(0, weed.size * .13);
+    final mouth = _weedMouthOffset(weed);
     Offset next = weed.position + weed.velocity * dt * speedScale;
     int? reachedPatch;
     if (next.dy >= _slicerBedApproachY) {
@@ -3426,9 +3483,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   void _marchToPlanter(GardenTarget weed, _RescueMarch march, double dt) {
     final attack = march.attack;
+    final crop = _gardenPatchCrop(attack.planter);
     final plant = _gardenPatchFlower(attack.planter);
-    final contact = plant - attack.kind.mouthOffset(weed.size);
-    final wait = contact - const Offset(0, 22);
+    final mouth = _weedMouthOffset(weed);
+    final wait = PlanterChew.waitingMouth(crop) - mouth;
     final untilBite = max(0, attack.marchSeconds - march.elapsed);
     march.elapsed += min(dt, untilBite);
     final progress = (march.elapsed / attack.marchSeconds).clamp(0.0, 1.0);
@@ -3444,10 +3502,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
     final bite = _WeedBite(
       from: wait,
-      contact: contact,
+      contact: plant - mouth,
       plant: plant,
       patch: attack.planter,
       windup: attack.biteSeconds,
+      chew: PlanterChew(
+        crop: _slicerPlanters[attack.planter].crop,
+        flower: crop,
+        existingDamage: _slicerPlanters[attack.planter].damage,
+        direction: attack.kind == SlicerPlantKind.thorn ? -1 : 1,
+      ),
     );
     weed._bite = bite;
     _advanceBite(weed, bite, dt - untilBite);
@@ -3455,12 +3519,64 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   void _advanceBite(GardenTarget weed, _WeedBite bite, double dt) {
     bite.elapsed = min(bite.windup, bite.elapsed + dt);
+    final chew = bite.chew;
+    if (chew != null) {
+      final reducedMotion = _reducedSlicerMotion;
+      final mouth = chew.mouthAt(bite.progress, reducedMotion: reducedMotion);
+      weed.position = mouth - _weedMouthOffset(weed);
+      while (bite.contacts < PlanterChew.contactTimes.length &&
+          bite.progress >= PlanterChew.contactTimes[bite.contacts]) {
+        final stage = bite.contacts++;
+        _takePlanterBite(weed, bite, chew, stage, reducedMotion);
+      }
+      return;
+    }
     weed.position = Offset.lerp(
       bite.from,
       bite.contact,
       Curves.easeInCubic.transform(bite.progress),
     )!;
     if (bite.landed) _landWeedBite(bite);
+  }
+
+  void _takePlanterBite(
+    GardenTarget weed,
+    _WeedBite bite,
+    PlanterChew chew,
+    int stage,
+    bool reducedMotion,
+  ) {
+    final patch = bite.patch!;
+    final planter = _slicerPlanters[patch];
+    final damage = chew.cuts[stage];
+    final contact = chew.mouthAt(
+      PlanterChew.contactTimes[stage],
+      reducedMotion: reducedMotion,
+    );
+    if (!reducedMotion) {
+      _planterPieces.add(
+        _PlanterPiece(
+          weed: weed,
+          patch: patch,
+          before: planter.damage,
+          after: damage,
+          direction: chew.direction,
+        ),
+      );
+    }
+    if (damage >= 1) {
+      _landWeedBite(bite, mouth: contact);
+      return;
+    }
+    planter.damage = damage;
+    planter.hitAge = 0;
+    _slicerEffects.bite(
+      contact,
+      reducedMotion,
+      crop: planter.crop,
+      finishing: false,
+    );
+    _playSfx(_sfxCrispLeaf, volume: .40);
   }
 
   GardenTarget? _flowerInBitePath(Offset start, Offset end) {
@@ -3477,12 +3593,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     return null;
   }
 
-  void _landWeedBite(_WeedBite bite) {
+  void _landWeedBite(_WeedBite bite, {Offset? mouth}) {
     final flower = bite.flower;
     if (flower != null) _targets.remove(flower);
 
     final patch = bite.patch;
-    if (patch != null && _eatenGardenPatches.add(patch)) {
+    final planter = patch == null ? null : _slicerPlanters[patch];
+    if (planter != null && !planter.eaten) {
+      planter.damage = 1;
       _lives -= 1;
       _gardenDamageFlash = 1;
       _combo = 0;
@@ -3490,9 +3608,15 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         _gardenDamageCooldown = 2.8;
         _tutorialMistake = true;
       }
-      if (_lives == 0) _roundEndDelay = _WeedBite.recovery;
+      if (_lives == 0) {
+        _roundEndDelay = bite.recovery + (bite.chew == null ? 0 : .10);
+      }
     }
-    _slicerEffects.bite(bite.plant, _reducedSlicerMotion);
+    _slicerEffects.bite(
+      mouth ?? bite.plant,
+      _reducedSlicerMotion,
+      crop: planter?.crop,
+    );
     _playSfx(_sfxCrispLeaf, volume: .72);
     _addBurst(
       bite.plant - const Offset(0, 31),
@@ -3581,7 +3705,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           weed._waterAward = _rescueSeedsFor(weed);
           _rescueSeeds += weed._waterAward;
         }
-        weed._bite = null;
+        if (weed._bite?.chew == null) weed._bite = null;
       }
       // Resolve the hit at cast time. The original targets stay visible until
       // the crest reaches them, without being hittable or damaging the bed.
@@ -6161,6 +6285,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             for (final weed in _sweptPlants)
               _buildTarget(weed, size, swept: true),
             ..._shards.map((shard) => _buildShard(shard, size)),
+            if (_planterPieces.isNotEmpty) _buildPlanterPieces(),
             if (_slicerEffects.hasAction) _buildSlicerEffects(ground: false),
             if (_slashes.isNotEmpty)
               Positioned.fill(
@@ -6253,15 +6378,39 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: List.generate(
-            _gardenPatchAssets.length,
+            _slicerPlanters.length,
             (index) => _GardenPatch(
               index: index,
-              asset: _gardenPatchAssets[index],
-              eaten: _eatenGardenPatches.contains(index),
+              planter: _slicerPlanters[index],
+              image: _slicerArt?.crop(_slicerPlanters[index].crop),
               bite: bites[index],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPlanterPieces() {
+    final fragments = <PlanterFragment>[];
+    for (final piece in _planterPieces) {
+      final crop = _slicerPlanters[piece.patch].crop;
+      final image = _slicerArt?.crop(crop);
+      if (image == null) continue;
+      fragments.add((
+        image: image,
+        flower: _gardenPatchCrop(piece.patch),
+        mouth: piece.weed.position + _weedMouthOffset(piece.weed),
+        before: piece.before,
+        after: piece.after,
+        direction: piece.direction,
+        edgeDirection: crop.edgeDirection,
+        progress: piece.age / PlanterChew.fragmentDuration,
+      ));
+    }
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: CustomPaint(painter: PlanterFragmentsPainter(fragments)),
       ),
     );
   }
@@ -6406,12 +6555,23 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       actor = _SlicerFlowerReaction(progress: flowerPull, child: actor);
     }
     if (target._retreating) {
-      final fade = target._bite!.fade;
+      final bite = target._bite!;
+      final fade = bite.fade;
+      final progress = 1 - fade;
+      final reduced = _reducedSlicerMotion;
+      final swallow = reduced || bite.chew == null
+          ? 0.0
+          : sin(progress * pi) * .085;
+      final lift = reduced ? 0.0 : Curves.easeOutCubic.transform(progress) * 16;
       actor = Opacity(
         opacity: fade,
         child: Transform.translate(
-          offset: Offset(0, _reducedSlicerMotion ? 0 : -12 * (1 - fade)),
-          child: actor,
+          offset: Offset(0, -lift),
+          child: Transform.scale(
+            scaleX: 1 + swallow,
+            scaleY: 1 - swallow * .58,
+            child: actor,
+          ),
         ),
       );
     }
@@ -12121,11 +12281,7 @@ class _AnimatedHomeFeature extends StatelessWidget {
 }
 
 class _SlicerFlowerReaction extends StatelessWidget {
-  const _SlicerFlowerReaction({
-    super.key,
-    required this.progress,
-    required this.child,
-  });
+  const _SlicerFlowerReaction({required this.progress, required this.child});
 
   final double progress;
   final Widget child;
@@ -12146,8 +12302,8 @@ class _SlicerFlowerReaction extends StatelessWidget {
 class _GardenPatch extends StatelessWidget {
   const _GardenPatch({
     required this.index,
-    required this.asset,
-    required this.eaten,
+    required this.planter,
+    required this.image,
     required this.bite,
   });
 
@@ -12157,14 +12313,14 @@ class _GardenPatch extends StatelessWidget {
   static const flowerBottom = 12.0;
 
   final int index;
-  final String asset;
-  final bool eaten;
+  final _SlicerPlanter planter;
+  final ui.Image? image;
   final _WeedBite? bite;
 
   @override
   Widget build(BuildContext context) {
-    final attack = bite;
-    final bool active = attack?.landed ?? false;
+    final eaten = planter.eaten;
+    final bool active = bite?.landed ?? false;
     return SizedBox(
       key: ValueKey(eaten ? 'garden-damage-$index' : 'garden-safe-$index'),
       width: width,
@@ -12207,7 +12363,7 @@ class _GardenPatch extends StatelessWidget {
                 ],
               ),
               child: eaten
-                  ? const CustomPaint(painter: GardenCrackPainter())
+                  ? CustomPaint(painter: PlanterStumpPainter(planter.crop))
                   : Padding(
                       padding: const EdgeInsets.fromLTRB(5, 3, 5, 9),
                       child: DecoratedBox(
@@ -12221,56 +12377,50 @@ class _GardenPatch extends StatelessWidget {
           ),
           if (!eaten)
             Positioned(
+              key: bite != null ? ValueKey('garden-bite-$index') : null,
               bottom: flowerBottom,
-              child: _SlicerFlowerReaction(
-                key: attack != null ? ValueKey('garden-bite-$index') : null,
-                progress: attack?.progress ?? 0,
-                child: Image.asset(
-                  asset,
-                  key: ValueKey('garden-plant-$index'),
-                  width: 50,
-                  height: flowerHeight,
-                  fit: BoxFit.contain,
-                ),
-              ),
+              child: _buildFlower(MediaQuery.disableAnimationsOf(context)),
             ),
         ],
       ),
     );
   }
-}
 
-class GardenCrackPainter extends CustomPainter {
-  const GardenCrackPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint shadow = Paint()
-      ..color = const Color(0xAA371C0F)
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 5
-      ..style = PaintingStyle.stroke;
-    final Paint crack = Paint()
-      ..color = const Color(0xFFFFD176)
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    final Path path = Path()
-      ..moveTo(size.width * 0.18, size.height * 0.44)
-      ..lineTo(size.width * 0.44, size.height * 0.52)
-      ..lineTo(size.width * 0.35, size.height * 0.66)
-      ..moveTo(size.width * 0.46, size.height * 0.52)
-      ..lineTo(size.width * 0.68, size.height * 0.42)
-      ..moveTo(size.width * 0.49, size.height * 0.56)
-      ..lineTo(size.width * 0.72, size.height * 0.68);
-
-    canvas.drawPath(path, shadow);
-    canvas.drawPath(path, crack);
+  Widget _buildFlower(bool reducedMotion) {
+    final crop = planter.crop;
+    final texture = image;
+    final flower = SizedBox(
+      key: ValueKey('garden-plant-$index'),
+      width: flowerHeight * crop.widthRatio,
+      height: flowerHeight,
+      child: texture == null
+          ? Image.asset(crop.asset, fit: BoxFit.contain)
+          : CustomPaint(
+              painter: PlanterCropPainter(
+                image: texture,
+                crop: crop,
+                damage: planter.damage,
+              ),
+            ),
+    );
+    if (reducedMotion) return flower;
+    final attack = bite;
+    final chew = attack?.chew;
+    if (attack != null && chew == null) {
+      return _SlicerFlowerReaction(progress: attack.progress, child: flower);
+    }
+    final age = planter.hitAge;
+    final recoil = age < .45 ? sin(age * 32) * (1 - age / .45) * .15 : 0.0;
+    final lean = chew == null
+        ? 0.0
+        : chew.direction *
+              (.028 + PlanterChew.frameAt(attack!.progress).gape * .067);
+    return Transform.rotate(
+      angle: lean + recoil * crop.edgeDirection,
+      alignment: Alignment.bottomCenter,
+      child: flower,
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant GardenCrackPainter oldDelegate) => false;
 }
 
 // ignore: unused_element

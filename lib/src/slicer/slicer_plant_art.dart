@@ -5,6 +5,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'planter_chew.dart';
+
 enum SlicerPlantKind {
   thorn('weed_thorn_sprout', 148, 16, 8, .7635, .5878, 1.35, 4.4, .059, 1),
   gobbler('weed_vine_gobbler', 148, 16, 8, .4189, .7838, 1.96, 1.2, .040, 1.2),
@@ -69,73 +71,131 @@ enum SlicerPlantKind {
 }
 
 class SlicerPlantArt {
-  SlicerPlantArt._(this._sprites);
+  SlicerPlantArt._(this._sprites, this._crops);
 
   static Future<SlicerPlantArt>? _loaded;
   static SlicerPlantArt? _decoded;
   final Map<SlicerPlantKind, SlicerPlantSprite> _sprites;
+  final Map<PlanterCrop, ui.Image> _crops;
 
   static Future<SlicerPlantArt> load() => _loaded ??= _loadSheets();
   static SlicerPlantArt? get decoded => _decoded;
 
   SlicerPlantSprite? sprite(SlicerPlantKind? kind) => _sprites[kind];
+  ui.Image? crop(PlanterCrop crop) => _crops[crop];
 
   static Future<SlicerPlantArt> _loadSheets() async {
-    final sprites = await Future.wait(SlicerPlantKind.values.map(_loadSheet));
-    return _decoded = SlicerPlantArt._({
-      for (final sprite in sprites.whereType<SlicerPlantSprite>())
-        sprite.kind: sprite,
-    });
+    final loadingSprites = Future.wait(SlicerPlantKind.values.map(_loadSheet));
+    final crops = await Future.wait(
+      PlanterCrop.values.map(
+        (crop) =>
+            _loadImage(crop.asset, crop.sourceWidth, PlanterCrop.sourceHeight),
+      ),
+    );
+    final sprites = await loadingSprites;
+    return _decoded = SlicerPlantArt._(
+      {
+        for (final sprite in sprites.whereType<SlicerPlantSprite>())
+          sprite.kind: sprite,
+      },
+      {
+        for (final crop in PlanterCrop.values)
+          if (crops[crop.index] case final ui.Image image) crop: image,
+      },
+    );
   }
 
   static Future<SlicerPlantSprite?> _loadSheet(SlicerPlantKind kind) async {
+    final path = '${PlanterCrop.assetDirectory}/${kind.assetName}';
+    final loadingWalk = _loadImage(
+      '$path.webp',
+      kind.frameSize * kind.columns,
+      kind.frameSize * (kind.frames / kind.columns).ceil(),
+    );
+    final chew = switch (kind) {
+      SlicerPlantKind.thorn || SlicerPlantKind.bramble => await _loadImage(
+        '${path}_chew.webp',
+        PlanterChew.frameSize * PlanterChew.columns,
+        PlanterChew.frameSize *
+            (PlanterChew.frameCount / PlanterChew.columns).ceil(),
+      ),
+      _ => null,
+    };
+    final walk = await loadingWalk;
+    if (walk == null) {
+      chew?.dispose();
+      return null;
+    }
+    return SlicerPlantSprite._(kind, walk, chew);
+  }
+
+  static Future<ui.Image?> _loadImage(
+    String asset,
+    int width,
+    int height,
+  ) async {
     try {
-      final data = await rootBundle.load(
-        'assets/images/sprites/slicer/${kind.assetName}.webp',
-      );
+      final data = await rootBundle.load(asset);
       final codec = await ui.instantiateImageCodec(Uint8List.sublistView(data));
       try {
         final image = (await codec.getNextFrame()).image;
-        if (image.width == kind.frameSize * kind.columns &&
-            image.height == kind.frameSize * (kind.frames ~/ kind.columns)) {
-          return SlicerPlantSprite._(kind, image);
-        }
+        if (image.width == width && image.height == height) return image;
         image.dispose();
       } finally {
         codec.dispose();
       }
     } catch (error) {
-      // The original sprite remains available if an animation sheet fails.
-      debugPrint('Could not load ${kind.assetName} animation: $error');
+      debugPrint('Could not load Slicer image $asset: $error');
     }
     return null;
   }
 }
 
 class SlicerPlantSprite {
-  SlicerPlantSprite._(this.kind, this._image)
-    : _frames = List.generate(
-        kind.frames,
-        (index) => Rect.fromLTWH(
-          (index % kind.columns * kind.frameSize).toDouble(),
-          (index ~/ kind.columns * kind.frameSize).toDouble(),
-          kind.frameSize.toDouble(),
-          kind.frameSize.toDouble(),
-        ),
-      );
+  SlicerPlantSprite._(this.kind, ui.Image walk, ui.Image? chew)
+    : _walk = _PlantAtlas(walk, kind.frameSize, kind.columns, kind.frames),
+      _chew = chew == null
+          ? null
+          : _PlantAtlas(
+              chew,
+              PlanterChew.frameSize,
+              PlanterChew.columns,
+              PlanterChew.frameCount,
+            );
 
   final SlicerPlantKind kind;
-  final ui.Image _image;
-  final List<Rect> _frames;
+  final _PlantAtlas _walk;
+  final _PlantAtlas? _chew;
 
-  void draw(Canvas canvas, int frame, double extent, Paint paint) {
+  bool get hasChew => _chew != null;
+
+  void draw(Canvas canvas, SlicerPlantPose pose, Paint paint) {
+    final chew = pose.chewFrame == null ? null : _chew;
+    final atlas = chew ?? _walk;
+    final extent = pose.extent;
     canvas.drawImageRect(
-      _image,
-      _frames[frame],
+      atlas.image,
+      atlas.frames[chew == null ? pose.frame : pose.chewFrame!],
       Rect.fromLTWH(-extent / 2, -extent * kind.anchor, extent, extent),
       paint,
     );
   }
+}
+
+class _PlantAtlas {
+  _PlantAtlas(this.image, int frameSize, int columns, int count)
+    : frames = List.generate(
+        count,
+        (index) => Rect.fromLTWH(
+          (index % columns * frameSize).toDouble(),
+          (index ~/ columns * frameSize).toDouble(),
+          frameSize.toDouble(),
+          frameSize.toDouble(),
+        ),
+      );
+
+  final ui.Image image;
+  final List<Rect> frames;
 }
 
 const slicerFrostFilter = ColorFilter.matrix(<double>[
@@ -196,6 +256,7 @@ class SlicerPlantPose {
     required this.scaleX,
     required this.scaleY,
     required this.opacity,
+    this.chewFrame,
   });
 
   /// All offsets are relative to the gameplay target's center.
@@ -209,6 +270,7 @@ class SlicerPlantPose {
   final double scaleY;
   final double opacity;
   final int frame;
+  final int? chewFrame;
 
   static SlicerPlantPose sample({
     required SlicerPlantKind kind,
@@ -220,10 +282,32 @@ class SlicerPlantPose {
     required double hitAngle,
     required bool reducedMotion,
     double? biteProgress,
+    PlanterChewFrame? chew,
   }) {
     final extent = diameter / .86;
     final height = kind.heightRatio * extent;
     final ground = height * .46;
+    final impact = (1 - hitAge / .46).clamp(0.0, 1.0);
+    final reaction = sin((1 - impact) * 11) * impact / kind.mass;
+    final direction = cos(hitAngle) >= 0 ? 1 : -1;
+    if (chew != null) {
+      final recoil = reducedMotion ? 0.0 : direction * reaction;
+      final scaleY = reducedMotion ? 1.0 : 1 + (chew.gape - .47) * .058;
+      final feet = Offset(recoil * 7, ground);
+      return SlicerPlantPose._(
+        extent: extent,
+        frame: min(2, kind.frames - 1),
+        chewFrame: chew.index,
+        feet: feet,
+        body: feet - Offset(0, ground * scaleY),
+        ground: ground,
+        lift: 0,
+        angle: recoil * .12,
+        scaleX: 1,
+        scaleY: scaleY,
+        opacity: 1,
+      );
+    }
     if (reducedMotion) {
       final poseFrame = biteProgress == null
           ? min(2, kind.frames - 1)
@@ -246,9 +330,6 @@ class SlicerPlantPose {
     final phase = cycle * pi * 2;
     final entryTime = (age / .34).clamp(0.0, 1.0);
     final entry = Curves.easeOutCubic.transform(entryTime);
-    final impact = (1 - hitAge / .46).clamp(0.0, 1.0);
-    final reaction = sin((1 - impact) * 11) * impact / kind.mass;
-    final direction = cos(hitAngle) >= 0 ? 1 : -1;
     final shift = sin(phase - .38);
     final scale = extent / 139;
     final lift = biteProgress == null
@@ -339,8 +420,7 @@ class SlicerPlantPainter extends CustomPainter {
     canvas.scale(pose.scaleX, pose.scaleY);
     sprite.draw(
       canvas,
-      pose.frame,
-      pose.extent,
+      pose,
       Paint()
         ..filterQuality = FilterQuality.low
         ..color = Colors.white.withValues(alpha: pose.opacity)
@@ -362,8 +442,7 @@ class SlicerPlantPainter extends CustomPainter {
     canvas.transform(_shadowProjection);
     sprite.draw(
       canvas,
-      pose.frame,
-      pose.extent,
+      pose,
       Paint()
         ..filterQuality = FilterQuality.low
         ..colorFilter = ColorFilter.mode(
@@ -547,8 +626,7 @@ class SlicerCutFramePainter extends CustomPainter {
     canvas.scale(pose.scaleX, pose.scaleY);
     sprite.draw(
       canvas,
-      pose.frame,
-      pose.extent,
+      pose,
       Paint()
         ..filterQuality = FilterQuality.low
         ..colorFilter = frozen ? slicerFrostFilter : null,

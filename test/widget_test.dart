@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_ninja/src/app.dart';
+import 'package:garden_ninja/src/slicer/planter_chew.dart';
 import 'package:garden_ninja/src/slicer/planter_rescue_paint.dart';
 import 'package:garden_ninja/src/slicer/slicer_plant_art.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -60,16 +61,31 @@ SlicerPlantPainter plantPainter(WidgetTester tester, Finder target) {
       as SlicerPlantPainter;
 }
 
+PlanterCropPainter cropPainter(WidgetTester tester, int index) {
+  final canvas = find.descendant(
+    of: find.byKey(ValueKey('garden-plant-$index')),
+    matching: find.byWidgetPredicate(
+      (widget) => widget is CustomPaint && widget.painter is PlanterCropPainter,
+    ),
+  );
+  return tester.widget<CustomPaint>(canvas).painter! as PlanterCropPainter;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
     final art = await SlicerPlantArt.load();
     for (final kind in SlicerPlantKind.values) {
+      final sprite = art.sprite(kind);
+      expect(sprite, isNotNull, reason: '${kind.assetName} must decode');
       expect(
-        art.sprite(kind),
-        isNotNull,
-        reason: '${kind.assetName} must decode',
+        sprite!.hasChew,
+        kind == SlicerPlantKind.thorn || kind == SlicerPlantKind.bramble,
       );
+    }
+    for (final crop in PlanterCrop.values) {
+      expect(art.crop(crop)?.width, crop.sourceWidth);
+      expect(art.crop(crop)?.height, PlanterCrop.sourceHeight);
     }
   });
 
@@ -239,7 +255,47 @@ void main() {
     expect(countdowns, everyElement(isNotNull));
     expect(slicerLives(3), findsOneWidget);
 
-    await advanceSlicer(tester, 29);
+    final thorn = find.byKey(const ValueKey('target-1'));
+    final windupFrame = plantPainter(tester, thorn).pose.chewFrame;
+    expect(windupFrame, isNotNull);
+    expect(cropPainter(tester, 0).damage, 0);
+    expect(cropPainter(tester, 1).damage, 0);
+    await advanceSlicer(tester, 5);
+    final openFrame = plantPainter(tester, thorn).pose.chewFrame!;
+    expect(openFrame, greaterThan(windupFrame!));
+    expect(
+      PlanterChew.frameAt(openFrame / (PlanterChew.frameCount - 1)).gape,
+      greaterThan(.85),
+    );
+
+    await advanceSlicer(tester, 5);
+    final snapFrame = plantPainter(tester, thorn).pose.chewFrame!;
+    expect(
+      PlanterChew.frameAt(snapFrame / (PlanterChew.frameCount - 1)).gape,
+      lessThan(.35),
+    );
+    expect(cropPainter(tester, 0).damage, PlanterCrop.bell.firstCut);
+    expect(cropPainter(tester, 1).damage, 0);
+    final piecePaint =
+        tester
+                .widget<CustomPaint>(
+                  find.byWidgetPredicate(
+                    (widget) =>
+                        widget is CustomPaint &&
+                        widget.painter is PlanterFragmentsPainter,
+                  ),
+                )
+                .painter!
+            as PlanterFragmentsPainter;
+    expect(piecePaint.fragments.single.before, 0);
+    expect(piecePaint.fragments.single.after, PlanterCrop.bell.firstCut);
+    await advanceSlicer(tester, 9);
+    expect(cropPainter(tester, 0).damage, PlanterCrop.bell.secondCut);
+    expect(cropPainter(tester, 1).damage, PlanterCrop.daisy.firstCut);
+    expect(cropPainter(tester, 2).damage, 0);
+    expect(slicerLives(3), findsOneWidget);
+
+    await advanceSlicer(tester, 10);
     expect(find.byKey(const ValueKey('garden-damage-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-plant-0')), findsNothing);
     expect(slicerLives(2), findsOneWidget);
@@ -261,25 +317,45 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
     await tester.pump(const Duration(milliseconds: 64));
 
-    await advanceSlicer(tester, 100);
+    await advanceSlicer(tester, 110);
     final bite = find.byKey(const ValueKey('garden-bite-0'));
     final flower = find.byKey(const ValueKey('garden-plant-0'));
+    final thorn = find.byKey(const ValueKey('target-1'));
     final beforeIce = warningsPainter(tester).warnings;
+    final biteFrame = plantPainter(tester, thorn).pose.chewFrame;
+    expect(biteFrame, isNotNull);
+    expect(cropPainter(tester, 0).damage, PlanterCrop.bell.firstCut);
     await tester.tap(find.text('Ice x1'));
     await advanceSlicer(tester, 44);
     expect(warningsPainter(tester).frozen, isTrue);
     expect(warningsPainter(tester).warnings, beforeIce);
+    expect(plantPainter(tester, thorn).pose.chewFrame, biteFrame);
+    expect(cropPainter(tester, 0).damage, PlanterCrop.bell.firstCut);
     expect(bite, findsOneWidget);
     expect(flower, findsOneWidget);
     expect(slicerLives(3), findsOneWidget);
 
     await tester.tap(find.text('Water x1'));
+    await tester.pump();
+    final swept = find.byKey(const ValueKey('water-target-1'));
+    expect(plantPainter(tester, swept).pose.chewFrame, biteFrame);
     await advanceSlicer(tester, 10);
     expect(find.text('Saved +12'), findsNWidgets(2));
     await advanceSlicer(tester, 14);
     expect(bite, findsNothing);
     expect(flower, findsOneWidget);
     expect(slicerLives(3), findsOneWidget);
+    expect(cropPainter(tester, 0).damage, PlanterCrop.bell.firstCut);
+
+    // Bramble comes for the same damaged flower in the next wave.
+    for (
+      var i = 0;
+      i < 190 && cropPainter(tester, 0).damage == PlanterCrop.bell.firstCut;
+      i++
+    ) {
+      await advanceSlicer(tester, 1);
+    }
+    expect(cropPainter(tester, 0).damage, closeTo(.6279, .0001));
   });
 
   testWidgets('a finishing slice during the bite earns a rescue bonus', (
@@ -290,7 +366,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 64));
 
     final weed = find.byKey(const ValueKey('target-1'));
-    await advanceSlicer(tester, 100);
+    await advanceSlicer(tester, 110);
     await tester.tapAt(tester.getCenter(weed));
     await advanceSlicer(tester, 5);
     expect(find.byKey(const ValueKey('garden-bite-0')), findsOneWidget);
@@ -300,6 +376,7 @@ void main() {
     expect(find.byKey(const ValueKey('garden-bite-0')), findsNothing);
     expect(find.byKey(const ValueKey('garden-bite-1')), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-plant-0')), findsOneWidget);
+    expect(cropPainter(tester, 0).damage, PlanterCrop.bell.firstCut);
     expect(find.text('Saved +12'), findsOneWidget);
   });
 
@@ -432,6 +509,9 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('primary-PLAY NEXT RUN')));
       await tester.pump(const Duration(milliseconds: 120));
       expect(find.text('Water x2'), findsOneWidget);
+      expect(cropPainter(tester, 0).damage, 0);
+      expect(cropPainter(tester, 1).damage, 0);
+      expect(cropPainter(tester, 2).damage, 0);
       await tester.tap(find.text('Water x2'));
       await advanceSlicer(tester, 80);
       expect(find.text('Wave 2'), findsOneWidget);
