@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:garden_ninja/src/slicer/planter_chew.dart';
 import 'package:garden_ninja/src/slicer/slicer_plant_art.dart';
 
 enum _Material { leaf, bark, dust, drop, ice }
@@ -234,15 +235,26 @@ class SlicerEffects {
     reducedMotion,
   );
 
-  void bite(Offset position, bool reducedMotion) {
+  void bite(
+    Offset position,
+    bool reducedMotion, {
+    PlanterCrop? crop,
+    bool finishing = true,
+  }) {
     _spray(
       position,
-      const Color(0xFF99AE49),
-      12,
+      crop?.stemColor ?? const Color(0xFF99AE49),
+      finishing ? 12 : 4,
       _Material.leaf,
       reducedMotion,
     );
-    flower(position, reducedMotion);
+    _spray(
+      position,
+      crop?.petalColor ?? const Color(0xFFF2D4B4),
+      finishing ? 7 : 4,
+      _Material.leaf,
+      reducedMotion,
+    );
   }
 
   void splashWater(Offset position, double ground, bool reducedMotion) =>

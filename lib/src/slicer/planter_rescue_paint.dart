@@ -1,9 +1,23 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'planter_chew.dart';
+
 typedef PlanterWarning = ({Offset foot, Offset flower, double? biteProgress});
+
+typedef PlanterFragment = ({
+  ui.Image image,
+  Rect flower,
+  Offset mouth,
+  double before,
+  double after,
+  double direction,
+  double edgeDirection,
+  double progress,
+});
 
 class PlanterWarningsPainter extends CustomPainter {
   const PlanterWarningsPainter(this.warnings, {required this.frozen});
@@ -72,6 +86,184 @@ class PlanterWarningsPainter extends CustomPainter {
   bool shouldRepaint(covariant PlanterWarningsPainter oldDelegate) =>
       oldDelegate.frozen != frozen ||
       !listEquals(oldDelegate.warnings, warnings);
+}
+
+Path _cropEdge(Rect flower, double damage, double direction) {
+  final y = flower.top + damage * flower.height;
+  final relief = min(.058, (1 - damage) * .24) * flower.height;
+  double x(double ratio) => flower.left + flower.width * ratio;
+  return Path()
+    ..moveTo(x(-.02), y - relief * direction)
+    ..quadraticBezierTo(x(.10), y + relief * .9, x(.23), y - relief * .18)
+    ..quadraticBezierTo(x(.34), y + relief * 1.35, x(.45), y + relief * .38)
+    ..quadraticBezierTo(x(.59), y + relief * 1.2, x(.70), y)
+    ..quadraticBezierTo(
+      x(.87),
+      y + relief * .67,
+      x(1.02),
+      y + relief * direction,
+    );
+}
+
+Path _remainingCrop(Rect flower, double damage, double direction) {
+  if (damage >= 1) return Path();
+  if (damage <= 0) return Path()..addRect(flower);
+  final margin = flower.width * .02;
+  return _cropEdge(flower, damage, direction)
+    ..lineTo(flower.right + margin, flower.bottom)
+    ..lineTo(flower.left - margin, flower.bottom)
+    ..close();
+}
+
+void _drawCrop(Canvas canvas, ui.Image image, Rect flower, double opacity) {
+  canvas.drawImageRect(
+    image,
+    Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+    flower,
+    Paint()
+      ..filterQuality = FilterQuality.low
+      ..color = Colors.white.withValues(alpha: opacity),
+  );
+}
+
+class PlanterCropPainter extends CustomPainter {
+  const PlanterCropPainter({
+    required this.image,
+    required this.crop,
+    required this.damage,
+  });
+
+  final ui.Image image;
+  final PlanterCrop crop;
+  final double damage;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final flower = Offset.zero & size;
+    if (damage <= 0) {
+      _drawCrop(canvas, image, flower, 1);
+      return;
+    }
+
+    canvas.saveLayer(flower, Paint());
+    canvas.save();
+    canvas.clipPath(_remainingCrop(flower, damage, crop.edgeDirection));
+    _drawCrop(canvas, image, flower, 1);
+    canvas.restore();
+    canvas.drawPath(
+      _cropEdge(flower, damage, crop.edgeDirection),
+      Paint()
+        ..blendMode = BlendMode.srcATop
+        ..color = const Color(0xAAE9D99E)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.25,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant PlanterCropPainter oldDelegate) =>
+      oldDelegate.image != image ||
+      oldDelegate.crop != crop ||
+      oldDelegate.damage != damage;
+}
+
+class PlanterFragmentsPainter extends CustomPainter {
+  const PlanterFragmentsPainter(this.fragments);
+
+  final List<PlanterFragment> fragments;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final fragment in fragments) {
+      final progress = fragment.progress;
+      final move = Curves.easeOutCubic.transform(progress);
+      final height = fragment.flower.height;
+      final width = fragment.flower.width;
+      final center = ui.lerpDouble(fragment.before, fragment.after, .56)!;
+      final from = Offset(
+        fragment.flower.center.dx,
+        fragment.flower.top + height * center,
+      );
+      final position = Offset.lerp(from, fragment.mouth, move)!;
+      final scale = ui.lerpDouble(.97, .18, move)!;
+      final opacity =
+          1 -
+          Curves.easeInOut.transform(((progress - .56) / .44).clamp(0.0, 1.0));
+      final local = Rect.fromLTWH(-width / 2, -height * center, width, height);
+      final piece = Path.combine(
+        PathOperation.difference,
+        _remainingCrop(local, fragment.before, fragment.edgeDirection),
+        _remainingCrop(local, fragment.after, fragment.edgeDirection),
+      );
+      canvas.save();
+      canvas.translate(position.dx, position.dy);
+      canvas.rotate(move * fragment.direction * .56);
+      canvas.scale(scale);
+      canvas.clipPath(piece);
+      _drawCrop(canvas, fragment.image, local, opacity);
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant PlanterFragmentsPainter oldDelegate) =>
+      !listEquals(oldDelegate.fragments, fragments);
+}
+
+class PlanterStumpPainter extends CustomPainter {
+  const PlanterStumpPainter(this.crop);
+
+  final PlanterCrop crop;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(5, 3, size.width - 10, 13),
+        const Radius.circular(5),
+      ),
+      Paint()..color = const Color(0xFF33281E),
+    );
+    canvas.save();
+    canvas.translate(size.width / 2, 9);
+    canvas.drawPath(
+      Path()
+        ..moveTo(-25, -1)
+        ..lineTo(-15, 4)
+        ..lineTo(-18, 10),
+      Paint()
+        ..color = const Color(0xFFBA9470)
+        ..strokeWidth = 1.7
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(-5, 3)
+        ..lineTo(-3, -6)
+        ..lineTo(2, -8)
+        ..lineTo(5, -5)
+        ..lineTo(5, 3)
+        ..close(),
+      Paint()..color = crop.stemColor,
+    );
+    canvas.drawOval(
+      const Rect.fromLTWH(-3, -8, 8, 3),
+      Paint()..color = const Color(0xFFE4C68F),
+    );
+    canvas.translate(15, 0);
+    canvas.rotate(.24);
+    canvas.drawOval(
+      const Rect.fromLTWH(-4, -1.5, 8, 3),
+      Paint()..color = crop.petalColor,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant PlanterStumpPainter oldDelegate) =>
+      oldDelegate.crop != crop;
 }
 
 class RainBarrelPainter extends CustomPainter {
