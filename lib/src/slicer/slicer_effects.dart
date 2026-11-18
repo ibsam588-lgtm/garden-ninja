@@ -236,6 +236,17 @@ class SlicerEffects {
     reducedMotion,
   );
 
+  void bite(Offset position, bool reducedMotion) {
+    _spray(
+      position,
+      const Color(0xFF99AE49),
+      12,
+      _Material.leaf,
+      reducedMotion,
+    );
+    flower(position, reducedMotion);
+  }
+
   void splashWater(Offset position, double ground, bool reducedMotion) =>
       _splash(
         position + const Offset(0, 10),
