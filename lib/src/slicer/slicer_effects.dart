@@ -104,8 +104,6 @@ class SlicerEffects {
   Offset _freezeOrigin = Offset.zero;
 
   bool get waterActive => _waterStart != null;
-  double get waterRemaining =>
-      waterActive ? waveDuration - (_time - _waterStart!) : 0;
   bool get hasGround => _pools.isNotEmpty;
   bool get hasAction =>
       waterActive ||
