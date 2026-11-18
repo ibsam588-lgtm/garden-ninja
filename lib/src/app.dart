@@ -23,6 +23,8 @@ import 'package:garden_ninja/src/purchases/remove_ads_panel.dart';
 import 'package:garden_ninja/src/review/play_review_gateway.dart';
 import 'package:garden_ninja/src/review/review_prompt_policy.dart';
 import 'package:garden_ninja/src/review/shared_preferences_review_prompt_store.dart';
+import 'package:garden_ninja/src/slicer/planter_rescue.dart';
+import 'package:garden_ninja/src/slicer/planter_rescue_paint.dart';
 import 'package:garden_ninja/src/slicer/slicer_effects.dart';
 import 'package:garden_ninja/src/slicer/slicer_plant_art.dart';
 import 'package:garden_ninja/src/updates/ios_store_update.dart';
@@ -54,7 +56,7 @@ class GardenNinjaApp extends StatelessWidget {
 
 enum GamePhase { home, playing, paused, results, upgrades, garden }
 
-enum TargetType { weed, flower, bonus, reward }
+enum TargetType { weed, flower }
 
 enum TutorialStep { slashWeed, avoidFlowers, toughWeed, useIce, frozenSlash }
 
@@ -220,7 +222,6 @@ class GardenTarget {
     required this.velocity,
     required this.size,
     required this.radius,
-    required this.spin,
     required int cutsRequired,
   }) : angle = 0,
        maxCuts = cutsRequired,
@@ -235,7 +236,6 @@ class GardenTarget {
   Offset velocity;
   double size;
   final double radius;
-  final double spin;
   final int maxCuts;
   int cutsRemaining;
   double angle;
@@ -245,12 +245,18 @@ class GardenTarget {
   double animationClock = 0;
   double hitAge = double.infinity;
   double hitAngle = 0;
+  int _waterAward = 0;
+  _RescueMarch? _rescueMarch;
   _WeedBite? _bite;
 
   bool get _retreating => _bite?.patch != null && _bite!.landed;
 
   void animate(double dt, bool iceActive) {
-    final animationScale = iceActive && type == TargetType.weed ? .18 : 1.0;
+    final double animationScale = iceActive && type == TargetType.weed
+        ? _rescueMarch == null
+              ? .18
+              : 0
+        : 1;
     cooldown = max(0, cooldown - dt);
     age += dt;
     hitAge += dt;
@@ -259,21 +265,30 @@ class GardenTarget {
   }
 }
 
+class _RescueMarch {
+  _RescueMarch(this.attack, this.origin);
+
+  final PlanterAttack attack;
+  final Offset origin;
+  double elapsed = 0;
+}
+
 class _WeedBite {
   _WeedBite({
     required this.from,
     required this.contact,
     required this.plant,
+    this.windup = .32,
     this.patch,
     this.flower,
   });
 
-  static const windup = .32;
   static const recovery = .32;
 
   final Offset from;
   final Offset contact;
   final Offset plant;
+  final double windup;
   final int? patch;
   final GardenTarget? flower;
   double elapsed = 0;
@@ -413,8 +428,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const double _gardenInitialTranslateX = -9;
   static const double _gardenInitialTranslateY = 66;
   static const double _gardenBottomControlClearance = 190;
-  static const double _slicerPickupExitY = _worldHeight - 106;
-  static const double _slicerBedInset = 40;
+  static const double _slicerBedInset = 27;
   static const double _slicerBedBottom = 120;
   static const double _slicerBedApproachY = 582;
   static const double _minSlashSegment = 7;
@@ -432,26 +446,9 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   static const int _notifIdNextBloom = 1;
   static const int _notifIdMorningGift = 2;
   static const int _notifIdComeback = 3;
-  static const List<String> _weedAssets = [
-    'assets/images/sprites/weed_spike.png',
-    'assets/images/sprites/weed_vine.png',
-    'assets/images/sprites/weed_leaf.png',
-    'assets/images/sprites/weed_thorn_sprout.png',
-    'assets/images/sprites/weed_vine_gobbler.png',
-    'assets/images/sprites/weed_bramble_bulb.png',
-    'assets/images/sprites/weed_seed_chomper.png',
-  ];
-  static const List<String> _flowerAssets = [
-    'assets/images/sprites/flower_daisy.png',
-    'assets/images/sprites/flower_shield.png',
-    'assets/images/sprites/pink_blossom_plant.png',
-    'assets/images/sprites/blue_bell_bloom.png',
-    'assets/images/sprites/cherry_blossom_sapling.png',
-    'assets/images/sprites/pink_blossom_bush.png',
-  ];
   static const List<String> _gardenPatchAssets = [
     'assets/images/sprites/flower_shield.png',
-    'assets/images/sprites/pink_blossom_plant.png',
+    'assets/images/sprites/flower_daisy.png',
     'assets/images/sprites/cherry_blossom_sapling.png',
   ];
   static const List<GardenPlantOption> _gardenPlantOptions = [
@@ -801,6 +798,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   bool _notificationPermissionAsked = false;
   SharedPreferences? _prefs;
   Future<void> _gardenSaveWrites = Future<void>.value();
+  late final Future<void> _gardenSaveRead;
   ReviewPromptPolicy? _reviewPromptPolicy;
   String? _reviewSessionId;
   Timer? _reviewRequestTimer;
@@ -837,11 +835,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int _maxCombo = 0;
   int _lives = 3;
   int _weedsSlashed = 0;
-  int _flowersSaved = 0;
   int _seeds = 840;
   int _sunDrops = 3;
-  int _waterCharges = 3;
-  int _iceCharges = 2;
+  int _waterCharges = 0;
+  int _iceCharges = 0;
+  int _roundWater = 0;
+  int _roundIce = 0;
+  int _rescueWave = 0;
+  int _rescueSeeds = 0;
   int _gardenPoints = 2350;
   int _rewardSeeds = 0;
   int _selectedAvatar = 0;
@@ -873,6 +874,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   int? _musicTrackBeforeGarden;
   int _gardenSessionWeedSpawns = 0;
   bool _lastRunWon = false;
+  bool _slicerRainBarrelBuilt = false;
+  bool _slicerStarterSeedsGranted = false;
   bool _musicEnabled = true;
   bool _sfxEnabled = true;
   bool _audioReady = false;
@@ -899,11 +902,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   GardenTutorialStep? _gardenTutorialStep;
   GardenTutorialStep? _gardenTutorialResumeStep;
   int? _gardenTutorialPlotId;
-  double _spawnTimer = 0;
-  double _timeLeft = 60;
+  double _rescueWaveDelay = 0;
+  double _timeLeft = PlanterRescue.roundSeconds;
   double _iceTime = 0;
   double _sunTime = 0;
-  double _flowerPenaltyCooldown = 0;
   double _gardenDamageFlash = 0;
   double _gardenDamageCooldown = 0;
   double _gardenWeedTimer = 90;
@@ -933,8 +935,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   bool _gardenDailyTidyDone = false;
   bool _gardenDailyRewardClaimed = false;
   String _forceUpdateMessage = 'Checking for the latest update...';
-
-  int get _goalWeeds => 18 + (_level * 4);
 
   String get _currentBackground =>
       _backgrounds[(_level - 1) % _backgrounds.length];
@@ -1009,7 +1009,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Future<void> _loadGardenSave() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (_) {
+      // Let the game start with local defaults when storage is unavailable.
+      if (mounted) setState(() => _gardenSaveLoaded = true);
+      return;
+    }
     final String? raw = prefs.getString(_gardenSaveKey);
     if (!mounted) {
       return;
@@ -1046,9 +1053,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       data['harvestMastery'],
       coins: _seeds,
     );
-    _waterCharges = (data['waterCharges'] as num?)?.toInt() ?? _waterCharges;
+    _waterCharges = max(
+      0,
+      (data['waterCharges'] as num?)?.toInt() ?? _waterCharges,
+    );
     _sunDrops = (data['sunDrops'] as num?)?.toInt() ?? _sunDrops;
     _iceCharges = max(0, (data['iceCharges'] as num?)?.toInt() ?? _iceCharges);
+    _slicerRainBarrelBuilt = data['slicerRainBarrelBuilt'] == true;
+    _slicerStarterSeedsGranted = data['slicerStarterSeedsGranted'] == true;
     _selectedAvatar =
         ((data['selectedAvatar'] as num?)?.toInt() ?? _selectedAvatar)
             .clamp(0, _avatarAssets.length - 1)
@@ -1222,6 +1234,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       'waterCharges': _waterCharges,
       'sunDrops': _sunDrops,
       'iceCharges': _iceCharges,
+      'slicerRainBarrelBuilt': _slicerRainBarrelBuilt,
+      'slicerStarterSeedsGranted': _slicerStarterSeedsGranted,
       'selectedAvatar': _selectedAvatar,
       'selectedMusicTrack': _musicTrackBeforeGarden ?? _selectedMusicTrack,
       'musicEnabled': _musicEnabled,
@@ -2271,7 +2285,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _ticker = createTicker(_tick)..start();
     _primeAudio();
     unawaited(_initNotifications());
-    unawaited(_loadGardenSave());
+    _gardenSaveRead = _loadGardenSave();
+    unawaited(_gardenSaveRead);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_checkRequiredStoreUpdate());
     });
@@ -2344,6 +2359,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
+        _lastElapsed = Duration.zero;
         unawaited(_purchases.refresh());
         unawaited(_gameCenter.flush());
         unawaited(AdService.initialize());
@@ -2355,6 +2371,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       case AppLifecycleState.inactive:
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
+        if (_phase == GamePhase.playing) _pause();
         if (_phase == GamePhase.garden) {
           _gardenLastVisitMs = _gardenNow.millisecondsSinceEpoch;
           _queueGardenSave();
@@ -2682,11 +2699,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       return;
     }
 
-    final double dt =
-        ((elapsed - _lastElapsed).inMicroseconds /
-                Duration.microsecondsPerSecond)
-            .clamp(0.0, 0.05)
-            .toDouble();
+    final double elapsedSeconds = max(
+      0.0,
+      (elapsed - _lastElapsed).inMicroseconds / Duration.microsecondsPerSecond,
+    );
+    final double dt = min(.05, elapsedSeconds);
     _lastElapsed = elapsed;
 
     // A required store update must freeze an in-progress arcade round too.
@@ -2699,7 +2716,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (_phase == GamePhase.playing) {
       setState(() {
         _motionTime += dt;
-        _step(dt);
+        _step(_tutorialMode ? dt : elapsedSeconds);
       });
       return;
     }
@@ -2720,7 +2737,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
   }
 
-  void _startRun({bool restartLevel = false}) {
+  Future<void> _startRun({bool restartLevel = false}) async {
+    if (!_gardenSaveLoaded) {
+      final source = _phase;
+      await _gardenSaveRead;
+      if (!mounted || _phase != source || _forceUpdateVisible) return;
+    }
     _ensureMusicStarted();
     _loadSlicerArt();
     setState(() {
@@ -2735,14 +2757,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _maxCombo = 0;
       _lives = 3;
       _weedsSlashed = 0;
-      _flowersSaved = 0;
-      _spawnTimer = 0.1;
-      _timeLeft = max(42, 62 - (_level * 2)).toDouble();
+      _timeLeft = PlanterRescue.roundSeconds;
       _iceTime = 0;
       _sunTime = 0;
-      _flowerPenaltyCooldown = 0;
       _clearSlicerRound();
-      _spawnOpeningWave();
+      _roundWater = _slicerRainBarrelBuilt ? 2 : 1;
+      _roundIce = 1;
+      _spawnRescueWave();
     });
     unawaited(_musicPlayer.setVolume(0.46));
   }
@@ -2769,6 +2790,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _eatenGardenPatches.clear();
     _gardenDamageFlash = 0;
     _gardenDamageCooldown = 0;
+    _roundWater = 0;
+    _roundIce = 0;
+    _rescueWave = 0;
+    _rescueSeeds = 0;
+    _rescueWaveDelay = 0;
     _slicerEffects.clear();
     _roundEndDelay = 0;
   }
@@ -2779,6 +2805,22 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _phase == GamePhase.playing &&
       !_forceUpdateVisible &&
       _roundEndDelay == 0;
+
+  bool get _hasActiveWeeds => _targets.any(
+    (target) => target.type == TargetType.weed && !target._retreating,
+  );
+
+  int get _slicerWater => _roundWater + (_tutorialMode ? 0 : _waterCharges);
+  int get _slicerIce => _roundIce + (_tutorialMode ? 0 : _iceCharges);
+
+  bool get _canCastWater =>
+      _slicerInputEnabled &&
+      _slicerWater > 0 &&
+      !_slicerEffects.waterActive &&
+      _hasActiveWeeds;
+
+  bool get _canCastIce =>
+      _slicerInputEnabled && _slicerIce > 0 && _iceTime == 0 && _hasActiveWeeds;
 
   void _step(double dt) {
     _stepSlicerVisuals(dt);
@@ -2799,16 +2841,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     }
 
     if (!_tutorialMode) {
-      _timeLeft -= dt;
-      if (_timeLeft <= 0) {
-        _finishRun(won: _weedsSlashed >= (_goalWeeds * 0.75));
+      _timeLeft = max(0, _timeLeft - dt);
+      if (_timeLeft <= .000001) {
+        _timeLeft = 0;
+        _finishRun(won: _lives > 0);
         return;
       }
     }
 
+    final double marchDelta = max(0, dt - _iceTime);
     _iceTime = max(0, _iceTime - dt);
     _sunTime = max(0, _sunTime - dt);
-    _flowerPenaltyCooldown = max(0, _flowerPenaltyCooldown - dt);
     _gardenDamageFlash = max(0, _gardenDamageFlash - dt * 2.4);
     _gardenDamageCooldown = max(0, _gardenDamageCooldown - dt);
 
@@ -2830,23 +2873,22 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         target.angle =
             sin(target.walkPhase * 1.15) * 0.075 +
             cos(target.walkPhase * 0.52) * 0.025;
-        _advanceWeed(target, dt, speedScale, iceActive);
+        _advanceWeed(
+          target,
+          _tutorialMode ? dt : marchDelta,
+          speedScale,
+          iceActive,
+        );
         if (_roundEndDelay > 0) return;
-      } else if (target.type != TargetType.flower) {
-        target.angle += target.spin * dt * speedScale;
-        target.position += target.velocity * dt * speedScale;
-        _bounceSlicerTarget(target);
-        if (target.position.dy > _slicerPickupExitY) _targets.remove(target);
       }
     }
 
     if (_tutorialMode) return;
-    _spawnTimer -= dt * (iceActive ? 0.3 : 1);
-    if (_spawnTimer <= 0 && _targets.length < 7 + min(_level, 3)) {
-      _spawnTarget();
-      _spawnTimer =
-          (1.05 - min(_level * 0.055, 0.35)) *
-          (0.75 + _random.nextDouble() * 0.65);
+    if (_hasActiveWeeds || _sweptPlants.isNotEmpty) {
+      _rescueWaveDelay = PlanterRescue.betweenWaves;
+    } else if (_timeLeft > PlanterRescue.lastSpawnSeconds) {
+      _rescueWaveDelay -= dt;
+      if (_rescueWaveDelay <= 0) _spawnRescueWave();
     }
   }
 
@@ -2883,108 +2925,38 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _advanceWaterSweep(dt);
   }
 
-  void _spawnTarget() {
-    final double roll = _random.nextDouble();
-    late TargetType type;
-    late String asset;
-    late double size;
-    late double radius;
-    int cutsRequired = 1;
-
-    if (roll < 0.64) {
-      type = TargetType.weed;
-      asset = _weedAssets[_random.nextInt(_weedAssets.length)];
-      size = 70 + _random.nextDouble() * 20;
-      radius = size * 0.4;
-      cutsRequired = _weedCutCountFor(asset);
-    } else if (roll < 0.82) {
-      type = TargetType.flower;
-      asset = _flowerAssets[_random.nextInt(_flowerAssets.length)];
-      size = 76 + _random.nextDouble() * 20;
-      radius = size * 0.42;
-      _flowersSaved += 1;
-    } else if (roll < 0.93) {
-      type = TargetType.bonus;
-      asset = 'assets/images/sprites/ladybug.png';
-      size = 58;
-      radius = 28;
-    } else {
-      type = TargetType.reward;
-      asset = 'assets/images/sprites/seed_bag.png';
-      size = 64;
-      radius = 28;
-    }
-
-    final double x = 58 + _random.nextDouble() * (_worldWidth - 116);
-    final double y = type == TargetType.weed
-        ? 120 + _random.nextDouble() * 180
-        : 230 + _random.nextDouble() * 360;
-    final double levelSpeed = 18 + _level * 4.5;
-    final Offset velocity = type == TargetType.flower
-        ? Offset.zero
-        : Offset(
-            (_random.nextDouble() - 0.5) * (28 + _level * 2),
-            levelSpeed + _random.nextDouble() * 26,
-          );
-
-    _targets.add(
-      GardenTarget(
-        id: _nextTargetId++,
-        type: type,
-        asset: asset,
-        position: Offset(x, y),
-        velocity: velocity,
-        size: size,
-        radius: radius,
-        spin: type == TargetType.flower
-            ? 0
-            : (_random.nextDouble() - 0.5) * 0.7,
-        cutsRequired: cutsRequired,
-      ),
+  void _spawnRescueWave() {
+    final index = _rescueWave++;
+    _rescueWaveDelay = PlanterRescue.betweenWaves;
+    final attacks = PlanterRescue.wave(
+      index: index,
+      level: _level,
+      livePlanters: [
+        for (var bed = 0; bed < _gardenPatchAssets.length; bed++)
+          if (!_eatenGardenPatches.contains(bed)) bed,
+      ],
     );
-  }
-
-  int _weedCutCountFor(String asset) {
-    if (asset.contains('weed_bramble_bulb')) {
-      return 4;
+    for (final attack in attacks) {
+      final thorn = attack.kind == SlicerPlantKind.thorn;
+      final mouthLane = _gardenPatchFlower(attack.planter).dx;
+      final spread = (thorn ? -37.0 : 47.0) * (index.isEven ? 1 : -.75);
+      final origin = Offset(
+        (mouthLane + spread).clamp(55.0, 335.0),
+        thorn ? 283 : 255,
+      );
+      _targets.add(
+        GardenTarget(
+          id: _nextTargetId++,
+          type: TargetType.weed,
+          asset: 'assets/images/sprites/${attack.kind.assetName}.png',
+          position: origin,
+          velocity: Offset.zero,
+          size: thorn ? 100 : 103,
+          radius: thorn ? 41 : 43,
+          cutsRequired: attack.cuts,
+        ).._rescueMarch = _RescueMarch(attack, origin),
+      );
     }
-    if (asset.contains('weed_vine_gobbler') || asset.contains('weed_vine')) {
-      return 3;
-    }
-    if (asset.contains('weed_leaf') || asset.contains('weed_thorn_sprout')) {
-      return 2;
-    }
-    return _random.nextDouble() < 0.34 + min(_level, 5) * 0.05 ? 2 : 1;
-  }
-
-  void _spawnOpeningWave() {
-    _targets.add(
-      GardenTarget(
-        id: _nextTargetId++,
-        type: TargetType.weed,
-        asset: 'assets/images/sprites/weed_thorn_sprout.png',
-        position: const Offset(_worldWidth / 2, 315),
-        velocity: Offset(8.0 + _level, 24.0 + _level * 2),
-        size: 82,
-        radius: 36,
-        spin: 0.18,
-        cutsRequired: 2,
-      ),
-    );
-    _targets.add(
-      GardenTarget(
-        id: _nextTargetId++,
-        type: TargetType.flower,
-        asset: 'assets/images/sprites/pink_blossom_plant.png',
-        position: const Offset(92, 560),
-        velocity: Offset.zero,
-        size: 78,
-        radius: 32,
-        spin: 0,
-        cutsRequired: 1,
-      ),
-    );
-    _flowersSaved += 1;
   }
 
   void _startTutorial() {
@@ -3000,12 +2972,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _maxCombo = 0;
       _lives = 3;
       _weedsSlashed = 0;
-      _flowersSaved = 0;
       _timeLeft = 99;
       _iceTime = 0;
       _sunTime = 0;
-      _iceCharges = max(_iceCharges, 1);
       _clearSlicerRound();
+      _roundWater = 1;
+      _roundIce = 1;
       _spawnTutorialTargets();
     });
     unawaited(_musicPlayer.setVolume(0.46));
@@ -3044,7 +3016,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
               cutsRequired: 1,
             ),
           );
-        _flowersSaved = max(_flowersSaved, 1);
       case TutorialStep.toughWeed:
         _targets.add(
           _tutorialTarget(
@@ -3057,7 +3028,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         );
       case TutorialStep.useIce:
       case TutorialStep.frozenSlash:
-        _iceCharges = max(_iceCharges, 1);
+        _roundIce = max(_roundIce, 1);
         _targets
           ..add(
             _tutorialTarget(
@@ -3108,7 +3079,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       velocity: velocity,
       size: size,
       radius: size * 0.42,
-      spin: 0,
       cutsRequired: cutsRequired,
     );
   }
@@ -3117,6 +3087,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _lives = 3;
     _iceTime = 0;
     _clearSlicerRound();
+    _roundWater = 1;
+    _roundIce = 1;
     _spawnTutorialTargets();
   }
 
@@ -3247,23 +3219,34 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         }
         if (defeated) {
           _spawnSliceShards(target, angle: angle, pose: pose, frozen: frozen);
+          final seeds = _rescueSeedsFor(target);
           _targets.remove(target);
           _weedsSlashed += 1;
-          _addBurst(target.position, '+$earned Weed', const Color(0xFFEFFF94));
           if (_tutorialMode) {
+            _addBurst(
+              target.position,
+              '+$earned Weed',
+              const Color(0xFFEFFF94),
+            );
             _handleTutorialWeedDefeated();
-          } else if (_weedsSlashed >= _goalWeeds) {
-            _roundEndDelay = max(
-              SliceShard.duration,
-              _slicerEffects.waterRemaining + .18,
+          } else {
+            _rescueSeeds += seeds;
+            _addBurst(
+              target.position,
+              seeds == PlanterRescue.rescueSeeds
+                  ? 'Saved +$seeds'
+                  : '+$seeds seeds',
+              const Color(0xFFEFFF94),
             );
           }
         } else {
-          target._bite = null;
-          target.size *= 0.91;
-          final Offset shove = slash * 26;
-          target.position += shove;
-          target.velocity += shove * 0.8;
+          if (target._rescueMarch == null) {
+            target._bite = null;
+            target.size *= 0.91;
+            final Offset shove = slash * 26;
+            target.position += shove;
+            target.velocity += shove * 0.8;
+          }
           _addBurst(
             target.position,
             '+$earned | ${target.cutsRemaining} cuts',
@@ -3276,32 +3259,14 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         target.hitAngle = atan2(direction.dy, direction.dx);
         _slicerEffects.flower(target.position, _reducedSlicerMotion);
         _playSfx(_sfxCrispLeaf, volume: 0.56);
-        if (_tutorialMode) {
-          _tutorialMistake = true;
-          _addBurst(target.position, 'Avoid flowers!', const Color(0xFFFF9FCA));
-          return;
-        }
-        _combo = 0;
-        _score = max(0, _score - 150);
-        _flowersSaved = max(0, _flowersSaved - 1);
-        _flowerPenaltyCooldown = 0.45;
-        _addBurst(target.position, '-150 Plant', const Color(0xFFFF9FCA));
-      case TargetType.bonus:
-        _targets.remove(target);
-        _playSfx(_sfxComboSpark, volume: 0.78);
-        _combo += 1;
-        _maxCombo = max(_maxCombo, _combo);
-        _score += 320 + (_combo * 10);
-        _waterCharges = min(5, _waterCharges + 1);
-        _addBurst(target.position, '+Nice +Water', const Color(0xFF86E7FF));
-      case TargetType.reward:
-        _targets.remove(target);
-        _playSfx(_sfxComboSpark, volume: 0.7);
-        _seeds += 55;
-        _score += 180;
-        _addBurst(target.position, '+55 Seeds', const Color(0xFFFFD36A));
+        _tutorialMistake = true;
+        _addBurst(target.position, 'Avoid flowers!', const Color(0xFFFF9FCA));
     }
   }
+
+  int _rescueSeedsFor(GardenTarget weed) => weed._bite?.patch == null
+      ? PlanterRescue.clearSeeds
+      : PlanterRescue.rescueSeeds;
 
   Offset _safeDirection(Offset direction) {
     if (direction.distance < 0.001) {
@@ -3397,13 +3362,13 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final bite = weed._bite;
     if (bite != null) {
       if (bite.landed || frozen) return;
-      bite.elapsed = min(_WeedBite.windup, bite.elapsed + dt);
-      weed.position = Offset.lerp(
-        bite.from,
-        bite.contact,
-        Curves.easeInCubic.transform(bite.progress),
-      )!;
-      if (bite.landed) _landWeedBite(bite);
+      _advanceBite(weed, bite, dt);
+      return;
+    }
+
+    final march = weed._rescueMarch;
+    if (march != null) {
+      if (!frozen && dt > 0) _marchToPlanter(weed, march, dt);
       return;
     }
     if (speedScale == 0) return;
@@ -3459,6 +3424,45 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     );
   }
 
+  void _marchToPlanter(GardenTarget weed, _RescueMarch march, double dt) {
+    final attack = march.attack;
+    final plant = _gardenPatchFlower(attack.planter);
+    final contact = plant - attack.kind.mouthOffset(weed.size);
+    final wait = contact - const Offset(0, 22);
+    final untilBite = max(0, attack.marchSeconds - march.elapsed);
+    march.elapsed += min(dt, untilBite);
+    final progress = (march.elapsed / attack.marchSeconds).clamp(0.0, 1.0);
+    final sway = attack.kind == SlicerPlantKind.thorn ? 13 : -16;
+    weed.position = Offset(
+      march.origin.dx +
+          (wait.dx - march.origin.dx) *
+              Curves.easeOutCubic.transform(progress) +
+          sin(progress * pi) * sway,
+      march.origin.dy + (wait.dy - march.origin.dy) * progress,
+    );
+    if (dt < untilBite) return;
+
+    final bite = _WeedBite(
+      from: wait,
+      contact: contact,
+      plant: plant,
+      patch: attack.planter,
+      windup: attack.biteSeconds,
+    );
+    weed._bite = bite;
+    _advanceBite(weed, bite, dt - untilBite);
+  }
+
+  void _advanceBite(GardenTarget weed, _WeedBite bite, double dt) {
+    bite.elapsed = min(bite.windup, bite.elapsed + dt);
+    weed.position = Offset.lerp(
+      bite.from,
+      bite.contact,
+      Curves.easeInCubic.transform(bite.progress),
+    )!;
+    if (bite.landed) _landWeedBite(bite);
+  }
+
   GardenTarget? _flowerInBitePath(Offset start, Offset end) {
     for (final flower in _targets) {
       if (flower.type != TargetType.flower) continue;
@@ -3478,16 +3482,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (flower != null) _targets.remove(flower);
 
     final patch = bite.patch;
-    if (patch != null) {
-      _eatenGardenPatches.add(patch);
+    if (patch != null && _eatenGardenPatches.add(patch)) {
       _lives -= 1;
       _gardenDamageFlash = 1;
-      _gardenDamageCooldown = 2.8;
       _combo = 0;
-      if (_tutorialMode) _tutorialMistake = true;
+      if (_tutorialMode) {
+        _gardenDamageCooldown = 2.8;
+        _tutorialMistake = true;
+      }
       if (_lives == 0) _roundEndDelay = _WeedBite.recovery;
     }
-    _flowersSaved = max(0, _flowersSaved - 1);
     _slicerEffects.bite(bite.plant, _reducedSlicerMotion);
     _playSfx(_sfxCrispLeaf, volume: .72);
     _addBurst(
@@ -3522,9 +3526,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   void _handleTutorialWeedDefeated() {
-    final bool anyWeedsLeft = _targets.any(
-      (t) => t.type == TargetType.weed && !t._retreating,
-    );
+    final bool anyWeedsLeft = _hasActiveWeeds;
     switch (_tutorialStep) {
       case TutorialStep.slashWeed:
         _advanceTutorial(TutorialStep.avoidFlowers);
@@ -3558,22 +3560,27 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     _tutorialMistake = false;
     _lastSlashPoint = null;
     _level = max(_level, 1);
-    _startRun(restartLevel: true);
+    unawaited(_startRun(restartLevel: true));
   }
 
   void _activateWater() {
-    if (!_slicerInputEnabled ||
-        _waterCharges <= 0 ||
-        _slicerEffects.waterActive) {
-      return;
-    }
+    if (!_canCastWater) return;
+    final fromReserve = _roundWater == 0;
     _playSfx(_sfxWetVine, volume: 0.86);
     setState(() {
-      _waterCharges -= 1;
+      if (fromReserve) {
+        _waterCharges -= 1;
+      } else {
+        _roundWater -= 1;
+      }
       final weeds = _targets
           .where((t) => t.type == TargetType.weed && !t._retreating)
           .toList();
       for (final weed in weeds) {
+        if (!_tutorialMode) {
+          weed._waterAward = _rescueSeedsFor(weed);
+          _rescueSeeds += weed._waterAward;
+        }
         weed._bite = null;
       }
       // Resolve the hit at cast time. The original targets stay visible until
@@ -3587,10 +3594,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _score += 90 * weeds.length;
       _combo += weeds.length;
       _maxCombo = max(_maxCombo, _combo);
-      if (!_tutorialMode && _weedsSlashed >= _goalWeeds) {
-        _roundEndDelay = SlicerEffects.waveDuration + .18;
-      }
     });
+    if (fromReserve) _queueGardenSave();
   }
 
   void _advanceWaterSweep(double dt) {
@@ -3607,7 +3612,12 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       final position = weed.position + (pose?.body ?? Offset.zero);
       _slicerEffects.splashWater(position, ground, reducedMotion);
       _spawnSliceShards(weed, angle: -.74, pose: pose, frozen: false);
-      _addBurst(position, '+90', const Color(0xFFDDFFFF));
+      final seeds = weed._waterAward;
+      _addBurst(position, switch (seeds) {
+        0 => '+90',
+        PlanterRescue.rescueSeeds => 'Saved +$seeds',
+        _ => '+$seeds seeds',
+      }, const Color(0xFFDDFFFF));
       return true;
     });
     if (_tutorialMode && _sweptPlants.isEmpty) _handleTutorialWeedDefeated();
@@ -3631,13 +3641,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   void _activateIce() {
-    if (!_slicerInputEnabled || _iceCharges <= 0) {
-      return;
-    }
+    if (!_canCastIce) return;
+    final fromReserve = _roundIce == 0;
     _playSfx(_sfxFrozenWeed, volume: 0.82);
     setState(() {
-      _iceCharges -= 1;
-      _iceTime = max(_iceTime, 6.5);
+      if (fromReserve) {
+        _iceCharges -= 1;
+      } else {
+        _roundIce -= 1;
+      }
+      _iceTime = _tutorialMode ? 6.5 : PlanterRescue.freezeSeconds;
       _slicerEffects.castIce(const Offset(_worldWidth / 2, _worldHeight * .47));
       if (_tutorialMode && _tutorialStep == TutorialStep.useIce) {
         _tutorialStep = TutorialStep.frozenSlash;
@@ -3649,7 +3662,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         const Color(0xFF8EF5FF),
       );
     });
-    _queueGardenSave();
+    if (fromReserve) _queueGardenSave();
   }
 
   void _finishRun({required bool won}) {
@@ -3662,7 +3675,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (!_tutorialMode && _weedsSlashed > 0) {
       _gameCenter.recordArcadeScore(_score);
     }
-    _rewardSeeds = (won ? 110 : 45) + (_weedsSlashed * 2) + (_maxCombo * 3);
+    _rewardSeeds = _rescueSeeds;
+    if (!_slicerStarterSeedsGranted) {
+      _rewardSeeds += PlanterRescue.firstRoundSeeds;
+      _slicerStarterSeedsGranted = true;
+    }
     _seeds += _rewardSeeds;
     final bool meaningfulWin = won && _score > 0 && _weedsSlashed > 0;
     if (meaningfulWin && !_tutorialMode) {
@@ -3683,6 +3700,22 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         unawaited(_showCompletedRoundInterstitial());
       });
     }
+  }
+
+  void _buildSlicerRainBarrel() {
+    if (_phase != GamePhase.results ||
+        _slicerRainBarrelBuilt ||
+        _seeds < PlanterRescue.rainBarrelCost ||
+        _interstitialAdShowing ||
+        _forceUpdateVisible) {
+      return;
+    }
+    setState(() {
+      _seeds -= PlanterRescue.rainBarrelCost;
+      _slicerRainBarrelBuilt = true;
+    });
+    _playSfx(_sfxComboSpark, volume: .60);
+    _queueGardenSave();
   }
 
   Future<void> _showCompletedRoundInterstitial() async {
@@ -3823,10 +3856,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     if (!mounted || _phase != GamePhase.results) {
       return;
     }
-    setState(() {
-      _level += 1;
-    });
-    _startRun(restartLevel: true);
+    if (_lastRunWon) setState(() => _level += 1);
+    await _startRun(restartLevel: true);
   }
 
   Future<void> _watchRewardedAd(RewardedAdPlacement placement) async {
@@ -6072,8 +6103,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     final bool reducedMotion = _reducedSlicerMotion;
     final attacksOnBeds = <int, _WeedBite>{};
     final attacksOnFlowers = <GardenTarget, double>{};
+    final warnings = <PlanterWarning>[];
     for (final target in _targets) {
       final bite = target._bite;
+      final plan = target._rescueMarch?.attack;
+      if (plan != null && !target._retreating) {
+        warnings.add((
+          foot: target.position + Offset(0, target.size * .32),
+          flower: _gardenPatchFlower(plan.planter),
+          biteProgress: bite?.progress,
+        ));
+      }
       if (bite == null) continue;
       final patch = bite.patch;
       final flower = bite.flower;
@@ -6099,8 +6139,19 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                   ),
                 ),
               ),
-            _buildGardenHealthBed(attacksOnBeds),
             if (_slicerEffects.hasGround) _buildSlicerEffects(ground: true),
+            if (warnings.isNotEmpty)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: PlanterWarningsPainter(
+                      warnings,
+                      frozen: _iceTime > 0,
+                    ),
+                  ),
+                ),
+              ),
+            _buildGardenHealthBed(attacksOnBeds),
             for (final target in _targets)
               _buildTarget(
                 target,
@@ -6336,10 +6387,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         target.position.dx / _worldWidth * size.width - pixelSize / 2;
     final double top =
         target.position.dy / _worldHeight * size.height - pixelSize / 2;
-    final bool isFrozen =
-        _iceTime > 0 &&
-        target.type != TargetType.flower &&
-        target.type != TargetType.reward;
+    final bool isFrozen = _iceTime > 0 && target.type == TargetType.weed;
     Widget actor = sprite != null && pose != null
         ? CustomPaint(
             painter: SlicerPlantPainter(
@@ -6365,6 +6413,17 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           offset: Offset(0, _reducedSlicerMotion ? 0 : -12 * (1 - fade)),
           child: actor,
         ),
+      );
+    }
+    final attack = target._rescueMarch?.attack;
+    if (attack != null && !swept && !target._retreating) {
+      final label = attack.kind == SlicerPlantKind.thorn ? 'Thorn' : 'Bramble';
+      final planterName = ['left', 'center', 'right'][attack.planter];
+      final cuts = target.cutsRemaining == 1 ? 'cut' : 'cuts';
+      actor = Semantics(
+        label:
+            '$label, $planterName planter, ${target.cutsRemaining} $cuts left',
+        child: actor,
       );
     }
     return Positioned(
@@ -6587,6 +6646,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget _buildHud() {
+    final seconds = _timeLeft.ceil();
+    final time = _tutorialMode
+        ? '$seconds'
+        : '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
     return Positioned(
       left: 14,
       right: 14,
@@ -6595,46 +6658,66 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
         children: [
           FittedBox(
             fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: SizedBox(
-              width: 362,
-              child: Row(
-                children: [
-                  _StatPill(label: 'Score', value: _formatNumber(_score)),
-                  const SizedBox(width: 8),
-                  _StatPill(label: 'Combo', value: 'x$_combo'),
-                  const Spacer(),
-                  _IconPill(
-                    key: const ValueKey('slicer-life-count'),
-                    icon: Icons.favorite_rounded,
-                    value: '$_lives',
-                  ),
-                  const SizedBox(width: 8),
-                  _IconPill(
-                    icon: Icons.timer_rounded,
-                    value: '${_timeLeft.ceil()}',
-                  ),
-                  const SizedBox(width: 8),
-                  _RoundIconButton(
-                    icon: Icons.pause_rounded,
-                    onPressed: _pause,
-                  ),
-                ],
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _StatPill(label: 'Score', value: _formatNumber(_score)),
+                const SizedBox(width: 8),
+                _tutorialMode
+                    ? _StatPill(label: 'Combo', value: 'x$_combo')
+                    : _StatPill(
+                        label: 'Seeds',
+                        value: _formatNumber(_rescueSeeds),
+                      ),
+                const SizedBox(width: 10),
+                _IconPill(
+                  key: const ValueKey('slicer-life-count'),
+                  icon: Icons.favorite_rounded,
+                  value: '$_lives',
+                ),
+                const SizedBox(width: 8),
+                _IconPill(
+                  key: const ValueKey('slicer-round-time'),
+                  icon: Icons.timer_rounded,
+                  value: time,
+                ),
+                const SizedBox(width: 8),
+                _RoundIconButton(icon: Icons.pause_rounded, onPressed: _pause),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              minHeight: 8,
-              value: (_weedsSlashed / _goalWeeds).clamp(0.0, 1.0),
-              backgroundColor: const Color(0x88335C22),
-              color: _sunTime > 0
-                  ? const Color(0xFFFFE66B)
-                  : const Color(0xFF79D13C),
+          if (!_tutorialMode) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  'Wave $_rescueWave',
+                  style: const TextStyle(
+                    color: Color(0xFFFFECC4),
+                    fontWeight: FontWeight.w800,
+                    shadows: [Shadow(color: Color(0xFF17291E), blurRadius: 4)],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      minHeight: 6,
+                      value: (_timeLeft / PlanterRescue.roundSeconds).clamp(
+                        0.0,
+                        1.0,
+                      ),
+                      backgroundColor: const Color(0x88335C22),
+                      color: seconds <= 10
+                          ? const Color(0xFFFFCA80)
+                          : const Color(0xFFD9D889),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -6661,11 +6744,11 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             child: _PowerButton(
               asset: 'assets/images/icons/water_drop.png',
               label: 'Water',
-              count: _waterCharges,
+              count: _roundWater > 0 ? _roundWater : _slicerWater,
+              detail: _supplyNote(_roundWater, _waterCharges),
               active: _slicerEffects.waterActive,
-              onTap: _slicerInputEnabled && !_slicerEffects.waterActive
-                  ? _activateWater
-                  : null,
+              activeFill: const Color(0xFFBAEBE6),
+              onTap: _canCastWater ? _activateWater : null,
             ),
           ),
           const SizedBox(width: 8),
@@ -6673,15 +6756,23 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             child: _PowerButton(
               asset: 'assets/images/icons/ice_freeze.png',
               label: _iceTime > 0 ? 'Ice ${_iceTime.ceil()}s' : 'Ice',
-              count: _iceCharges,
+              count: _roundIce > 0 ? _roundIce : _slicerIce,
+              detail: _supplyNote(_roundIce, _iceCharges),
               active: _iceTime > 0,
-              onTap: _slicerInputEnabled ? _activateIce : null,
+              activeFill: const Color(0xFFC1E8F8),
+              onTap: _canCastIce ? _activateIce : null,
             ),
           ),
         ],
       ),
     );
   }
+
+  String? _supplyNote(int free, int reserve) => _tutorialMode || reserve == 0
+      ? null
+      : free == 0
+      ? 'Reserve'
+      : '$reserve reserve';
 
   Widget _buildTutorialOverlay(Size size) {
     GardenTarget? focus;
@@ -10858,95 +10949,137 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Widget _buildResultsLayer() {
-    final int stars = _lastRunWon ? (_lives >= 3 ? 3 : 2) : 1;
     final bool rewardedVideoReady = AdService.isRewardedReady;
+    final String title = !_lastRunWon
+        ? 'Garden overrun'
+        : _lives == 3
+        ? 'Perfect rescue'
+        : 'Garden held';
     return _DimmedPanel(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            _lastRunWon ? 'Level Complete' : 'Run Over',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 31,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          if (!_lastRunWon) ...[
-            const SizedBox(height: 7),
-            const Text(
-              'The weeds got through this time. Try another run to protect the garden.',
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFFE7FFCC),
-                fontWeight: FontWeight.w700,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 31,
+                fontWeight: FontWeight.w900,
               ),
             ),
-          ],
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              3,
-              (index) => Icon(
-                Icons.star_rounded,
-                color: index < stars
-                    ? const Color(0xFFFFD84D)
-                    : const Color(0xFF5F743F),
-                size: 46,
-              ),
+            const SizedBox(height: 14),
+            _ResultLine(label: 'Planters saved', value: '$_lives/3'),
+            _ResultLine(label: 'Score', value: _formatNumber(_score)),
+            _ResultLine(label: 'Weeds cleared', value: '$_weedsSlashed'),
+            _ResultLine(label: 'Max combo', value: 'x$_maxCombo'),
+            const SizedBox(height: 16),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 10,
+              runSpacing: 6,
+              children: [
+                _CurrencyChip(
+                  asset: 'assets/images/icons/seed_coin.png',
+                  value: '+$_rewardSeeds',
+                ),
+                _CurrencyChip(
+                  asset: 'assets/images/icons/star_reward.png',
+                  value: 'Best ${_formatNumber(_bestScore)}',
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 16),
-          _ResultLine(label: 'Score', value: _formatNumber(_score)),
-          _ResultLine(label: 'Weeds slashed', value: '$_weedsSlashed'),
-          _ResultLine(label: 'Flowers protected', value: '$_flowersSaved'),
-          _ResultLine(label: 'Max combo', value: 'x$_maxCombo'),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _CurrencyChip(
-                asset: 'assets/images/icons/seed_coin.png',
-                value: '+$_rewardSeeds',
+            const SizedBox(height: 12),
+            _buildRainBarrelUpgrade(),
+            const SizedBox(height: 18),
+            if (AdService.hasRewardedAds && !_rewardedAdClaimedForRun) ...[
+              _SecondaryButton(
+                label: _interstitialAdShowing
+                    ? 'AD IN PROGRESS'
+                    : _rewardedAdLoading || _rewardedAdShowing
+                    ? 'VIDEO LOADING'
+                    : rewardedVideoReady
+                    ? 'WATCH VIDEO  +150 POINTS +1 ENERGY'
+                    : 'LOAD VIDEO  +150 POINTS +1 ENERGY',
+                icon: Icons.ondemand_video_rounded,
+                onPressed: () =>
+                    _watchRewardedAd(RewardedAdPlacement.levelComplete),
               ),
-              const SizedBox(width: 10),
-              _CurrencyChip(
-                asset: 'assets/images/icons/star_reward.png',
-                value: 'Best ${_formatNumber(_bestScore)}',
-              ),
+              const SizedBox(height: 10),
             ],
-          ),
-          const SizedBox(height: 18),
-          if (AdService.hasRewardedAds && !_rewardedAdClaimedForRun) ...[
-            _SecondaryButton(
+            _PrimaryButton(
               label: _interstitialAdShowing
-                  ? 'AD IN PROGRESS'
-                  : _rewardedAdLoading || _rewardedAdShowing
-                  ? 'VIDEO LOADING'
-                  : rewardedVideoReady
-                  ? 'WATCH VIDEO  +150 POINTS +1 ENERGY'
-                  : 'LOAD VIDEO  +150 POINTS +1 ENERGY',
-              icon: Icons.ondemand_video_rounded,
-              onPressed: () =>
-                  _watchRewardedAd(RewardedAdPlacement.levelComplete),
+                  ? 'AD BREAK'
+                  : _lastRunWon
+                  ? 'NEXT LEVEL'
+                  : 'PLAY NEXT RUN',
+              icon: Icons.arrow_forward_rounded,
+              onPressed: _continueToNextLevel,
             ),
             const SizedBox(height: 10),
+            _SecondaryButton(
+              label: 'UPGRADES',
+              icon: Icons.construction_rounded,
+              onPressed: _openUpgrades,
+            ),
           ],
-          _PrimaryButton(
-            label: _interstitialAdShowing ? 'AD BREAK' : 'NEXT LEVEL',
-            icon: Icons.arrow_forward_rounded,
-            onPressed: _continueToNextLevel,
-          ),
-          const SizedBox(height: 10),
-          _SecondaryButton(
-            label: 'UPGRADES',
-            icon: Icons.construction_rounded,
-            onPressed: _openUpgrades,
-          ),
-        ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildRainBarrelUpgrade() {
+    final built = _slicerRainBarrelBuilt;
+    final cost = PlanterRescue.rainBarrelCost;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Divider(color: Color(0xFF637248)),
+        Row(
+          children: [
+            const CustomPaint(size: Size(58, 58), painter: RainBarrelPainter()),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Rain Barrel',
+                    style: TextStyle(
+                      color: Color(0xFFFFE7AE),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                    ),
+                  ),
+                  Text(
+                    built
+                        ? 'Equipped · Water x2 next run'
+                        : 'Start each rescue with one extra Water charge.',
+                    style: const TextStyle(color: Color(0xFFE5EDCC)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (!built)
+          FilledButton(
+            key: const ValueKey('build-slicer-rain-barrel'),
+            onPressed: _seeds >= cost && !_interstitialAdShowing
+                ? _buildSlicerRainBarrel
+                : null,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFE6BB70),
+              foregroundColor: const Color(0xFF2B2A18),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              minimumSize: const Size(0, 46),
+            ),
+            child: Text('Build Rain Barrel · $cost seeds'),
+          ),
+      ],
     );
   }
 
@@ -12018,10 +12151,10 @@ class _GardenPatch extends StatelessWidget {
     required this.bite,
   });
 
-  static const width = 58.0;
-  static const height = 72.0;
-  static const flowerHeight = 58.0;
-  static const flowerBottom = 9.0;
+  static const width = 80.0;
+  static const height = 84.0;
+  static const flowerHeight = 61.0;
+  static const flowerBottom = 12.0;
 
   final int index;
   final String asset;
@@ -12044,18 +12177,22 @@ class _GardenPatch extends StatelessWidget {
             bottom: 0,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              width: 56,
-              height: 24,
+              width: 78,
+              height: 28,
               decoration: BoxDecoration(
-                color: eaten
-                    ? const Color(0xDD5A3219)
-                    : const Color(0xDD2F6F24),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: eaten
+                      ? const [Color(0xFF826957), Color(0xFF392920)]
+                      : const [Color(0xFF9D8C59), Color(0xFF3D3325)],
+                ),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: eaten
                       ? const Color(0xFFFFB35F)
-                      : const Color(0xFFB7E96F),
-                  width: 2,
+                      : const Color(0xFF9D8D5D),
+                  width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -12071,7 +12208,15 @@ class _GardenPatch extends StatelessWidget {
               ),
               child: eaten
                   ? const CustomPaint(painter: GardenCrackPainter())
-                  : null,
+                  : Padding(
+                      padding: const EdgeInsets.fromLTRB(5, 3, 5, 9),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF443A29),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                      ),
+                    ),
             ),
           ),
           if (!eaten)
@@ -19149,6 +19294,8 @@ class _PowerButton extends StatelessWidget {
     required this.count,
     required this.active,
     required this.onTap,
+    this.detail,
+    this.activeFill = const Color(0xFFEBCB48),
   });
 
   final String asset;
@@ -19156,6 +19303,8 @@ class _PowerButton extends StatelessWidget {
   final int count;
   final bool active;
   final VoidCallback? onTap;
+  final String? detail;
+  final Color activeFill;
 
   @override
   Widget build(BuildContext context) {
@@ -19168,40 +19317,50 @@ class _PowerButton extends StatelessWidget {
         height: 92,
         padding: const EdgeInsets.fromLTRB(8, 7, 8, 8),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFFEBCB48) : const Color(0xDD153916),
+          color: active ? activeFill : const Color(0xDD153916),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: enabled ? const Color(0xFFD9F28C) : const Color(0xFF536548),
             width: 2,
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 52,
-              height: 46,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.asset(
-                  asset,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.medium,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 52,
+                height: detail == null ? 46 : 34,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.asset(
+                    asset,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 5),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
+              const SizedBox(height: 5),
+              Text(
                 '$label x$count',
                 style: TextStyle(
                   color: active ? const Color(0xFF3C2C08) : Colors.white,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-            ),
-          ],
+              if (detail != null)
+                Text(
+                  detail!,
+                  style: TextStyle(
+                    color: active
+                        ? const Color(0xFF354030)
+                        : const Color(0xFFDCECBD),
+                    fontSize: 11,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

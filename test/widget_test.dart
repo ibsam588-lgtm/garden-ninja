@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_ninja/src/app.dart';
+import 'package:garden_ninja/src/slicer/planter_rescue_paint.dart';
 import 'package:garden_ninja/src/slicer/slicer_plant_art.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,22 +31,23 @@ Future<void> advanceSlicer(WidgetTester tester, int frames) async {
   }
 }
 
-Future<int> waitForGardenBite(WidgetTester tester) async {
-  for (var frame = 0; frame < 420; frame++) {
-    await advanceSlicer(tester, 1);
-    for (var patch = 0; patch < 3; patch++) {
-      if (find.byKey(ValueKey('garden-bite-$patch')).evaluate().isNotEmpty) {
-        return patch;
-      }
-    }
-  }
-  throw TestFailure('A weed should reach a flower and begin a bite.');
-}
-
 Finder slicerLives(int lives) => find.descendant(
   of: find.byKey(const ValueKey('slicer-life-count')),
   matching: find.text('$lives'),
 );
+
+PlanterWarningsPainter warningsPainter(WidgetTester tester) {
+  final canvas = find.byWidgetPredicate(
+    (widget) =>
+        widget is CustomPaint && widget.painter is PlanterWarningsPainter,
+  );
+  return tester.widget<CustomPaint>(canvas).painter! as PlanterWarningsPainter;
+}
+
+Finder slicerTargets() => find.byWidgetPredicate((widget) {
+  final key = widget.key;
+  return key is ValueKey<String> && key.value.startsWith('target-');
+});
 
 SlicerPlantPainter plantPainter(WidgetTester tester, Finder target) {
   final paintedPlant = find.descendant(
@@ -84,6 +86,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 64));
 
     expect(find.text('SCORE'), findsOneWidget);
+    expect(find.text('1:00'), findsOneWidget);
+    expect(find.text('Wave 1'), findsOneWidget);
     expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
     expect(find.byKey(const ValueKey('garden-safe-0')), findsOneWidget);
 
@@ -107,15 +111,12 @@ void main() {
       findsNothing,
     );
 
-    final flower = find.byKey(const ValueKey('target-2'));
-    expect(flower, findsOneWidget);
-
-    await tester.tap(flower);
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
-    expect(find.text('-150 Plant'), findsAtLeastNWidgets(1));
-    expect(find.text('Garden Saved'), findsNothing);
+    final bramble = find.byKey(const ValueKey('target-2'));
+    expect(plantPainter(tester, bramble).sprite.kind, SlicerPlantKind.bramble);
+    final destinations = warningsPainter(
+      tester,
+    ).warnings.map((warning) => warning.flower.dx);
+    expect(destinations, [67, 195]);
   });
 
   testWidgets('Water sweeps out weeds on contact and leaves flowers', (
@@ -127,19 +128,18 @@ void main() {
 
     final weed = find.byKey(const ValueKey('target-1'));
     final sweptWeed = find.byKey(const ValueKey('water-target-1'));
-    final flower = find.byKey(const ValueKey('target-2'));
-    await tester.tap(find.text('Water x3'));
+    final flower = find.byKey(const ValueKey('garden-plant-0'));
+    await tester.tap(find.text('Water x1'));
     await tester.pump();
 
     expect(weed, findsNothing);
     expect(sweptWeed, findsOneWidget);
-    expect(find.text('90'), findsOneWidget);
-    expect(find.text('+90'), findsNothing);
+    expect(find.text('180'), findsOneWidget);
+    expect(find.text('+6 seeds'), findsNothing);
     expect(flower, findsOneWidget);
 
-    await tester.tap(find.text('Water x2'));
     await advanceSlicer(tester, 8);
-    expect(find.text('Water x2'), findsOneWidget);
+    expect(find.text('Water x0'), findsOneWidget);
     expect(sweptWeed, findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.pause_rounded));
@@ -149,7 +149,7 @@ void main() {
     await advanceSlicer(tester, 8);
 
     expect(sweptWeed, findsNothing);
-    expect(find.text('+90'), findsOneWidget);
+    expect(find.text('+6 seeds'), findsNWidgets(2));
     expect(flower, findsOneWidget);
     expect(find.byKey(const ValueKey('slicer-puddles')), findsOneWidget);
     expect(
@@ -157,7 +157,7 @@ void main() {
         (widget) =>
             widget is CustomPaint && widget.painter is SlicerCutFramePainter,
       ),
-      findsNWidgets(2),
+      findsNWidgets(4),
     );
   });
 
@@ -225,26 +225,35 @@ void main() {
     }
   });
 
-  testWidgets('a weed bites the garden flower it reaches and costs one life', (
-    tester,
-  ) async {
+  testWidgets('both weeds wind up and bite their own planters', (tester) async {
     await pumpGardenNinja(tester);
     await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
     await tester.pump(const Duration(milliseconds: 64));
 
-    final patch = await waitForGardenBite(tester);
-    final flower = find.byKey(ValueKey('garden-plant-$patch'));
-    expect(flower, findsOneWidget);
+    await advanceSlicer(tester, 100);
+    expect(find.byKey(const ValueKey('garden-bite-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-bite-1')), findsOneWidget);
+    final countdowns = warningsPainter(
+      tester,
+    ).warnings.map((warning) => warning.biteProgress);
+    expect(countdowns, everyElement(isNotNull));
     expect(slicerLives(3), findsOneWidget);
 
-    await advanceSlicer(tester, 8);
-    expect(find.byKey(ValueKey('garden-damage-$patch')), findsOneWidget);
-    expect(flower, findsNothing);
+    await advanceSlicer(tester, 29);
+    expect(find.byKey(const ValueKey('garden-damage-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-plant-0')), findsNothing);
     expect(slicerLives(2), findsOneWidget);
     expect(find.text('Plant eaten!'), findsWidgets);
-    for (final other in [0, 1, 2].where((index) => index != patch)) {
-      expect(find.byKey(ValueKey('garden-plant-$other')), findsOneWidget);
-    }
+    expect(find.byKey(const ValueKey('garden-plant-1')), findsOneWidget);
+    await advanceSlicer(tester, 13);
+    expect(find.byKey(const ValueKey('garden-damage-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-plant-2')), findsOneWidget);
+    expect(slicerLives(1), findsOneWidget);
+    await advanceSlicer(tester, 51);
+    expect(find.text('Wave 2'), findsOneWidget);
+    final next = warningsPainter(tester).warnings;
+    expect(next, hasLength(1));
+    expect(next.single.flower.dx, 323);
   });
 
   testWidgets('Ice stalls a bite and Water saves the flower', (tester) async {
@@ -252,23 +261,28 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
     await tester.pump(const Duration(milliseconds: 64));
 
-    final patch = await waitForGardenBite(tester);
-    final bite = find.byKey(ValueKey('garden-bite-$patch'));
-    final flower = find.byKey(ValueKey('garden-plant-$patch'));
-    await tester.tap(find.text('Ice x2'));
-    await advanceSlicer(tester, 14);
+    await advanceSlicer(tester, 100);
+    final bite = find.byKey(const ValueKey('garden-bite-0'));
+    final flower = find.byKey(const ValueKey('garden-plant-0'));
+    final beforeIce = warningsPainter(tester).warnings;
+    await tester.tap(find.text('Ice x1'));
+    await advanceSlicer(tester, 44);
+    expect(warningsPainter(tester).frozen, isTrue);
+    expect(warningsPainter(tester).warnings, beforeIce);
     expect(bite, findsOneWidget);
     expect(flower, findsOneWidget);
     expect(slicerLives(3), findsOneWidget);
 
-    await tester.tap(find.text('Water x3'));
-    await advanceSlicer(tester, 24);
+    await tester.tap(find.text('Water x1'));
+    await advanceSlicer(tester, 10);
+    expect(find.text('Saved +12'), findsNWidgets(2));
+    await advanceSlicer(tester, 14);
     expect(bite, findsNothing);
     expect(flower, findsOneWidget);
     expect(slicerLives(3), findsOneWidget);
   });
 
-  testWidgets('a weed in contact eats a flower in the playfield', (
+  testWidgets('a finishing slice during the bite earns a rescue bonus', (
     tester,
   ) async {
     await pumpGardenNinja(tester);
@@ -276,22 +290,17 @@ void main() {
     await tester.pump(const Duration(milliseconds: 64));
 
     final weed = find.byKey(const ValueKey('target-1'));
-    final flower = find.byKey(const ValueKey('target-2'));
-    // An angled cut sends the opening Thorn toward the opening flower.
-    final center = tester.getCenter(weed);
-    await tester.dragFrom(
-      center + const Offset(52, -17.5),
-      const Offset(-104, 35),
-    );
-    await advanceSlicer(tester, 1);
-    expect(find.text('+82 | 1 cuts'), findsOneWidget);
-    expect(flower, findsOneWidget);
-    for (var frame = 0; frame < 210 && flower.evaluate().isNotEmpty; frame++) {
-      await advanceSlicer(tester, 1);
-    }
-
-    expect(flower, findsNothing);
-    expect(find.text('Plant eaten!'), findsWidgets);
+    await advanceSlicer(tester, 100);
+    await tester.tapAt(tester.getCenter(weed));
+    await advanceSlicer(tester, 5);
+    expect(find.byKey(const ValueKey('garden-bite-0')), findsOneWidget);
+    await tester.tapAt(tester.getCenter(weed));
+    await tester.pump();
+    expect(weed, findsNothing);
+    expect(find.byKey(const ValueKey('garden-bite-0')), findsNothing);
+    expect(find.byKey(const ValueKey('garden-bite-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('garden-plant-0')), findsOneWidget);
+    expect(find.text('Saved +12'), findsOneWidget);
   });
 
   testWidgets('ice power visibly freezes active weeds', (tester) async {
@@ -300,14 +309,14 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
     await tester.pump(const Duration(milliseconds: 64));
 
-    expect(find.text('Ice x2'), findsOneWidget);
+    expect(find.text('Ice x1'), findsOneWidget);
 
-    await tester.tap(find.text('Ice x2'));
+    await tester.tap(find.text('Ice x1'));
     await tester.pump();
 
     final weed = find.byKey(const ValueKey('target-1'));
     expect(find.text('Freeze!'), findsOneWidget);
-    expect(find.text('Ice 7s x1'), findsOneWidget);
+    expect(find.text('Ice 5s x0'), findsOneWidget);
     expect(plantPainter(tester, weed).frozen, isTrue);
     expect(find.byKey(const ValueKey('slicer-effects')), findsOneWidget);
 
@@ -343,6 +352,15 @@ void main() {
     expect(find.text('Swipe through the weed to cut it.'), findsOneWidget);
     expect(find.byKey(const ValueKey('target-1')), findsOneWidget);
     expect(find.byIcon(Icons.swipe_rounded), findsOneWidget);
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const ValueKey('target-1'))),
+    );
+    await tester.pump();
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const ValueKey('target-2'))),
+    );
+    await tester.pump();
+    expect(find.text('Avoid flowers!'), findsOneWidget);
   });
 
   testWidgets('a partial Bramble hit keeps the damaged plant in play', (
@@ -379,29 +397,60 @@ void main() {
     );
   });
 
-  testWidgets('players can continue after a completed run', (tester) async {
-    await pumpGardenNinja(tester);
+  testWidgets(
+    'the first run funds a Rain Barrel that supplies two Water casts in the next run',
+    (tester) async {
+      await pumpGardenNinja(
+        tester,
+        prefs: {
+          'garden_ninja_garden_v4': jsonEncode({'version': 9, 'seeds': 0}),
+        },
+      );
 
-    await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
-    await tester.pump(const Duration(milliseconds: 64));
+      await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
+      await tester.pump(const Duration(milliseconds: 64));
+      expect(find.text('Water x1'), findsOneWidget);
 
-    var reachedResults = false;
-    for (var i = 0; i < 900 && !reachedResults; i += 1) {
-      await tester.pump(const Duration(milliseconds: 50));
-      reachedResults = find
-          .byKey(const ValueKey('primary-NEXT LEVEL'))
-          .evaluate()
-          .isNotEmpty;
-    }
+      final build = find.byKey(const ValueKey('build-slicer-rain-barrel'));
+      for (var i = 0; i < 80 && build.evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 250));
+      }
+      expect(find.text('Garden overrun'), findsOneWidget);
+      expect(find.text('0/3'), findsOneWidget);
+      expect(find.text('+24'), findsOneWidget);
+      await tester.tap(build);
+      await tester.pump();
+      expect(find.text('Equipped · Water x2 next run'), findsOneWidget);
+      expect(build, findsNothing);
+      final prefs = await SharedPreferences.getInstance();
+      Map saved() =>
+          jsonDecode(prefs.getString('garden_ninja_garden_v4')!) as Map;
+      expect(saved()['seeds'], 0);
+      expect(saved()['slicerRainBarrelBuilt'], isTrue);
+      expect(saved()['slicerStarterSeedsGranted'], isTrue);
 
-    expect(reachedResults, isTrue);
+      await tester.tap(find.byKey(const ValueKey('primary-PLAY NEXT RUN')));
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(find.text('Water x2'), findsOneWidget);
+      await tester.tap(find.text('Water x2'));
+      await advanceSlicer(tester, 80);
+      expect(find.text('Wave 2'), findsOneWidget);
+      expect(find.text('Water x1'), findsOneWidget);
+      await tester.tap(find.text('Water x1'));
+      await advanceSlicer(tester, 24);
+      expect(find.text('Water x0'), findsOneWidget);
+      expect(slicerTargets(), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('primary-NEXT LEVEL')));
-    await tester.pump(const Duration(milliseconds: 120));
-
-    expect(find.text('SCORE'), findsOneWidget);
-    expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
-  });
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(const GardenNinjaApp());
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(saved()['waterCharges'], 0);
+      await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Water x2'), findsOneWidget);
+      expect(find.text('Ice x1'), findsOneWidget);
+    },
+  );
 
   testWidgets('back on home asks before quitting', (tester) async {
     await pumpGardenNinja(tester);
@@ -562,6 +611,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
       await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Ice x1'), findsOneWidget);
+      expect(find.text('3 reserve'), findsOneWidget);
+      await tester.tap(find.text('Ice x1'));
+      await advanceSlicer(tester, 86);
+      saved = jsonDecode(prefs.getString('garden_ninja_garden_v4')!) as Map;
+      expect(saved['iceCharges'], 3);
       expect(find.text('Ice x3'), findsOneWidget);
       await tester.tap(find.text('Ice x3'));
       await tester.pump(const Duration(milliseconds: 100));
@@ -580,32 +635,44 @@ void main() {
       expect(saved['iceCharges'], 2);
       await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('Ice x2'), findsOneWidget);
+      expect(find.text('Ice x1'), findsOneWidget);
+      expect(find.text('2 reserve'), findsOneWidget);
       expect(find.text('Ice x3'), findsNothing);
     },
   );
 
-  testWidgets('a zero-score loss is not presented as a saved garden', (
-    tester,
-  ) async {
-    await pumpGardenNinja(tester);
-    await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
-    await tester.pump(const Duration(milliseconds: 100));
-    for (
-      var i = 0;
-      i < 1200 && find.text('Run Over').evaluate().isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-    expect(find.text('Run Over'), findsOneWidget);
-    expect(find.text('Garden Saved'), findsNothing);
-    expect(find.text('Score'), findsOneWidget);
-    expect(find.text('0'), findsAtLeastNWidgets(1));
-    expect(find.text('Weeds slashed'), findsOneWidget);
-    expect(find.text('+45'), findsOneWidget);
-    expect(find.text('NEXT LEVEL'), findsOneWidget);
-  });
+  testWidgets(
+    'clearing repeated waves leaves the full minute to defend the planters',
+    (tester) async {
+      await pumpGardenNinja(tester);
+      await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
+      await tester.pump(const Duration(milliseconds: 100));
+      for (var i = 0; i < 236; i++) {
+        final keys = slicerTargets()
+            .evaluate()
+            .map((element) => element.widget.key!)
+            .toList();
+        for (final key in keys) {
+          final target = find.byKey(key);
+          if (target.evaluate().isNotEmpty) {
+            await tester.tapAt(tester.getCenter(target));
+          }
+        }
+        await tester.pump(const Duration(milliseconds: 250));
+      }
+      expect(find.text('Perfect rescue'), findsNothing);
+      expect(find.text('0:01'), findsOneWidget);
+      expect(slicerLives(3), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 920));
+      expect(find.text('Perfect rescue'), findsOneWidget);
+      expect(find.text('3/3'), findsOneWidget);
+      expect(find.text('NEXT LEVEL'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('primary-NEXT LEVEL')));
+      await tester.pump();
+      expect(find.text('1:00'), findsOneWidget);
+      expect(find.text('Wave 1'), findsOneWidget);
+    },
+  );
 
   testWidgets('Rate App opens the platform Play listing action', (
     tester,
