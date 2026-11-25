@@ -3,110 +3,130 @@
     "feature": "Cultive. Améliore. Récolte.",
     "footer": "Interface du jeu en anglais",
     "slides": [
+      ["Fais couler l’eau\njusqu’aux fleurs.", "Tourne les canaux et ouvre la source pour faire fleurir les terrasses."],
       ["Ton jardin.\nTa prochaine récolte.", "Cultive tes parcelles et remplis les commandes."],
       ["Tranche les herbes.\nProtège les fleurs.", "Des défis arcade rapides, au bout des doigts."],
       ["Choisis ta\nprochaine amélioration.", "Outils, bonus et personnages ninja."],
-      ["Vise ton\nprochain record.", "Enchaîne les combos et gagne des pièces."],
-      ["Apprends\nen un geste.", "Suis la démo du jeu et lance-toi."]
+      ["Vise ton\nprochain record.", "Sauve les fleurs et gagne des graines pour la prochaine partie."],
+      ["Apprends\nen un geste.", "Suis la démo du jeu et lance-toi."],
+      ["Choisis ton ninja.", "Choisis entre le ninja des feuilles et celui des fleurs."]
     ]
   },
   "de-DE": {
     "feature": "Pflanzen. Verbessern. Ernten.",
     "footer": "Spieloberfläche auf Englisch",
     "slides": [
+      ["Bring das Wasser\nzu den Blumen.", "Dreh die Kanäle und öffne die Quelle, damit die Beete blühen."],
       ["Dein Garten.\nDeine nächste Ernte.", "Pflanze an und erfülle Marktaufträge."],
       ["Schneide Unkraut.\nSchütze Blumen.", "Schnelle Arcade-Herausforderungen per Wisch."],
       ["Wähle dein\nnächstes Upgrade.", "Werkzeuge, Power-ups und Ninja-Figuren."],
-      ["Jage deinen\nnächsten Rekord.", "Bilde Kombos und verdiene Münzen."],
-      ["Lerne mit\neinem Wisch.", "Folge der Demo im Spiel und leg los."]
+      ["Jage deinen\nnächsten Rekord.", "Rette Blumen und sammle Samen für die nächste Runde."],
+      ["Lerne mit\neinem Wisch.", "Folge der Demo im Spiel und leg los."],
+      ["Wähle deinen Ninja.", "Wähle zwischen dem Blatt-Ninja und dem Blüten-Ninja."]
     ]
   },
   "es-ES": {
     "feature": "Cultiva. Mejora. Cosecha.",
     "footer": "Interfaz del juego en inglés",
     "slides": [
+      ["Lleva el agua\nhasta las flores.", "Gira los canales y abre el manantial para que florezcan las terrazas."],
       ["Tu jardín.\nTu próxima cosecha.", "Cultiva tus parcelas y completa los pedidos."],
       ["Corta las hierbas.\nProtege las flores.", "Desafíos arcade rápidos con cada deslizamiento."],
       ["Elige tu\npróxima mejora.", "Herramientas, potenciadores y personajes ninja."],
-      ["Ve a por tu\npróximo récord.", "Encadena combos y consigue monedas."],
-      ["Aprende\ncon un gesto.", "Sigue la demo del juego y empieza a jugar."]
+      ["Ve a por tu\npróximo récord.", "Salva las flores y gana semillas para la próxima ronda."],
+      ["Aprende\ncon un gesto.", "Sigue la demo del juego y empieza a jugar."],
+      ["Elige a tu ninja.", "Elige entre el ninja de las hojas y el de las flores."]
     ]
   },
   "es-419": {
     "feature": "Cultiva. Mejora. Cosecha.",
     "footer": "Interfaz del juego en inglés",
     "slides": [
+      ["Lleva el agua\nhasta las flores.", "Gira los canales y abre el paso del agua para que florezcan las terrazas."],
       ["Tu jardín.\nTu próxima cosecha.", "Cultiva tus parcelas y completa los pedidos."],
       ["Corta la maleza.\nProtege las flores.", "Desafíos arcade rápidos con cada deslizamiento."],
       ["Elige tu\npróxima mejora.", "Herramientas, potenciadores y personajes ninja."],
-      ["Supera tu\nmejor puntaje.", "Encadena combos y gana monedas."],
-      ["Aprende\ncon un gesto.", "Sigue la demo del juego y empieza a jugar."]
+      ["Supera tu\nmejor puntaje.", "Salva las flores y gana semillas para la siguiente ronda."],
+      ["Aprende\ncon un gesto.", "Sigue la demo del juego y empieza a jugar."],
+      ["Elige a tu ninja.", "Elige entre el ninja de las hojas y el de las flores."]
     ]
   },
   "pt-BR": {
     "feature": "Plante. Melhore. Colha.",
     "footer": "Interface do jogo em inglês",
     "slides": [
+      ["Leve a água\naté as flores.", "Gire os canais e libere a água da nascente para florir os canteiros."],
       ["Seu jardim.\nSua próxima colheita.", "Cultive seus canteiros e complete os pedidos."],
       ["Corte as ervas.\nProteja as flores.", "Desafios arcade rápidos na ponta dos dedos."],
       ["Escolha sua\npróxima melhoria.", "Ferramentas, poderes e personagens ninja."],
-      ["Busque seu\npróximo recorde.", "Faça combos e ganhe moedas."],
-      ["Aprenda\ncom um gesto.", "Siga a demonstração do jogo e comece a jogar."]
+      ["Busque seu\npróximo recorde.", "Salve as flores e ganhe sementes para a próxima rodada."],
+      ["Aprenda\ncom um gesto.", "Siga a demonstração do jogo e comece a jogar."],
+      ["Escolha seu ninja.", "Escolha entre o ninja das folhas e o das flores."]
     ]
   },
   "id": {
     "feature": "Tanam. Tingkatkan. Panen.",
     "footer": "Antarmuka game dalam bahasa Inggris",
     "slides": [
+      ["Alirkan air\nke bunga.", "Putar saluran dan buka mata air agar petak kebunmu berbunga."],
       ["Kebunmu.\nPanen berikutnya.", "Tanam di petak kebun dan penuhi pesanan pasar."],
       ["Tebas gulma.\nLindungi bunga.", "Tantangan arcade singkat dengan usapan jari."],
       ["Pilih peningkatan\nberikutnya.", "Alat, power-up, dan karakter ninja."],
-      ["Kejar rekor\nberikutnya.", "Rangkai kombo dan kumpulkan koin."],
-      ["Belajar dengan\nsatu usapan.", "Ikuti demo di dalam game dan mulai bermain."]
+      ["Kejar rekor\nberikutnya.", "Selamatkan bunga dan kumpulkan benih untuk ronde berikutnya."],
+      ["Belajar dengan\nsatu usapan.", "Ikuti demo di dalam game dan mulai bermain."],
+      ["Pilih ninjamu.", "Pilih ninja bertema daun atau ninja bertema bunga."]
     ]
   },
   "hi-IN": {
     "feature": "उगाएँ। बेहतर बनाएँ।\nफसल काटें।",
     "footer": "गेम का इंटरफ़ेस अंग्रेज़ी में है",
     "slides": [
+      ["फूलों तक\nपानी पहुँचाएँ।", "नालियाँ घुमाएँ और पानी छोड़ें, ताकि क्यारियों में फूल खिलें।"],
       ["अपना बगीचा।\nअपनी अगली फसल।", "क्यारियों में फसल उगाएँ और बाज़ार के ऑर्डर पूरे करें।"],
       ["खरपतवार काटें।\nफूलों को बचाएँ।", "स्वाइप करके छोटे आर्केड चैलेंज खेलें।"],
       ["अपना अगला\nअपग्रेड चुनें।", "औज़ार, पावर-अप और निंजा किरदार।"],
-      ["अपना अगला\nरिकॉर्ड बनाएँ।", "कॉम्बो बनाएँ और सिक्के कमाएँ।"],
-      ["एक स्वाइप\nसे सीखें।", "गेम में डेमो देखें और खेलना शुरू करें।"]
+      ["अपना अगला\nरिकॉर्ड बनाएँ।", "फूल बचाएँ और अगले दौर के लिए बीज कमाएँ।"],
+      ["एक स्वाइप\nसे सीखें।", "गेम में डेमो देखें और खेलना शुरू करें।"],
+      ["अपना निंजा चुनें।", "पत्तों वाले या फूलों वाले निंजा को चुनें।"]
     ]
   },
   "ar": {
     "feature": "ازرع. طوّر. احصد.",
     "footer": "واجهة اللعبة باللغة الإنجليزية",
     "slides": [
+      ["أوصل الماء\nإلى الزهور", "أدر القنوات وافتح مجرى النبع لتزهر أحواض الحديقة."],
       ["حديقتك.\nحصادك القادم.", "ازرع المحاصيل وأكمل طلبات السوق."],
       ["اقطع الأعشاب.\nواحْمِ الزهور.", "تحديات أركيد سريعة بسحبة إصبع."],
       ["اختر ترقيتك\nالقادمة.", "أدوات ومعززات وشخصيات نينجا."],
-      ["حطّم رقمك\nالقياسي.", "اصنع سلاسل ضربات واكسب العملات."],
-      ["تعلّم\nبسحبة واحدة.", "اتبع العرض التوضيحي داخل اللعبة وابدأ اللعب."]
+      ["حطّم رقمك\nالقياسي.", "أنقذ الزهور واجمع البذور للجولة القادمة."],
+      ["تعلّم\nبسحبة واحدة.", "اتبع العرض التوضيحي داخل اللعبة وابدأ اللعب."],
+      ["اختر شخصية النينجا", "اختر بين نينجا الأوراق ونينجا الزهور."]
     ]
   },
   "ja-JP": {
     "feature": "育てよう。強化しよう。\n収穫しよう。",
     "footer": "ゲーム内の表示言語は英語です",
     "slides": [
+      ["水をつないで\n花を咲かせよう。", "水路を回して泉の水を流し、花壇を潤そう。"],
       ["自分だけの庭で\n次の収穫へ。", "作物を育てて、市場の注文を達成しよう。"],
       ["雑草を切って\n花を守ろう。", "スワイプで楽しむ、手軽なアーケード。"],
       ["次の強化を\n選ぼう。", "道具、パワーアップ、忍者キャラクター。"],
-      ["次のハイスコアを\n目指そう。", "コンボをつなげて、コインを獲得。"],
-      ["ひと振りで\n覚えよう。", "ゲーム内のデモを見て、さっそくプレイ。"]
+      ["次のハイスコアを\n目指そう。", "花を守って、次のラウンドに使う種を集めよう。"],
+      ["ひと振りで\n覚えよう。", "ゲーム内のデモを見て、さっそくプレイ。"],
+      ["忍者を選ぼう。", "葉の忍者と花の忍者から、お気に入りを選ぼう。"]
     ]
   },
   "ko-KR": {
     "feature": "심고. 강화하고.\n수확하세요.",
     "footer": "게임 화면은 영어로 표시됩니다",
     "slides": [
+      ["꽃밭까지\n물을 보내세요.", "수로를 돌리고 샘물을 흘려보내 꽃을 피우세요."],
       ["나만의 정원,\n다음 수확을 향해.", "작물을 키우고 시장 주문을 완료하세요."],
       ["잡초를 베고\n꽃을 지키세요.", "손끝으로 즐기는 짧은 아케이드 도전."],
       ["다음 업그레이드를\n선택하세요.", "도구, 파워업, 닌자 캐릭터."],
-      ["다음 최고 기록에\n도전하세요.", "콤보를 이어 가고 코인을 모으세요."],
-      ["한 번의 스와이프로\n배워 보세요.", "게임 속 데모를 보고 바로 시작하세요."]
+      ["다음 최고 기록에\n도전하세요.", "꽃을 구하고 다음 라운드에 쓸 씨앗을 모으세요."],
+      ["한 번의 스와이프로\n배워 보세요.", "게임 속 데모를 보고 바로 시작하세요."],
+      ["나만의 닌자를\n고르세요.", "잎사귀 닌자와 꽃 닌자 중 마음에 드는 닌자를 선택하세요."]
     ]
   }
 }
