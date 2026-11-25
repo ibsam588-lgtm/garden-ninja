@@ -1,16 +1,30 @@
 [
   {
-    "locale": "fr-FR",
-    "value": "Fais couler l’eau\njusqu’aux fleurs.",
-    "width": 664,
-    "height": 200,
-    "size": 86
+    "locale": "en-US",
+    "value": "Garden\nNINJA",
+    "width": 366,
+    "height": 229,
+    "size": 110
+  },
+  {
+    "locale": "en-US",
+    "value": "Terrace Garden\n60 timed puzzles",
+    "width": 316,
+    "height": 94,
+    "size": 40
   },
   {
     "locale": "fr-FR",
-    "value": "Tourne les canaux et ouvre la source pour faire fleurir les terrasses.",
-    "width": 900,
-    "height": 76,
+    "value": "Fais fleurir\nles terrasses.",
+    "width": 547,
+    "height": 198,
+    "size": 94
+  },
+  {
+    "locale": "fr-FR",
+    "value": "Tourne les canaux et guide l’eau jusqu’aux fleurs avant la fin du temps.",
+    "width": 918,
+    "height": 84,
     "size": 36
   },
   {
@@ -29,15 +43,15 @@
   },
   {
     "locale": "fr-FR",
-    "value": "Ton jardin.\nTa prochaine récolte.",
-    "width": 837,
-    "height": 199,
-    "size": 86
+    "value": "60 niveaux\nà découvrir.",
+    "width": 511,
+    "height": 197,
+    "size": 94
   },
   {
     "locale": "fr-FR",
-    "value": "Cultive tes parcelles et remplis les commandes.",
-    "width": 784,
+    "value": "Résous chaque énigme pour débloquer la suivante.",
+    "width": 853,
     "height": 35,
     "size": 36
   },
@@ -196,16 +210,30 @@
     "size": 35
   },
   {
+    "locale": "en-US",
+    "value": "Garden\nNINJA",
+    "width": 366,
+    "height": 229,
+    "size": 110
+  },
+  {
+    "locale": "fr-FR",
+    "value": "60 défis chronométrés",
+    "width": 419,
+    "height": 30,
+    "size": 40
+  },
+  {
     "locale": "de-DE",
-    "value": "Bring das Wasser\nzu den Blumen.",
-    "width": 747,
+    "value": "Wasser marsch\nfür die Blumen.",
+    "width": 676,
     "height": 197,
     "size": 94
   },
   {
     "locale": "de-DE",
-    "value": "Dreh die Kanäle und öffne die Quelle, damit die Beete blühen.",
-    "width": 900,
+    "value": "Dreh die Kanäle und leite das Wasser zu den Blumen, bevor die Zeit abläuft.",
+    "width": 886,
     "height": 76,
     "size": 36
   },
@@ -225,16 +253,16 @@
   },
   {
     "locale": "de-DE",
-    "value": "Dein Garten.\nDeine nächste Ernte.",
-    "width": 892,
-    "height": 197,
-    "size": 94
+    "value": "60 Level\nzum Freispielen.",
+    "width": 650,
+    "height": 199,
+    "size": 86
   },
   {
     "locale": "de-DE",
-    "value": "Pflanze an und erfülle Marktaufträge.",
-    "width": 630,
-    "height": 35,
+    "value": "Löse ein Rätsel und schalte das nächste frei.",
+    "width": 731,
+    "height": 27,
     "size": 36
   },
   {
@@ -392,17 +420,31 @@
     "size": 35
   },
   {
+    "locale": "en-US",
+    "value": "Garden\nNINJA",
+    "width": 366,
+    "height": 229,
+    "size": 110
+  },
+  {
+    "locale": "de-DE",
+    "value": "60 Rätsel auf Zeit",
+    "width": 326,
+    "height": 30,
+    "size": 40
+  },
+  {
     "locale": "es-ES",
-    "value": "Lleva el agua\nhasta las flores.",
-    "width": 673,
+    "value": "Lleva el agua\na las flores.",
+    "width": 562,
     "height": 197,
     "size": 94
   },
   {
     "locale": "es-ES",
-    "value": "Gira los canales y abre el manantial para que florezcan las terrazas.",
-    "width": 907,
-    "height": 76,
+    "value": "Gira los canales para que el agua llegue a las flores antes de que se acabe el tiempo.",
+    "width": 846,
+    "height": 84,
     "size": 36
   },
   {
@@ -421,15 +463,15 @@
   },
   {
     "locale": "es-ES",
-    "value": "Tu jardín.\nTu próxima cosecha.",
-    "width": 815,
+    "value": "60 niveles\npor descubrir.",
+    "width": 549,
     "height": 199,
     "size": 86
   },
   {
     "locale": "es-ES",
-    "value": "Cultiva tus parcelas y completa los pedidos.",
-    "width": 728,
+    "value": "Resuelve cada puzle para desbloquear el siguiente.",
+    "width": 845,
     "height": 35,
     "size": 36
   },
@@ -588,17 +630,31 @@
     "size": 35
   },
   {
+    "locale": "en-US",
+    "value": "Garden\nNINJA",
+    "width": 366,
+    "height": 229,
+    "size": 110
+  },
+  {
+    "locale": "es-ES",
+    "value": "60 puzles contrarreloj",
+    "width": 406,
+    "height": 39,
+    "size": 40
+  },
+  {
     "locale": "es-419",
-    "value": "Lleva el agua\nhasta las flores.",
-    "width": 673,
+    "value": "Lleva el agua\na las flores.",
+    "width": 562,
     "height": 197,
     "size": 94
   },
   {
     "locale": "es-419",
-    "value": "Gira los canales y abre el paso del agua para que florezcan las terrazas.",
-    "width": 809,
-    "height": 76,
+    "value": "Gira los canales para que el agua llegue a las flores antes de que se acabe el tiempo.",
+    "width": 846,
+    "height": 84,
     "size": 36
   },
   {
@@ -617,15 +673,15 @@
   },
   {
     "locale": "es-419",
-    "value": "Tu jardín.\nTu próxima cosecha.",
-    "width": 815,
+    "value": "60 niveles\npor descubrir.",
+    "width": 549,
     "height": 199,
     "size": 86
   },
   {
     "locale": "es-419",
-    "value": "Cultiva tus parcelas y completa los pedidos.",
-    "width": 728,
+    "value": "Resuelve cada acertijo para desbloquear el siguiente.",
+    "width": 881,
     "height": 35,
     "size": 36
   },
@@ -784,6 +840,20 @@
     "size": 35
   },
   {
+    "locale": "en-US",
+    "value": "Garden\nNINJA",
+    "width": 366,
+    "height": 229,
+    "size": 110
+  },
+  {
+    "locale": "es-419",
+    "value": "60 retos contra el reloj",
+    "width": 421,
+    "height": 39,
+    "size": 40
+  },
+  {
     "locale": "pt-BR",
     "value": "Leve a água\naté as flores.",
     "width": 551,
@@ -792,9 +862,9 @@
   },
   {
     "locale": "pt-BR",
-    "value": "Gire os canais e libere a água da nascente para florir os canteiros.",
-    "width": 917,
-    "height": 76,
+    "value": "Gire os canais para a água chegar às flores antes que o tempo acabe.",
+    "width": 911,
+    "height": 84,
     "size": 36
   },
   {
@@ -813,16 +883,16 @@
   },
   {
     "locale": "pt-BR",
-    "value": "Seu jardim.\nSua próxima colheita.",
-    "width": 865,
-    "height": 199,
+    "value": "60 fases\npara explorar.",
+    "width": 548,
+    "height": 200,
     "size": 86
   },
   {
     "locale": "pt-BR",
-    "value": "Cultive seus canteiros e complete os pedidos.",
-    "width": 756,
-    "height": 35,
+    "value": "Resolva cada quebra-cabeça para desbloquear o próximo.",
+    "width": 801,
+    "height": 84,
     "size": 36
   },
   {
@@ -980,6 +1050,20 @@
     "size": 35
   },
   {
+    "locale": "en-US",
+    "value": "Garden\nNINJA",
+    "width": 366,
+    "height": 229,
+    "size": 110
+  },
+  {
+    "locale": "pt-BR",
+    "value": "60 fases cronometradas",
+    "width": 446,
+    "height": 30,
+    "size": 40
+  },
+  {
     "locale": "id",
     "value": "Alirkan air\nke bunga.",
     "width": 416,
@@ -988,9 +1072,9 @@
   },
   {
     "locale": "id",
-    "value": "Putar saluran dan buka mata air agar petak kebunmu berbunga.",
-    "width": 891,
-    "height": 84,
+    "value": "Putar saluran dan alirkan air ke bunga sebelum waktu habis.",
+    "width": 900,
+    "height": 76,
     "size": 36
   },
   {
@@ -1009,15 +1093,15 @@
   },
   {
     "locale": "id",
-    "value": "Kebunmu.\nPanen berikutnya.",
-    "width": 722,
-    "height": 200,
-    "size": 86
+    "value": "Jelajahi\n60 level.",
+    "width": 358,
+    "height": 197,
+    "size": 94
   },
   {
     "locale": "id",
-    "value": "Tanam di petak kebun dan penuhi pesanan pasar.",
-    "width": 827,
+    "value": "Pecahkan teka-teki untuk membuka level berikutnya.",
+    "width": 892,
     "height": 35,
     "size": 36
   },
@@ -1176,6 +1260,20 @@
     "size": 35
   },
   {
+    "locale": "en-US",
+    "value": "Garden\nNINJA",
+    "width": 366,
+    "height": 229,
+    "size": 110
+  },
+  {
+    "locale": "id",
+    "value": "60 level berbatas waktu",
+    "width": 444,
+    "height": 30,
+    "size": 40
+  },
+  {
     "locale": "hi-IN",
     "value": "फूलों तक\nपानी पहुँचाएँ।",
     "width": 408,
@@ -1184,10 +1282,10 @@
   },
   {
     "locale": "hi-IN",
-    "value": "नालियाँ घुमाएँ और पानी छोड़ें, ताकि क्यारियों में फूल खिलें।",
-    "width": 871,
-    "height": 50,
-    "size": 36
+    "value": "समय खत्म होने से पहले नालियाँ घुमाकर फूलों तक पानी पहुँचाएँ।",
+    "width": 893,
+    "height": 47,
+    "size": 34
   },
   {
     "locale": "hi-IN",
@@ -1205,16 +1303,16 @@
   },
   {
     "locale": "hi-IN",
-    "value": "अपना बगीचा।\nअपनी अगली फसल।",
-    "width": 696,
-    "height": 197,
-    "size": 82
+    "value": "60 स्तर\nखेलें।",
+    "width": 289,
+    "height": 196,
+    "size": 94
   },
   {
     "locale": "hi-IN",
-    "value": "क्यारियों में फसल उगाएँ और बाज़ार के ऑर्डर पूरे करें।",
-    "width": 796,
-    "height": 49,
+    "value": "हर पहेली हल करके अगला स्तर खोलें।",
+    "width": 565,
+    "height": 43,
     "size": 36
   },
   {
@@ -1372,6 +1470,20 @@
     "size": 35
   },
   {
+    "locale": "en-US",
+    "value": "Garden\nNINJA",
+    "width": 366,
+    "height": 229,
+    "size": 110
+  },
+  {
+    "locale": "hi-IN",
+    "value": "60 स्तर, सीमित समय",
+    "width": 356,
+    "height": 47,
+    "size": 40
+  },
+  {
     "locale": "ar",
     "value": "أوصل الماء\nإلى الزهور",
     "width": 340,
@@ -1380,8 +1492,8 @@
   },
   {
     "locale": "ar",
-    "value": "أدر القنوات وافتح مجرى النبع لتزهر أحواض الحديقة.",
-    "width": 744,
+    "value": "أدر القنوات ليصل الماء إلى الأزهار قبل انتهاء الوقت.",
+    "width": 751,
     "height": 46,
     "size": 36
   },
@@ -1401,16 +1513,16 @@
   },
   {
     "locale": "ar",
-    "value": "حديقتك.\nحصادك القادم.",
-    "width": 511,
-    "height": 196,
-    "size": 84
+    "value": "استكشف\n٦٠ مستوى",
+    "width": 334,
+    "height": 197,
+    "size": 82
   },
   {
     "locale": "ar",
-    "value": "ازرع المحاصيل وأكمل طلبات السوق.",
-    "width": 530,
-    "height": 46,
+    "value": "حلّ كل لغز لفتح المستوى التالي.",
+    "width": 470,
+    "height": 39,
     "size": 36
   },
   {
@@ -1568,16 +1680,30 @@
     "size": 35
   },
   {
+    "locale": "en-US",
+    "value": "Garden\nNINJA",
+    "width": 366,
+    "height": 229,
+    "size": 110
+  },
+  {
+    "locale": "ar",
+    "value": "٦٠ لغزًا ضدّ الساعة",
+    "width": 293,
+    "height": 41,
+    "size": 40
+  },
+  {
     "locale": "ja-JP",
-    "value": "水をつないで\n花を咲かせよう。",
-    "width": 681,
-    "height": 191,
+    "value": "花まで水を\n届けよう",
+    "width": 457,
+    "height": 189,
     "size": 94
   },
   {
     "locale": "ja-JP",
-    "value": "水路を回して泉の水を流し、花壇を潤そう。",
-    "width": 691,
+    "value": "時間内に水路を回して花まで水を届けよう。",
+    "width": 688,
     "height": 34,
     "size": 36
   },
@@ -1597,16 +1723,16 @@
   },
   {
     "locale": "ja-JP",
-    "value": "自分だけの庭で\n次の収穫へ。",
-    "width": 640,
-    "height": 193,
+    "value": "全60ステージに\n挑戦",
+    "width": 660,
+    "height": 192,
     "size": 94
   },
   {
     "locale": "ja-JP",
-    "value": "作物を育てて、市場の注文を達成しよう。",
-    "width": 659,
-    "height": 34,
+    "value": "パズルを解くと次のステージが開くよ。",
+    "width": 622,
+    "height": 35,
     "size": 36
   },
   {
@@ -1764,6 +1890,20 @@
     "size": 35
   },
   {
+    "locale": "en-US",
+    "value": "Garden\nNINJA",
+    "width": 366,
+    "height": 229,
+    "size": 110
+  },
+  {
+    "locale": "ja-JP",
+    "value": "時間に挑む60のパズル",
+    "width": 400,
+    "height": 38,
+    "size": 40
+  },
+  {
     "locale": "ko-KR",
     "value": "꽃밭까지\n물을 보내세요.",
     "width": 559,
@@ -1772,9 +1912,9 @@
   },
   {
     "locale": "ko-KR",
-    "value": "수로를 돌리고 샘물을 흘려보내 꽃을 피우세요.",
-    "width": 754,
-    "height": 34,
+    "value": "시간이 다 되기 전에 수로를 돌려 꽃밭까지 물을 보내세요.",
+    "width": 891,
+    "height": 80,
     "size": 36
   },
   {
@@ -1793,15 +1933,15 @@
   },
   {
     "locale": "ko-KR",
-    "value": "나만의 정원,\n다음 수확을 향해.",
-    "width": 671,
+    "value": "60개 레벨에\n도전하세요.",
+    "width": 461,
     "height": 197,
     "size": 86
   },
   {
     "locale": "ko-KR",
-    "value": "작물을 키우고 시장 주문을 완료하세요.",
-    "width": 634,
+    "value": "퍼즐을 풀면 다음 레벨이 열려요.",
+    "width": 525,
     "height": 34,
     "size": 36
   },
@@ -1958,5 +2098,19 @@
     "width": 262,
     "height": 25,
     "size": 35
+  },
+  {
+    "locale": "en-US",
+    "value": "Garden\nNINJA",
+    "width": 366,
+    "height": 229,
+    "size": 110
+  },
+  {
+    "locale": "ko-KR",
+    "value": "시간제 퍼즐 60개",
+    "width": 309,
+    "height": 40,
+    "size": 40
   }
 ]

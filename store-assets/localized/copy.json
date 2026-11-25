@@ -1,10 +1,10 @@
 {
   "fr-FR": {
-    "feature": "Cultive. Améliore. Récolte.",
+    "feature": "60 défis chronométrés",
     "footer": "Interface du jeu en anglais",
     "slides": [
-      ["Fais couler l’eau\njusqu’aux fleurs.", "Tourne les canaux et ouvre la source pour faire fleurir les terrasses."],
-      ["Ton jardin.\nTa prochaine récolte.", "Cultive tes parcelles et remplis les commandes."],
+      ["Fais fleurir\nles terrasses.", "Tourne les canaux et guide l’eau jusqu’aux fleurs avant la fin du temps."],
+      ["60 niveaux\nà découvrir.", "Résous chaque énigme pour débloquer la suivante."],
       ["Tranche les herbes.\nProtège les fleurs.", "Des défis arcade rapides, au bout des doigts."],
       ["Choisis ta\nprochaine amélioration.", "Outils, bonus et personnages ninja."],
       ["Vise ton\nprochain record.", "Sauve les fleurs et gagne des graines pour la prochaine partie."],
@@ -13,11 +13,11 @@
     ]
   },
   "de-DE": {
-    "feature": "Pflanzen. Verbessern. Ernten.",
+    "feature": "60 Rätsel auf Zeit",
     "footer": "Spieloberfläche auf Englisch",
     "slides": [
-      ["Bring das Wasser\nzu den Blumen.", "Dreh die Kanäle und öffne die Quelle, damit die Beete blühen."],
-      ["Dein Garten.\nDeine nächste Ernte.", "Pflanze an und erfülle Marktaufträge."],
+      ["Wasser marsch\nfür die Blumen.", "Dreh die Kanäle und leite das Wasser zu den Blumen, bevor die Zeit abläuft."],
+      ["60 Level\nzum Freispielen.", "Löse ein Rätsel und schalte das nächste frei."],
       ["Schneide Unkraut.\nSchütze Blumen.", "Schnelle Arcade-Herausforderungen per Wisch."],
       ["Wähle dein\nnächstes Upgrade.", "Werkzeuge, Power-ups und Ninja-Figuren."],
       ["Jage deinen\nnächsten Rekord.", "Rette Blumen und sammle Samen für die nächste Runde."],
@@ -26,11 +26,11 @@
     ]
   },
   "es-ES": {
-    "feature": "Cultiva. Mejora. Cosecha.",
+    "feature": "60 puzles contrarreloj",
     "footer": "Interfaz del juego en inglés",
     "slides": [
-      ["Lleva el agua\nhasta las flores.", "Gira los canales y abre el manantial para que florezcan las terrazas."],
-      ["Tu jardín.\nTu próxima cosecha.", "Cultiva tus parcelas y completa los pedidos."],
+      ["Lleva el agua\na las flores.", "Gira los canales para que el agua llegue a las flores antes de que se acabe el tiempo."],
+      ["60 niveles\npor descubrir.", "Resuelve cada puzle para desbloquear el siguiente."],
       ["Corta las hierbas.\nProtege las flores.", "Desafíos arcade rápidos con cada deslizamiento."],
       ["Elige tu\npróxima mejora.", "Herramientas, potenciadores y personajes ninja."],
       ["Ve a por tu\npróximo récord.", "Salva las flores y gana semillas para la próxima ronda."],
@@ -39,11 +39,11 @@
     ]
   },
   "es-419": {
-    "feature": "Cultiva. Mejora. Cosecha.",
+    "feature": "60 retos contra el reloj",
     "footer": "Interfaz del juego en inglés",
     "slides": [
-      ["Lleva el agua\nhasta las flores.", "Gira los canales y abre el paso del agua para que florezcan las terrazas."],
-      ["Tu jardín.\nTu próxima cosecha.", "Cultiva tus parcelas y completa los pedidos."],
+      ["Lleva el agua\na las flores.", "Gira los canales para que el agua llegue a las flores antes de que se acabe el tiempo."],
+      ["60 niveles\npor descubrir.", "Resuelve cada acertijo para desbloquear el siguiente."],
       ["Corta la maleza.\nProtege las flores.", "Desafíos arcade rápidos con cada deslizamiento."],
       ["Elige tu\npróxima mejora.", "Herramientas, potenciadores y personajes ninja."],
       ["Supera tu\nmejor puntaje.", "Salva las flores y gana semillas para la siguiente ronda."],
@@ -52,11 +52,11 @@
     ]
   },
   "pt-BR": {
-    "feature": "Plante. Melhore. Colha.",
+    "feature": "60 fases cronometradas",
     "footer": "Interface do jogo em inglês",
     "slides": [
-      ["Leve a água\naté as flores.", "Gire os canais e libere a água da nascente para florir os canteiros."],
-      ["Seu jardim.\nSua próxima colheita.", "Cultive seus canteiros e complete os pedidos."],
+      ["Leve a água\naté as flores.", "Gire os canais para a água chegar às flores antes que o tempo acabe."],
+      ["60 fases\npara explorar.", "Resolva cada quebra-cabeça para desbloquear o próximo."],
       ["Corte as ervas.\nProteja as flores.", "Desafios arcade rápidos na ponta dos dedos."],
       ["Escolha sua\npróxima melhoria.", "Ferramentas, poderes e personagens ninja."],
       ["Busque seu\npróximo recorde.", "Salve as flores e ganhe sementes para a próxima rodada."],
@@ -65,11 +65,11 @@
     ]
   },
   "id": {
-    "feature": "Tanam. Tingkatkan. Panen.",
+    "feature": "60 level berbatas waktu",
     "footer": "Antarmuka game dalam bahasa Inggris",
     "slides": [
-      ["Alirkan air\nke bunga.", "Putar saluran dan buka mata air agar petak kebunmu berbunga."],
-      ["Kebunmu.\nPanen berikutnya.", "Tanam di petak kebun dan penuhi pesanan pasar."],
+      ["Alirkan air\nke bunga.", "Putar saluran dan alirkan air ke bunga sebelum waktu habis."],
+      ["Jelajahi\n60 level.", "Pecahkan teka-teki untuk membuka level berikutnya."],
       ["Tebas gulma.\nLindungi bunga.", "Tantangan arcade singkat dengan usapan jari."],
       ["Pilih peningkatan\nberikutnya.", "Alat, power-up, dan karakter ninja."],
       ["Kejar rekor\nberikutnya.", "Selamatkan bunga dan kumpulkan benih untuk ronde berikutnya."],
@@ -78,11 +78,11 @@
     ]
   },
   "hi-IN": {
-    "feature": "उगाएँ। बेहतर बनाएँ।\nफसल काटें।",
+    "feature": "60 स्तर, सीमित समय",
     "footer": "गेम का इंटरफ़ेस अंग्रेज़ी में है",
     "slides": [
-      ["फूलों तक\nपानी पहुँचाएँ।", "नालियाँ घुमाएँ और पानी छोड़ें, ताकि क्यारियों में फूल खिलें।"],
-      ["अपना बगीचा।\nअपनी अगली फसल।", "क्यारियों में फसल उगाएँ और बाज़ार के ऑर्डर पूरे करें।"],
+      ["फूलों तक\nपानी पहुँचाएँ।", "समय खत्म होने से पहले नालियाँ घुमाकर फूलों तक पानी पहुँचाएँ।"],
+      ["60 स्तर\nखेलें।", "हर पहेली हल करके अगला स्तर खोलें।"],
       ["खरपतवार काटें।\nफूलों को बचाएँ।", "स्वाइप करके छोटे आर्केड चैलेंज खेलें।"],
       ["अपना अगला\nअपग्रेड चुनें।", "औज़ार, पावर-अप और निंजा किरदार।"],
       ["अपना अगला\nरिकॉर्ड बनाएँ।", "फूल बचाएँ और अगले दौर के लिए बीज कमाएँ।"],
@@ -91,11 +91,11 @@
     ]
   },
   "ar": {
-    "feature": "ازرع. طوّر. احصد.",
+    "feature": "٦٠ لغزًا ضدّ الساعة",
     "footer": "واجهة اللعبة باللغة الإنجليزية",
     "slides": [
-      ["أوصل الماء\nإلى الزهور", "أدر القنوات وافتح مجرى النبع لتزهر أحواض الحديقة."],
-      ["حديقتك.\nحصادك القادم.", "ازرع المحاصيل وأكمل طلبات السوق."],
+      ["أوصل الماء\nإلى الزهور", "أدر القنوات ليصل الماء إلى الأزهار قبل انتهاء الوقت."],
+      ["استكشف\n٦٠ مستوى", "حلّ كل لغز لفتح المستوى التالي."],
       ["اقطع الأعشاب.\nواحْمِ الزهور.", "تحديات أركيد سريعة بسحبة إصبع."],
       ["اختر ترقيتك\nالقادمة.", "أدوات ومعززات وشخصيات نينجا."],
       ["حطّم رقمك\nالقياسي.", "أنقذ الزهور واجمع البذور للجولة القادمة."],
@@ -104,11 +104,11 @@
     ]
   },
   "ja-JP": {
-    "feature": "育てよう。強化しよう。\n収穫しよう。",
+    "feature": "時間に挑む60のパズル",
     "footer": "ゲーム内の表示言語は英語です",
     "slides": [
-      ["水をつないで\n花を咲かせよう。", "水路を回して泉の水を流し、花壇を潤そう。"],
-      ["自分だけの庭で\n次の収穫へ。", "作物を育てて、市場の注文を達成しよう。"],
+      ["花まで水を\n届けよう", "時間内に水路を回して花まで水を届けよう。"],
+      ["全60ステージに\n挑戦", "パズルを解くと次のステージが開くよ。"],
       ["雑草を切って\n花を守ろう。", "スワイプで楽しむ、手軽なアーケード。"],
       ["次の強化を\n選ぼう。", "道具、パワーアップ、忍者キャラクター。"],
       ["次のハイスコアを\n目指そう。", "花を守って、次のラウンドに使う種を集めよう。"],
@@ -117,11 +117,11 @@
     ]
   },
   "ko-KR": {
-    "feature": "심고. 강화하고.\n수확하세요.",
+    "feature": "시간제 퍼즐 60개",
     "footer": "게임 화면은 영어로 표시됩니다",
     "slides": [
-      ["꽃밭까지\n물을 보내세요.", "수로를 돌리고 샘물을 흘려보내 꽃을 피우세요."],
-      ["나만의 정원,\n다음 수확을 향해.", "작물을 키우고 시장 주문을 완료하세요."],
+      ["꽃밭까지\n물을 보내세요.", "시간이 다 되기 전에 수로를 돌려 꽃밭까지 물을 보내세요."],
+      ["60개 레벨에\n도전하세요.", "퍼즐을 풀면 다음 레벨이 열려요."],
       ["잡초를 베고\n꽃을 지키세요.", "손끝으로 즐기는 짧은 아케이드 도전."],
       ["다음 업그레이드를\n선택하세요.", "도구, 파워업, 닌자 캐릭터."],
       ["다음 최고 기록에\n도전하세요.", "꽃을 구하고 다음 라운드에 쓸 씨앗을 모으세요."],
