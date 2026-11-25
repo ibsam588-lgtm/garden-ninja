@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_ninja/src/garden/terrace_garden.dart';
@@ -236,4 +238,49 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets('level 60 fits on a phone, completes the campaign and replays', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 680);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final saved = TerraceProgress();
+    for (var i = 0; i < terraceStages.length - 1; i++) {
+      saved.stageIndex = i;
+      saved.turns.setAll(0, saved.stage.solution);
+      saved.clear();
+    }
+    saved.stageIndex = saved.unlocked;
+    expect(saved.stageIndex, 59);
+    saved.turns.setAll(0, saved.stage.solution);
+    SharedPreferences.setMockInitialValues({
+      TerraceProgress.storageKey: jsonEncode(saved.toJson()),
+    });
+    final outcomes = <bool>[];
+    await tester.pumpWidget(
+      MaterialApp(home: TerraceGardenScreen(onRoundCompleted: outcomes.add)),
+    );
+    await tester.pump();
+    final picker = find.byKey(const ValueKey('terrace-levels'));
+    final release = find.byKey(const ValueKey('terrace-release'));
+    expect(find.text('Level 60 of 60'), findsOneWidget);
+    await tester.tap(picker);
+    await tester.pumpAndSettle();
+    expect(find.text('Levels 51–60'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('terrace-stage-59')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(release);
+    await tester.tap(release);
+    await tester.pumpAndSettle();
+    expect(find.text('All 60 terraces are in bloom.'), findsOneWidget);
+    expect(outcomes, [true]);
+    await tester.tap(release);
+    await tester.pump();
+    expect(find.text('Release water'), findsOneWidget);
+    expect(outcomes, [true]);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
 }
