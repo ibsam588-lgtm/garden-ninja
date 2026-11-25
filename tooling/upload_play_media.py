@@ -11,10 +11,6 @@ import os
 from pathlib import Path
 import re
 
-from google.auth.transport.requests import AuthorizedSession
-from google.oauth2 import service_account
-
-
 PACKAGE = "com.gardenninja.garden_ninja"
 HOST = "https://androidpublisher.googleapis.com"
 EDITS = f"/androidpublisher/v3/applications/{PACKAGE}/edits"
@@ -76,7 +72,29 @@ def replace_set(session, path, files):
         raise RuntimeError(f"Uploaded screenshot order or checksums differ for {path}")
 
 
+def commit_media(session, path, draft):
+    params = {"changesInReviewBehavior": "ERROR_IF_IN_REVIEW"}
+    if draft:
+        params["changesNotSentForReview"] = "true"
+    try:
+        result = request(session, "POST", path + ":commit", params=params)
+    except RuntimeError as error:
+        # Google can require a manual submission from Publishing overview.
+        if draft or "changes cannot be sent for review automatically" not in str(error).lower():
+            raise
+        draft = True
+        result = request(session, "POST", path + ":commit",
+                         params={**params, "changesNotSentForReview": "true"})
+    return result["id"], draft
+
+
 def main():
+    from google.auth.transport.requests import AuthorizedSession
+    from google.oauth2 import service_account
+
+    review_mode = os.environ.get("PLAY_MEDIA_REVIEW_MODE", "auto")
+    if review_mode not in {"auto", "draft"}:
+        raise ValueError("Expected Play media review mode auto or draft")
     video_id = os.environ["YOUTUBE_VIDEO_ID"]
     if not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
         raise ValueError("Expected an 11-character YouTube video ID")
@@ -120,16 +138,9 @@ def main():
                     if any(updated.get(k) != v for k, v in fields.items()):
                         raise RuntimeError(f"Could not verify description or trailer for {locale}")
             request(session, "POST", path + ":validate")
-            params = {"changesInReviewBehavior": "ERROR_IF_IN_REVIEW"}
-            try:
-                result = request(session, "POST", path + ":commit", params=params)
-            except RuntimeError as error:
-                # Some apps must send the validated changes from Publishing overview.
-                if "changes cannot be sent for review automatically" not in str(error).lower():
-                    raise
-                params["changesNotSentForReview"] = "true"
-                result = request(session, "POST", path + ":commit", params=params)
-            print(f"Committed Play listing edit {result['id']} with trailer {video}")
+            edit_id, staged = commit_media(session, path, review_mode == "draft")
+            status = "Staged for manual submission" if staged else "Submitted for review"
+            print(f"{status} — Play listing edit {edit_id} with trailer {video}")
         except Exception:
             # Discard only our own incomplete transaction. The live assets remain intact.
             session.delete(HOST + path, timeout=30)
