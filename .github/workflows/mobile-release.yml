@@ -11,7 +11,7 @@ on:
       operation:
         description: Validate, upload to testing, or submit/promote an already tested build
         type: choice
-        options: [ validate, upload, submit_for_review, promote_production ]
+        options: [ validate, upload, submit_for_review, promote_production, upload_store_media ]
         default: validate
       version:
         description: Tested Apple app version (App Review only)
@@ -21,6 +21,9 @@ on:
         type: string
       version_code:
         description: Tested Google internal version code (production promotion only)
+        type: string
+      youtube_id:
+        description: Published YouTube video ID for the Google Play screenshot update
         type: string
   push:
     branches:
@@ -77,6 +80,25 @@ jobs:
     uses: ./.github/workflows/ios-build.yml
     with:
       checkout_ref: ${{ needs.select.outputs.revision }}
+  play-store-media:
+    name: Upload existing screenshots and trailer link
+    needs: select
+    if: needs.select.outputs.platform == 'android' && needs.select.outputs.operation == 'upload_store_media'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r tooling/store-purchases-requirements.txt
+      - name: Replace listing media in one Google Play edit
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          YOUTUBE_VIDEO_ID: ${{ inputs.youtube_id }}
+        run: python tooling/upload_play_media.py
   validate-android:
     name: Validate Android
     needs: select

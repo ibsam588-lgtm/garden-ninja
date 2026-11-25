@@ -1,4 +1,1 @@
-Garden Ninja 1.1.7
-- Ads now appear after three completed rounds, including wins and losses.
-- Harvest rounds use the same timing, and exit ads have been removed.
-- Added support for Chartboost mediation and Google Play Games platform sign-in.
+Open Terrace Garden from the home screen to play three irrigation puzzles. Turn the stone channels, release the spring and bring each flower bed into bloom. Revisit a hillside to beat your best number of turns.
