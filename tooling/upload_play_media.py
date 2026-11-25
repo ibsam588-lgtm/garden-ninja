@@ -16,6 +16,7 @@ HOST = "https://androidpublisher.googleapis.com"
 EDITS = f"/androidpublisher/v3/applications/{PACKAGE}/edits"
 METADATA = Path(__file__).resolve().parents[1] / "fastlane/metadata/android"
 TYPES = ("phoneScreenshots", "sevenInchScreenshots", "tenInchScreenshots")
+MANUAL_REVIEW_MESSAGE = "changes cannot be sent for review automatically"
 
 
 def read_sets():
@@ -73,6 +74,15 @@ def replace_set(session, path, files):
 
 
 def commit_media(session, path, draft):
+    try:
+        request(session, "POST", path + ":validate")
+    except RuntimeError as error:
+        # Only edits.commit accepts the draft flag that Play can require at validation.
+        message = str(error).lower()
+        if MANUAL_REVIEW_MESSAGE not in message or "changesnotsentforreview to true" not in message:
+            raise
+        draft = True
+
     params = {"changesInReviewBehavior": "ERROR_IF_IN_REVIEW"}
     if draft:
         params["changesNotSentForReview"] = "true"
@@ -80,7 +90,7 @@ def commit_media(session, path, draft):
         result = request(session, "POST", path + ":commit", params=params)
     except RuntimeError as error:
         # Google can require a manual submission from Publishing overview.
-        if draft or "changes cannot be sent for review automatically" not in str(error).lower():
+        if draft or MANUAL_REVIEW_MESSAGE not in str(error).lower():
             raise
         draft = True
         result = request(session, "POST", path + ":commit",
@@ -137,7 +147,6 @@ def main():
                     updated = request(session, "PATCH", listing_path, json=fields)
                     if any(updated.get(k) != v for k, v in fields.items()):
                         raise RuntimeError(f"Could not verify description or trailer for {locale}")
-            request(session, "POST", path + ":validate")
             edit_id, staged = commit_media(session, path, review_mode == "draft")
             status = "Staged for manual submission" if staged else "Submitted for review"
             print(f"{status} — Play listing edit {edit_id} with trailer {video}")
