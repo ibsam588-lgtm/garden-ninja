@@ -58,7 +58,8 @@ async function makeFeature(locale,copy,art,destination) {
   const brand=await text('en-US','Garden\nNINJA',490,245,110,'#f0ffd7','left');
   const tag=await text(locale,copy.feature,460,113,40,'#d8f99b',locale==='ar'?'right':'left');
   const base=svg(1024,500,`<defs><linearGradient id="shade"><stop stop-color="#04180f" stop-opacity=".98"/><stop offset=".44" stop-color="#04180f" stop-opacity=".9"/><stop offset=".72" stop-color="#04180f" stop-opacity=".12"/><stop offset="1" stop-color="#04180f" stop-opacity=".04"/></linearGradient></defs>${imageTag(art,0,0,1024,500)}<rect width="1024" height="500" fill="url(#shade)"/><rect x="60" y="61" width="69" height="5" rx="2" fill="#b9ec67"/><path d="M60 337 H445" stroke="#cdb878" opacity=".7" stroke-width="2"/>`);
-  await sharp(Buffer.from(base)).composite([{input:brand.data,top:91,left:60},{input:tag.data,top:361,left:60}]).flatten({background:'#04180f'}).png({compressionLevel:9}).toFile(destination);
+  const graphic = await sharp(Buffer.from(base)).composite([{input:brand.data,top:91,left:60},{input:tag.data,top:361,left:60}]).png().toBuffer();
+  await sharp(graphic).flatten({background:'#04180f'}).png({compressionLevel:9}).toFile(destination);
 }
 async function montage(files,w,h,cols,dest) {
   const layers=[];
@@ -75,6 +76,11 @@ async function montage(files,w,h,cols,dest) {
     return {href:`data:image/png;base64,${bytes.toString('base64')}`,width,height};
   }));
   const features=[],manifest={};
+  if (!screenshotsOnly) {
+    const englishFeature = path.join(metadata, 'en-US/images/featureGraphic.png');
+    await makeFeature('en-US', {feature: 'Terrace Garden\n60 timed puzzles'}, art, englishFeature);
+    features.push(englishFeature);
+  }
   for(const [locale,copy] of Object.entries(allCopy)) {
     const dir=path.join(metadata,locale,'images');
     await fs.mkdir(path.join(dir,'phoneScreenshots'),{recursive:true});
