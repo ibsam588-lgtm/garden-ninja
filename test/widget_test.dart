@@ -89,12 +89,25 @@ void main() {
     }
   });
 
+  testWidgets('Terrace Garden opens from home and Android back returns home', (
+    tester,
+  ) async {
+    await pumpGardenNinja(tester);
+    await tester.tap(find.byKey(const ValueKey('open-terrace-garden')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(find.byKey(const ValueKey('terrace-release')), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('primary-PLAY')), findsOneWidget);
+  });
+
   testWidgets('Garden Ninja shows home and can start play', (tester) async {
     await pumpGardenNinja(tester);
 
     expect(find.text('Garden'), findsAtLeastNWidgets(1));
     expect(find.text('NINJA'), findsAtLeastNWidgets(1));
-    expect(find.text('SWIPE. SLASH. SAVE THE GARDEN!'), findsOneWidget);
+    expect(find.text('Terrace Garden'), findsOneWidget);
     expect(find.text('840'), findsWidgets);
     expect(find.text('PLAY'), findsOneWidget);
 

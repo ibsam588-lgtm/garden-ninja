@@ -63,3 +63,12 @@ test('string false cannot enable upload', async () => assert.equal((await run({ 
 test('explicit operation overrides upload default', async () => assert.equal((await run({ event: 'workflow_dispatch', inputs: { platform: 'ios', operation: 'validate' } })).upload, 'false'));
 test('App Review remains an explicit operation', async () => assert.equal((await run({ event: 'workflow_dispatch', inputs: { platform: 'ios', operation: 'submit_for_review' } })).operation, 'submit_for_review'));
 test('unsupported operation fails', async () => assert.rejects(run({ event: 'workflow_dispatch', inputs: { platform: 'ios', operation: 'publish-all' } }), /Unsupported/));
+test('Play media stages without starting a build', async () => {
+  const inputs = { platform: 'android', operation: 'upload_store_media', youtube_id: 'aBcDeF0_-12' };
+  const selection = await run({ event: 'workflow_dispatch', inputs });
+  assert.equal(selection.operation, 'upload_store_media');
+  assert.equal(selection.upload, 'false');
+  for (const invalid of [{ platform: 'ios' }, { youtube_id: '' }]) {
+    await assert.rejects(run({ event: 'workflow_dispatch', inputs: { ...inputs, ...invalid } }), /Google Play media/);
+  }
+});

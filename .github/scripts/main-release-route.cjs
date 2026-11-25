@@ -12,8 +12,12 @@ async function selectRelease({ github, context, core, inputs = {}, defaultUpload
     if (!PLATFORMS.includes(platform)) throw new Error('Choose exactly one mobile platform.');
     const requestedUpload = inputs.upload === undefined ? defaultUpload : inputs.upload === true || inputs.upload === 'true';
     operation = inputs.operation || (requestedUpload ? 'upload' : 'validate');
-    if (!['validate', 'upload', 'submit_for_review', 'promote_production'].includes(operation)) {
+    if (!['validate', 'upload', 'submit_for_review', 'promote_production', 'upload_store_media'].includes(operation)) {
       throw new Error('Unsupported mobile release operation.');
+    }
+    if (operation === 'upload_store_media' &&
+        (platform !== 'android' || !/^[A-Za-z0-9_-]{11}$/.test(inputs.youtube_id || ''))) {
+      throw new Error('Google Play media requires Android and a published YouTube video ID.');
     }
     upload = operation === 'upload';
   } else if (context.eventName === 'push') {
