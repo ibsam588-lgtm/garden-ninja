@@ -93,7 +93,9 @@ void main() {
     tester,
   ) async {
     await pumpGardenNinja(tester);
-    await tester.tap(find.byKey(const ValueKey('open-terrace-garden')));
+    expect(find.text('Terrace Garden'), findsOneWidget);
+    expect(find.text('GARDEN'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 16));
     expect(find.byKey(const ValueKey('terrace-release')), findsOneWidget);
@@ -584,24 +586,8 @@ void main() {
     expect(find.text('Quit this run?'), findsNothing);
   });
 
-  testWidgets('approved harvest garden replaces the old care toolbar', (
-    tester,
-  ) async {
-    await pumpGardenNinja(tester);
-    await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(find.byKey(const ValueKey('harvest-garden')), findsOneWidget);
-    expect(find.text('My Garden'), findsOneWidget);
-    expect(find.text('Start harvest'), findsOneWidget);
-    expect(find.text('Strawberries  0/12'), findsOneWidget);
-    expect(find.byKey(const ValueKey('garden-tool-water')), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('harvest-back')));
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.byKey(const ValueKey('primary-PLAY')), findsOneWidget);
-  });
-
   testWidgets(
-    'legacy balance and plots survive a new garden upgrade and reopening',
+    'visiting Terrace Garden preserves the existing seed balance and plots',
     (tester) async {
       await pumpGardenNinja(
         tester,
@@ -618,25 +604,17 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
       await tester.pump(const Duration(milliseconds: 200));
-      expect(find.text('1,500'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('harvest-build')));
       await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('harvest-buy-upgrade')));
+      expect(find.byKey(const ValueKey('terrace-clock')), findsOneWidget);
+      expect(find.byKey(const ValueKey('harvest-garden')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('terrace-back')));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('600'), findsOneWidget);
+      expect(find.text('1,500'), findsWidgets);
       final prefs = await SharedPreferences.getInstance();
       final saved =
           jsonDecode(prefs.getString('garden_ninja_garden_v4')!) as Map;
-      expect(saved['seeds'], 600);
-      expect(saved['harvestMastery']['greenhouse'], 1);
+      expect(saved['seeds'], 1500);
       expect((saved['plots'] as List).first['plantIndex'], 6);
-      await tester.tap(find.byKey(const ValueKey('harvest-back')));
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('harvest-build')));
-      await tester.pump();
-      expect(find.text('Level 1 complete'), findsOneWidget);
     },
   );
 

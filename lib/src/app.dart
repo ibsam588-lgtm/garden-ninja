@@ -15,7 +15,6 @@ import 'package:garden_ninja/src/ads/ad_placement_config.dart';
 import 'package:garden_ninja/src/ads/ad_service.dart';
 import 'package:garden_ninja/src/ads/ad_age_gate.dart';
 import 'package:garden_ninja/src/audio/audio_assets.dart';
-import 'package:garden_ninja/src/garden/harvest_garden.dart';
 import 'package:garden_ninja/src/garden/harvest_model.dart';
 import 'package:garden_ninja/src/garden/terrace_garden.dart';
 import 'package:garden_ninja/src/game_center/game_center_service.dart';
@@ -57,7 +56,7 @@ class GardenNinjaApp extends StatelessWidget {
   }
 }
 
-enum GamePhase { home, playing, paused, results, upgrades, garden, terrace }
+enum GamePhase { home, playing, paused, results, upgrades, garden }
 
 enum TargetType { weed, flower }
 
@@ -841,8 +840,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   final PlayReviewGateway _playReviewGateway = PlayReviewGateway();
   final GameCenterService _gameCenter = GameCenterService();
   HarvestProgress _harvestProgress = HarvestProgress();
-  final GlobalKey<HarvestGardenState> _harvestKey =
-      GlobalKey<HarvestGardenState>();
   final Map<String, AudioPool> _sfxPools = {};
   final AudioContext _musicAudioContext = AudioContextConfig(
     focus: AudioContextConfigFocus.gain,
@@ -2744,9 +2741,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     // A required store update must freeze an in-progress arcade round too.
     if (_forceUpdateVisible) return;
 
-    // The new garden owns its animation and lifecycle. Do not tick legacy
-    // growth, weeds or daily rewards while playing harvest challenges.
-    if (_phase == GamePhase.garden || _phase == GamePhase.terrace) return;
+    // Terrace Garden owns its countdown and animation lifecycle.
+    if (_phase == GamePhase.garden) return;
 
     if (_phase == GamePhase.playing) {
       setState(() {
@@ -3858,18 +3854,16 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     await _considerReviewRequest();
   }
 
-  void _onHarvestRoundCompleted() {
+  void _onTerraceRoundCompleted(bool won) {
     _adBreakPolicy.recordRunCompleted();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted &&
-          _phase == GamePhase.garden &&
-          (_harvestKey.currentState?.showingRoundResult ?? false)) {
-        unawaited(_showHarvestRoundInterstitial());
+      if (mounted && !_forceUpdateVisible && _phase == GamePhase.garden) {
+        unawaited(_showTerraceRoundInterstitial());
       }
     });
   }
 
-  Future<void> _showHarvestRoundInterstitial() async {
+  Future<void> _showTerraceRoundInterstitial() async {
     if (!_adBreakPolicy.isInterstitialDue) return;
     final bool shown = await _showInterstitialBreak(
       placementName: 'after_harvest_round',
@@ -4135,11 +4129,10 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
     unawaited(_musicPlayer.setVolume(0.32));
   }
 
-  void _openGarden({bool terrace = false}) {
+  void _openGarden() {
     _ensureMusicStarted();
     setState(() {
-      _harvestProgress.coins = _seeds;
-      _phase = terrace ? GamePhase.terrace : GamePhase.garden;
+      _phase = GamePhase.garden;
       if (_musicEnabled && _selectedMusicTrack != _gardenCalmMusicTrack) {
         _musicTrackBeforeGarden = _selectedMusicTrack;
         _selectedMusicTrack = _gardenCalmMusicTrack;
@@ -4587,7 +4580,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   void _goHome() {
     final bool leavingGarden = _phase == GamePhase.garden;
-    final bool leavingTerrace = _phase == GamePhase.terrace;
     setState(() {
       if (leavingGarden) {
         _gardenLastVisitMs = _gardenNow.millisecondsSinceEpoch;
@@ -4601,10 +4593,8 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
       _tutorialMode = false;
       _clearSlicerRound();
     });
-    if (leavingGarden || leavingTerrace) {
-      _restoreMusicAfterGarden();
-    }
     if (leavingGarden) {
+      _restoreMusicAfterGarden();
       _queueGardenSave();
       unawaited(_syncGardenNotifications());
     }
@@ -6077,10 +6067,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
   }
 
   Future<void> _handleBackIntent() async {
-    if (_phase == GamePhase.garden) {
-      _harvestKey.currentState?.handleBack();
-      return;
-    }
     if (_phase == GamePhase.playing) {
       _pause();
       return;
@@ -6150,55 +6136,24 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (_phase == GamePhase.garden || _phase == GamePhase.terrace) {
-      return PopScope<void>(
-        canPop: _phase == GamePhase.terrace && !_forceUpdateVisible,
-        onPopInvokedWithResult: (didPop, result) {
-          if (!didPop && !_forceUpdateVisible && _phase == GamePhase.garden) {
-            _harvestKey.currentState?.handleBack();
-          }
-        },
-        child: Scaffold(
-          backgroundColor: const Color(0xFF273020),
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (_phase == GamePhase.terrace)
-                TickerMode(
-                  enabled: !_forceUpdateVisible,
-                  child: TerraceGardenScreen(
-                    onExit: () {
-                      if (!_forceUpdateVisible) _goHome();
-                    },
-                    onRotate: () => _playSfx(_sfxBambooBlade, volume: .18),
-                    onRelease: () => _playSfx(_sfxWetVine, volume: .28),
-                    onBloom: () => _playSfx(_sfxComboSpark, volume: .35),
-                  ),
-                )
-              else if (_gardenSaveLoaded)
-                HarvestGarden(
-                  key: _harvestKey,
-                  progress: _harvestProgress,
-                  suspended:
-                      _forceUpdateVisible ||
-                      _interstitialAdShowing ||
-                      _rewardedAdShowing,
-                  onExit: _goHome,
-                  onSave: () {
-                    _seeds = _harvestProgress.coins;
-                    _queueGardenSave();
-                  },
-                  onHarvest: () => _playSfx(_sfxComboSpark, volume: .35),
-                  onRoundCompleted: _onHarvestRoundCompleted,
-                )
-              else
-                const Center(
-                  child: CircularProgressIndicator(color: Color(0xFFE2AE70)),
-                ),
-              if (_forceUpdateVisible) _buildForcedUpdateLayer(),
-            ],
+    if (_phase == GamePhase.garden) {
+      final suspended =
+          _forceUpdateVisible || _interstitialAdShowing || _rewardedAdShowing;
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          TerraceGardenScreen(
+            suspended: suspended,
+            onExit: () {
+              if (!suspended) _goHome();
+            },
+            onRotate: () => _playSfx(_sfxBambooBlade, volume: .18),
+            onRelease: () => _playSfx(_sfxWetVine, volume: .28),
+            onBloom: () => _playSfx(_sfxComboSpark, volume: .35),
+            onRoundCompleted: _onTerraceRoundCompleted,
           ),
-        ),
+          if (_forceUpdateVisible) _buildForcedUpdateLayer(),
+        ],
       );
     }
     return PopScope<void>(
@@ -7231,7 +7186,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
           right: 64,
           top: 370,
           child: FilledButton.icon(
-            key: const ValueKey('open-terrace-garden'),
+            key: const ValueKey('home-menu-Garden'),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF125351),
               foregroundColor: const Color(0xFFFFF2CD),
@@ -7244,7 +7199,7 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
             ),
             icon: const Icon(Icons.water_drop_outlined),
             label: const Text('Terrace Garden'),
-            onPressed: () => _openGarden(terrace: true),
+            onPressed: _openGarden,
           ),
         ),
         Positioned(
@@ -7330,16 +7285,6 @@ class _GardenNinjaScreenState extends State<GardenNinjaScreen>
                       onTap: _openUpgrades,
                       phase: t,
                       delay: 0.5,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _AnimatedHomeMenuTile(
-                      icon: Icons.local_florist_rounded,
-                      label: 'Garden',
-                      onTap: _openGarden,
-                      phase: t,
-                      delay: 1.0,
                     ),
                   ),
                 ],

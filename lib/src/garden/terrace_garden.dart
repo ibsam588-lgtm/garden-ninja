@@ -15,7 +15,155 @@ const _teal = Color(0xff1b5952);
 const _assetDir = 'assets/images/terrace';
 const _directions = ['north', 'east', 'south', 'west'];
 
-enum _Phase { edit, flowing, spill, won }
+class _TerraceLevelPicker extends StatefulWidget {
+  const _TerraceLevelPicker({required this.progress});
+  final TerraceProgress progress;
+
+  @override
+  State<_TerraceLevelPicker> createState() => _TerraceLevelPickerState();
+}
+
+class _TerraceLevelPickerState extends State<_TerraceLevelPicker> {
+  static const _pageSize = 10;
+  late int _page = widget.progress.stageIndex ~/ _pageSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final game = widget.progress;
+    final start = _page * _pageSize;
+    final end = math.min(start + _pageSize, terraceStages.length);
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Terrace levels',
+                      style: TextStyle(
+                        color: _ink,
+                        fontFamily: 'serif',
+                        fontSize: 26,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Close levels',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              Text(
+                '${game.cleared.where((clear) => clear).length} of ${terraceStages.length} in bloom',
+                style: const TextStyle(color: _muted),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    tooltip: 'Previous ten levels',
+                    onPressed: _page > 0 ? () => setState(() => _page--) : null,
+                    icon: const Icon(Icons.chevron_left),
+                  ),
+                  Text(
+                    'Levels ${start + 1}–$end',
+                    style: const TextStyle(
+                      color: _ink,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Next ten levels',
+                    onPressed: end < terraceStages.length
+                        ? () => setState(() => _page++)
+                        : null,
+                    icon: const Icon(Icons.chevron_right),
+                  ),
+                ],
+              ),
+              LayoutBuilder(
+                builder: (context, bounds) {
+                  final columns = (bounds.maxWidth / 56).floor().clamp(1, 5);
+                  final width = (bounds.maxWidth - (columns - 1) * 6) / columns;
+                  return Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (int i = start; i < end; i++)
+                        SizedBox(width: width, child: _levelButton(context, i)),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _levelButton(BuildContext context, int i) {
+    final game = widget.progress;
+    final locked = i > game.unlocked;
+    final active = game.stageIndex == i;
+    final done = game.cleared[i];
+    return Semantics(
+      button: true,
+      enabled: !locked,
+      selected: active,
+      label:
+          'Level ${i + 1}, ${terraceStages[i].name}${locked
+              ? ', locked'
+              : done
+              ? ', in bloom'
+              : ''}',
+      child: FilledButton(
+        key: ValueKey('terrace-stage-$i'),
+        onPressed: locked ? null : () => Navigator.pop(context, i),
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
+          minimumSize: const Size(44, 55),
+          backgroundColor: active ? _teal : const Color(0xffd6e4ca),
+          foregroundColor: active ? _cream : _ink,
+          disabledBackgroundColor: const Color(0xffe6e4d4),
+          disabledForegroundColor: _muted,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: ExcludeSemantics(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${i + 1}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Icon(
+                locked
+                    ? Icons.lock_outline
+                    : done
+                    ? Icons.local_florist_outlined
+                    : Icons.water_drop_outlined,
+                size: 14,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _Phase { edit, flowing, spill, won, expired }
 
 class TerraceGardenScreen extends StatefulWidget {
   const TerraceGardenScreen({
@@ -24,8 +172,12 @@ class TerraceGardenScreen extends StatefulWidget {
     this.onRotate,
     this.onRelease,
     this.onBloom,
+    this.suspended = false,
+    this.onRoundCompleted,
   });
   final VoidCallback? onExit, onRotate, onRelease, onBloom;
+  final bool suspended;
+  final ValueChanged<bool>? onRoundCompleted;
 
   @override
   State<TerraceGardenScreen> createState() => _TerraceGardenScreenState();
@@ -59,13 +211,24 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
   int? _hinted, _rotating;
   String _feedback = '';
   bool _ready = false;
+  bool _foreground = true;
+  bool _choosingLevel = false;
+  final Stopwatch _elapsed = Stopwatch();
+  Timer? _clockTick;
+  int _startingMs = 0;
+  int get _remainingMs => _game.remainingMs[_game.stageIndex];
+  bool get _interactive => _foreground && !widget.suspended && !_choosingLevel;
   bool get _canTurn =>
-      _ready && (_phase == _Phase.edit || _phase == _Phase.spill);
+      _ready &&
+      _interactive &&
+      (_phase == _Phase.edit || _phase == _Phase.spill);
   bool get _reduced => MediaQuery.disableAnimationsOf(context);
 
   @override
   void initState() {
     super.initState();
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
     _load();
     _loadArt();
@@ -95,6 +258,7 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
         _ready = true;
         _restorePhase();
       });
+      _syncPlayback();
     }
   }
 
@@ -121,33 +285,123 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
     _spin.stop();
     _hinted = _rotating = null;
     final won = _game.finished[_game.stageIndex];
-    _phase = won ? _Phase.won : _Phase.edit;
+    _phase = won
+        ? _Phase.won
+        : _remainingMs == 0
+        ? _Phase.expired
+        : _Phase.edit;
     _result = won ? traceTerrace(_game.stage, _game.turns) : null;
-    _feedback = won
-        ? 'The connected beds will stay in bloom.'
-        : 'Follow the channel from the spring on the left.';
+    _feedback = switch (_phase) {
+      _Phase.won => 'The connected beds will stay in bloom.',
+      _Phase.expired => 'Try this route again with a fresh clock.',
+      _ => 'Tap the brass channels, then release the water.',
+    };
+  }
+
+  // The stopwatch accounts for slow frames and app interruptions. The one-shot
+  // timer wakes only when the displayed second changes.
+  void _startClock() {
+    if (_elapsed.isRunning || !_canTurn || _remainingMs <= 0) return;
+    _startingMs = _remainingMs;
+    _elapsed
+      ..reset()
+      ..start();
+    _scheduleTick();
+  }
+
+  void _scheduleTick() {
+    final remaining = _remainingMs;
+    final delay = (remaining - 1) % 1000 + 1;
+    _clockTick = Timer(Duration(milliseconds: delay), () {
+      if (!mounted || !_canTurn) return;
+      _game.remainingMs[_game.stageIndex] = math.max(
+        0,
+        math.min(remaining - delay, _startingMs - _elapsed.elapsedMilliseconds),
+      );
+      if (_remainingMs == 0) {
+        _expire();
+        return;
+      }
+      setState(() {});
+      if ((_remainingMs / 1000).ceil() % 5 == 0) _save();
+      _scheduleTick();
+    });
+  }
+
+  void _recordTime() {
+    if (!_elapsed.isRunning) return;
+    _game.remainingMs[_game.stageIndex] = math.max(
+      0,
+      math.min(_remainingMs, _startingMs - _elapsed.elapsedMilliseconds),
+    );
+  }
+
+  void _stopClock() {
+    _recordTime();
+    _clockTick?.cancel();
+    _elapsed.stop();
+  }
+
+  void _expire() {
+    if (_phase == _Phase.expired) return;
+    _stopClock();
+    _spin.stop();
+    setState(() {
+      _phase = _Phase.expired;
+      _hinted = _rotating = null;
+      _feedback = 'Try this route again with a fresh clock.';
+    });
+    _save();
+    widget.onRoundCompleted?.call(false);
+  }
+
+  bool _hasTime() {
+    if (!_canTurn) return false;
+    _recordTime();
+    if (_remainingMs > 0) return true;
+    _expire();
+    return false;
+  }
+
+  void _syncPlayback() {
+    if (!_ready) return;
+    if (!_interactive) {
+      _stopClock();
+      _water.stop();
+      _save();
+    } else if (_phase == _Phase.flowing) {
+      if (!_water.isAnimating) _water.forward();
+    } else if (_canTurn && _remainingMs == 0) {
+      _expire();
+    } else {
+      _startClock();
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_phase != _Phase.flowing) return;
-    if (state == AppLifecycleState.resumed) {
-      if (!_water.isAnimating) _water.forward();
-    } else {
-      _water.stop();
-    }
+    _foreground = state == AppLifecycleState.resumed;
+    _syncPlayback();
+  }
+
+  @override
+  void didUpdateWidget(TerraceGardenScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.suspended != oldWidget.suspended) _syncPlayback();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _stopClock();
+    if (_ready) _save();
     _water.dispose();
     _spin.dispose();
     super.dispose();
   }
 
   void _rotate(int cell) {
-    if (!_canTurn || _game.stage.tiles[cell].fixed) return;
+    if (!_hasTime() || _game.stage.tiles[cell].fixed) return;
     setState(() {
       _game.rotate(cell);
       _phase = _Phase.edit;
@@ -162,7 +416,7 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
   }
 
   void _hint() {
-    if (!_canTurn) return;
+    if (!_hasTime()) return;
     final cell = terraceHint(_game.stage, _game.turns);
     setState(() {
       _hinted = cell;
@@ -179,29 +433,42 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
         _phase == _Phase.flowing) {
       return;
     }
+    _stopClock();
     setState(() {
       _game.stageIndex = index;
       _restorePhase();
     });
+    _syncPlayback();
     _save();
   }
 
   void _replay() {
+    _stopClock();
     setState(() {
       _game.replay();
       _restorePhase();
     });
+    _syncPlayback();
     _save();
   }
 
   void _release() {
-    if (!_ready || _phase == _Phase.flowing) return;
+    if (!_ready || !_interactive || _phase == _Phase.flowing) return;
+    if (_phase == _Phase.expired) {
+      _replay();
+      return;
+    }
     if (_phase == _Phase.won) {
       if (_game.stageIndex == terraceStages.length - 1) {
         _replay();
       } else {
         _go(_game.stageIndex + 1);
       }
+      return;
+    }
+    _stopClock();
+    if (_remainingMs == 0) {
+      _expire();
       return;
     }
     final result = traceTerrace(_game.stage, _game.turns);
@@ -243,6 +510,9 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
     if (result.solved) {
       _save();
       widget.onBloom?.call();
+      widget.onRoundCompleted?.call(true);
+    } else {
+      _syncPlayback();
     }
   }
 
@@ -269,7 +539,8 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
               : LayoutBuilder(
                   builder: (context, bounds) {
                     final wide =
-                        bounds.maxWidth >= 580 && bounds.maxHeight < 480;
+                        bounds.maxWidth >= 580 &&
+                        bounds.maxWidth > bounds.maxHeight * 1.2;
                     if (wide) {
                       return Center(
                         child: SingleChildScrollView(
@@ -373,14 +644,16 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
                 child: ExcludeSemantics(
                   child: Row(
                     children: [
-                      for (final (i, cleared) in _game.cleared.indexed)
-                        if (cleared)
-                          Image.asset(
-                            '$_assetDir/${terraceStages[i].goals.last.crop}.webp',
-                            width: compact ? 29 : 39,
-                            height: compact ? 40 : 53,
-                            fit: BoxFit.contain,
-                          ),
+                      for (final crop in {
+                        for (final (i, cleared) in _game.cleared.indexed)
+                          if (cleared) terraceStages[i].goals.last.crop,
+                      })
+                        Image.asset(
+                          '$_assetDir/$crop.webp',
+                          width: compact ? 29 : 39,
+                          height: compact ? 40 : 53,
+                          fit: BoxFit.contain,
+                        ),
                     ],
                   ),
                 ),
@@ -391,6 +664,7 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   IconButton(
+                    key: const ValueKey('terrace-back'),
                     tooltip: 'Back to home',
                     onPressed: _exit,
                     icon: const Icon(
@@ -433,97 +707,105 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
     );
   }
 
+  Future<void> _chooseLevel() async {
+    if (!_ready || !_interactive || _phase == _Phase.flowing) return;
+    _choosingLevel = true;
+    _syncPlayback();
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: _cream,
+      showDragHandle: true,
+      builder: (context) => _TerraceLevelPicker(progress: _game),
+    );
+    if (!mounted) return;
+    _choosingLevel = false;
+    if (picked != null && picked != _game.stageIndex) {
+      _go(picked);
+    } else {
+      _syncPlayback();
+    }
+  }
+
   Widget _stageHeader() {
-    return LayoutBuilder(
-      builder: (context, bounds) {
-        final heading = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final secs = (_remainingMs / 1000).ceil();
+    final time = '${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}';
+    final low = secs <= 10 && _phase != _Phase.won;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Text(
-              'TERRACE ${_game.stageIndex + 1} OF ${terraceStages.length}',
-              style: const TextStyle(
-                color: _muted,
-                fontSize: 11,
-                letterSpacing: 1.6,
-                fontWeight: FontWeight.w700,
+            Expanded(
+              child: TextButton.icon(
+                key: const ValueKey('terrace-levels'),
+                style: TextButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  foregroundColor: _teal,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  minimumSize: const Size(48, 44),
+                ),
+                onPressed: _phase == _Phase.flowing || widget.suspended
+                    ? null
+                    : _chooseLevel,
+                icon: const Icon(Icons.grid_view_rounded, size: 18),
+                label: Text(
+                  'Level ${_game.stageIndex + 1} of ${terraceStages.length}',
+                ),
               ),
             ),
-            Text(
-              _game.stage.name,
-              style: const TextStyle(
-                fontFamily: 'serif',
-                fontSize: 27,
-                height: 1.12,
-                color: _ink,
-              ),
-            ),
-          ],
-        );
-        final buttons = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final (i, stage) in terraceStages.indexed)
-              Semantics(
-                label:
-                    'Terrace ${i + 1}, ${stage.name}${_game.cleared[i]
-                        ? ', in bloom'
-                        : i > _game.unlocked
-                        ? ', locked'
-                        : ''}',
-                selected: _game.stageIndex == i,
-                button: true,
-                child: IconButton(
-                  key: ValueKey('terrace-stage-$i'),
-                  onPressed: i <= _game.unlocked && _phase != _Phase.flowing
-                      ? () => _go(i)
-                      : null,
-                  icon: ExcludeSemantics(
-                    child: Container(
-                      alignment: Alignment.center,
-                      width: 29,
-                      height: 29,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _game.stageIndex == i
-                            ? _teal
-                            : _game.cleared[i]
-                            ? const Color(0xffd2debb)
-                            : const Color(0xffe9e7d3),
-                        border: Border.all(color: const Color(0xff9caa8f)),
+            Semantics(
+              label:
+                  'Time remaining, ${secs ~/ 60} minutes ${secs % 60} seconds',
+              excludeSemantics: true,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: low
+                      ? const Color(0xffffe2cf)
+                      : const Color(0xffdce8d6),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.timer_outlined,
+                        size: 18,
+                        color: low ? const Color(0xff923915) : _teal,
                       ),
-                      child: _game.cleared[i]
-                          ? Icon(
-                              Icons.check_rounded,
-                              size: 16,
-                              color: _game.stageIndex == i ? _cream : _ink,
-                            )
-                          : Text(
-                              '${i + 1}',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: _game.stageIndex == i ? _cream : _muted,
-                              ),
-                            ),
-                    ),
+                      const SizedBox(width: 5),
+                      Text(
+                        time,
+                        key: const ValueKey('terrace-clock'),
+                        style: TextStyle(
+                          color: low ? const Color(0xff923915) : _ink,
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
+            ),
           ],
-        );
-        if (bounds.maxWidth < 330 ||
-            MediaQuery.textScalerOf(context).scale(20) > 28) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [heading, buttons],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(child: heading),
-            buttons,
-          ],
-        );
-      },
+        ),
+        Text(
+          _game.stage.name,
+          style: const TextStyle(
+            fontFamily: 'serif',
+            fontSize: 27,
+            height: 1.12,
+            color: _ink,
+          ),
+        ),
+      ],
     );
   }
 
@@ -605,10 +887,15 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
 
   Widget _console() {
     final won = _phase == _Phase.won, pouring = _phase == _Phase.flowing;
+    final expired = _phase == _Phase.expired;
     final last = _game.stageIndex == terraceStages.length - 1;
     final names = _game.stage.goals.map((goal) => goal.name).join(' and ');
     final objective = won
-        ? (last ? 'All three terraces are in bloom.' : '$names in bloom.')
+        ? (last
+              ? 'All ${terraceStages.length} terraces are in bloom.'
+              : '$names in bloom.')
+        : expired
+        ? 'Time’s up'
         : 'Water $names.';
     return Padding(
       padding: const EdgeInsets.fromLTRB(3, 14, 3, 10),
@@ -637,7 +924,7 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
             spacing: 8,
             runSpacing: 6,
             children: [
-              if (!won || !last)
+              if (!expired && (!won || !last))
                 OutlinedButton(
                   key: const ValueKey('terrace-hint'),
                   onPressed: pouring
@@ -657,7 +944,7 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
                 ),
               FilledButton.icon(
                 key: const ValueKey('terrace-release'),
-                onPressed: pouring ? null : _release,
+                onPressed: pouring || widget.suspended ? null : _release,
                 style: FilledButton.styleFrom(
                   backgroundColor: _teal,
                   foregroundColor: _cream,
@@ -669,6 +956,8 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
                 icon: Icon(
                   won
                       ? (last ? Icons.replay_rounded : Icons.east_rounded)
+                      : expired
+                      ? Icons.replay_rounded
                       : Icons.water_drop_outlined,
                   size: 18,
                 ),
@@ -677,6 +966,8 @@ class _TerraceGardenScreenState extends State<TerraceGardenScreen>
                       ? 'Water flowing…'
                       : won
                       ? (last ? 'Play this terrace again' : 'Next terrace')
+                      : expired
+                      ? 'Retry level'
                       : 'Release water',
                 ),
               ),

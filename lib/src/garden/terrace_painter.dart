@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -11,7 +12,8 @@ class TerraceGardenArt {
   TerraceGardenArt._(this._images);
 
   final Map<String, ui.Image> _images;
-  final _terrain = <TerraceStage, ui.Picture>{};
+  TerraceStage? _terrainStage;
+  ui.Picture? _terrainPicture;
   static Future<TerraceGardenArt>? _loading;
 
   static Future<TerraceGardenArt> load() =>
@@ -146,12 +148,14 @@ class TerraceGardenPainter extends CustomPainter {
       _terrain(canvas);
     } else {
       // The grain, grass and stonework stay still while water and rotors move.
-      final picture = images._terrain.putIfAbsent(stage, () {
+      if (images._terrainStage != stage) {
         final recorder = ui.PictureRecorder();
         _terrain(Canvas(recorder));
-        return recorder.endRecording();
-      });
-      canvas.drawPicture(picture);
+        images._terrainPicture?.dispose();
+        images._terrainPicture = recorder.endRecording();
+        images._terrainStage = stage;
+      }
+      canvas.drawPicture(images._terrainPicture!);
     }
     for (var i = 0; i < stage.tiles.length; i++) {
       if (stage.tiles[i].shape != TerraceShape.land) _trough(canvas, i);
@@ -693,7 +697,7 @@ class TerraceGardenPainter extends CustomPainter {
   @override
   bool shouldRepaint(TerraceGardenPainter old) =>
       old.stage != stage ||
-      old.turns != turns ||
+      !listEquals(old.turns, turns) ||
       old.flow != flow ||
       old.waterProgress != waterProgress ||
       old.highlightedCell != highlightedCell ||
