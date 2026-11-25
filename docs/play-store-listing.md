@@ -40,12 +40,7 @@ Features:
 Your mission is simple: protect the plants, slash the weeds, and keep the garden alive.
 ```
 
-Suggested promo video:
-
-```text
-Upload this Play Store promo URL after you publish the final trailer:
-https://youtu.be/YOUR_TRAILER_LINK
-```
+The 1.2.0 promo shows Terrace Garden, Planter Rescue, harvest chains, the greenhouse and character selection in live Android gameplay. [Watch the Corsair Labs trailer](https://www.youtube.com/watch?v=0HB1hXvHPbI).
 
 ## Required Graphic Assets
 

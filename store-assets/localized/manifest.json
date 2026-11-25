@@ -2,101 +2,121 @@
   "fr-FR": {
     "featureGraphic": "fastlane/metadata/android/fr-FR/images/featureGraphic.png",
     "phoneScreenshots": [
+      "fastlane/metadata/android/fr-FR/images/phoneScreenshots/00_terrace.jpg",
       "fastlane/metadata/android/fr-FR/images/phoneScreenshots/01_garden.jpg",
       "fastlane/metadata/android/fr-FR/images/phoneScreenshots/02_arcade.jpg",
       "fastlane/metadata/android/fr-FR/images/phoneScreenshots/03_upgrades.jpg",
       "fastlane/metadata/android/fr-FR/images/phoneScreenshots/04_progress.jpg",
-      "fastlane/metadata/android/fr-FR/images/phoneScreenshots/05_demo.jpg"
+      "fastlane/metadata/android/fr-FR/images/phoneScreenshots/05_demo.jpg",
+      "fastlane/metadata/android/fr-FR/images/phoneScreenshots/06_avatar.jpg"
     ]
   },
   "de-DE": {
     "featureGraphic": "fastlane/metadata/android/de-DE/images/featureGraphic.png",
     "phoneScreenshots": [
+      "fastlane/metadata/android/de-DE/images/phoneScreenshots/00_terrace.jpg",
       "fastlane/metadata/android/de-DE/images/phoneScreenshots/01_garden.jpg",
       "fastlane/metadata/android/de-DE/images/phoneScreenshots/02_arcade.jpg",
       "fastlane/metadata/android/de-DE/images/phoneScreenshots/03_upgrades.jpg",
       "fastlane/metadata/android/de-DE/images/phoneScreenshots/04_progress.jpg",
-      "fastlane/metadata/android/de-DE/images/phoneScreenshots/05_demo.jpg"
+      "fastlane/metadata/android/de-DE/images/phoneScreenshots/05_demo.jpg",
+      "fastlane/metadata/android/de-DE/images/phoneScreenshots/06_avatar.jpg"
     ]
   },
   "es-ES": {
     "featureGraphic": "fastlane/metadata/android/es-ES/images/featureGraphic.png",
     "phoneScreenshots": [
+      "fastlane/metadata/android/es-ES/images/phoneScreenshots/00_terrace.jpg",
       "fastlane/metadata/android/es-ES/images/phoneScreenshots/01_garden.jpg",
       "fastlane/metadata/android/es-ES/images/phoneScreenshots/02_arcade.jpg",
       "fastlane/metadata/android/es-ES/images/phoneScreenshots/03_upgrades.jpg",
       "fastlane/metadata/android/es-ES/images/phoneScreenshots/04_progress.jpg",
-      "fastlane/metadata/android/es-ES/images/phoneScreenshots/05_demo.jpg"
+      "fastlane/metadata/android/es-ES/images/phoneScreenshots/05_demo.jpg",
+      "fastlane/metadata/android/es-ES/images/phoneScreenshots/06_avatar.jpg"
     ]
   },
   "es-419": {
     "featureGraphic": "fastlane/metadata/android/es-419/images/featureGraphic.png",
     "phoneScreenshots": [
+      "fastlane/metadata/android/es-419/images/phoneScreenshots/00_terrace.jpg",
       "fastlane/metadata/android/es-419/images/phoneScreenshots/01_garden.jpg",
       "fastlane/metadata/android/es-419/images/phoneScreenshots/02_arcade.jpg",
       "fastlane/metadata/android/es-419/images/phoneScreenshots/03_upgrades.jpg",
       "fastlane/metadata/android/es-419/images/phoneScreenshots/04_progress.jpg",
-      "fastlane/metadata/android/es-419/images/phoneScreenshots/05_demo.jpg"
+      "fastlane/metadata/android/es-419/images/phoneScreenshots/05_demo.jpg",
+      "fastlane/metadata/android/es-419/images/phoneScreenshots/06_avatar.jpg"
     ]
   },
   "pt-BR": {
     "featureGraphic": "fastlane/metadata/android/pt-BR/images/featureGraphic.png",
     "phoneScreenshots": [
+      "fastlane/metadata/android/pt-BR/images/phoneScreenshots/00_terrace.jpg",
       "fastlane/metadata/android/pt-BR/images/phoneScreenshots/01_garden.jpg",
       "fastlane/metadata/android/pt-BR/images/phoneScreenshots/02_arcade.jpg",
       "fastlane/metadata/android/pt-BR/images/phoneScreenshots/03_upgrades.jpg",
       "fastlane/metadata/android/pt-BR/images/phoneScreenshots/04_progress.jpg",
-      "fastlane/metadata/android/pt-BR/images/phoneScreenshots/05_demo.jpg"
+      "fastlane/metadata/android/pt-BR/images/phoneScreenshots/05_demo.jpg",
+      "fastlane/metadata/android/pt-BR/images/phoneScreenshots/06_avatar.jpg"
     ]
   },
   "id": {
     "featureGraphic": "fastlane/metadata/android/id/images/featureGraphic.png",
     "phoneScreenshots": [
+      "fastlane/metadata/android/id/images/phoneScreenshots/00_terrace.jpg",
       "fastlane/metadata/android/id/images/phoneScreenshots/01_garden.jpg",
       "fastlane/metadata/android/id/images/phoneScreenshots/02_arcade.jpg",
       "fastlane/metadata/android/id/images/phoneScreenshots/03_upgrades.jpg",
       "fastlane/metadata/android/id/images/phoneScreenshots/04_progress.jpg",
-      "fastlane/metadata/android/id/images/phoneScreenshots/05_demo.jpg"
+      "fastlane/metadata/android/id/images/phoneScreenshots/05_demo.jpg",
+      "fastlane/metadata/android/id/images/phoneScreenshots/06_avatar.jpg"
     ]
   },
   "hi-IN": {
     "featureGraphic": "fastlane/metadata/android/hi-IN/images/featureGraphic.png",
     "phoneScreenshots": [
+      "fastlane/metadata/android/hi-IN/images/phoneScreenshots/00_terrace.jpg",
       "fastlane/metadata/android/hi-IN/images/phoneScreenshots/01_garden.jpg",
       "fastlane/metadata/android/hi-IN/images/phoneScreenshots/02_arcade.jpg",
       "fastlane/metadata/android/hi-IN/images/phoneScreenshots/03_upgrades.jpg",
       "fastlane/metadata/android/hi-IN/images/phoneScreenshots/04_progress.jpg",
-      "fastlane/metadata/android/hi-IN/images/phoneScreenshots/05_demo.jpg"
+      "fastlane/metadata/android/hi-IN/images/phoneScreenshots/05_demo.jpg",
+      "fastlane/metadata/android/hi-IN/images/phoneScreenshots/06_avatar.jpg"
     ]
   },
   "ar": {
     "featureGraphic": "fastlane/metadata/android/ar/images/featureGraphic.png",
     "phoneScreenshots": [
+      "fastlane/metadata/android/ar/images/phoneScreenshots/00_terrace.jpg",
       "fastlane/metadata/android/ar/images/phoneScreenshots/01_garden.jpg",
       "fastlane/metadata/android/ar/images/phoneScreenshots/02_arcade.jpg",
       "fastlane/metadata/android/ar/images/phoneScreenshots/03_upgrades.jpg",
       "fastlane/metadata/android/ar/images/phoneScreenshots/04_progress.jpg",
-      "fastlane/metadata/android/ar/images/phoneScreenshots/05_demo.jpg"
+      "fastlane/metadata/android/ar/images/phoneScreenshots/05_demo.jpg",
+      "fastlane/metadata/android/ar/images/phoneScreenshots/06_avatar.jpg"
     ]
   },
   "ja-JP": {
     "featureGraphic": "fastlane/metadata/android/ja-JP/images/featureGraphic.png",
     "phoneScreenshots": [
+      "fastlane/metadata/android/ja-JP/images/phoneScreenshots/00_terrace.jpg",
       "fastlane/metadata/android/ja-JP/images/phoneScreenshots/01_garden.jpg",
       "fastlane/metadata/android/ja-JP/images/phoneScreenshots/02_arcade.jpg",
       "fastlane/metadata/android/ja-JP/images/phoneScreenshots/03_upgrades.jpg",
       "fastlane/metadata/android/ja-JP/images/phoneScreenshots/04_progress.jpg",
-      "fastlane/metadata/android/ja-JP/images/phoneScreenshots/05_demo.jpg"
+      "fastlane/metadata/android/ja-JP/images/phoneScreenshots/05_demo.jpg",
+      "fastlane/metadata/android/ja-JP/images/phoneScreenshots/06_avatar.jpg"
     ]
   },
   "ko-KR": {
     "featureGraphic": "fastlane/metadata/android/ko-KR/images/featureGraphic.png",
     "phoneScreenshots": [
+      "fastlane/metadata/android/ko-KR/images/phoneScreenshots/00_terrace.jpg",
       "fastlane/metadata/android/ko-KR/images/phoneScreenshots/01_garden.jpg",
       "fastlane/metadata/android/ko-KR/images/phoneScreenshots/02_arcade.jpg",
       "fastlane/metadata/android/ko-KR/images/phoneScreenshots/03_upgrades.jpg",
       "fastlane/metadata/android/ko-KR/images/phoneScreenshots/04_progress.jpg",
-      "fastlane/metadata/android/ko-KR/images/phoneScreenshots/05_demo.jpg"
+      "fastlane/metadata/android/ko-KR/images/phoneScreenshots/05_demo.jpg",
+      "fastlane/metadata/android/ko-KR/images/phoneScreenshots/06_avatar.jpg"
     ]
   }
 }

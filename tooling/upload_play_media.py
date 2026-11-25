@@ -110,9 +110,15 @@ def main():
                     if updated.get("video") != video:
                         raise RuntimeError(f"Could not verify trailer for {locale}")
             request(session, "POST", path + ":validate")
-            result = request(session, "POST", path + ":commit", params={
-                "changesNotSentForReview": "true", "changesInReviewBehavior": "ERROR_IF_IN_REVIEW",
-            })
+            params = {"changesInReviewBehavior": "ERROR_IF_IN_REVIEW"}
+            try:
+                result = request(session, "POST", path + ":commit", params=params)
+            except RuntimeError as error:
+                # Some apps must send the validated changes from Publishing overview.
+                if "changes cannot be sent for review automatically" not in str(error).lower():
+                    raise
+                params["changesNotSentForReview"] = "true"
+                result = request(session, "POST", path + ":commit", params=params)
             print(f"Committed Play listing edit {result['id']} with trailer {video}")
         except Exception:
             # Discard only our own incomplete transaction. The live assets remain intact.
