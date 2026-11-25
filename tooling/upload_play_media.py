@@ -1,4 +1,4 @@
-"""Replace Garden Ninja's Play screenshots and trailer without changing listing copy.
+"""Publish Garden Ninja's localized Play descriptions, graphics and trailer.
 
 Google's images API covers phone and tablet sets. Foldables are uploaded in
 Play Console. All changes use a single edit, so a failed upload can be retried.
@@ -96,6 +96,9 @@ def main():
                 if locale not in listings:
                     raise ValueError(f"Missing live listing for {locale}")
                 listing_path = f"{path}/listings/{locale}"
+                graphic = METADATA / locale / "images/featureGraphic.png"
+                if graphic.is_file():
+                    replace_set(session, f"{listing_path}/featureGraphic", [graphic])
                 for kind in TYPES:
                     files = sets.get((locale, kind))
                     if files is None:
@@ -105,10 +108,17 @@ def main():
                         files = sets["en-US", kind]
                     replace_set(session, f"{listing_path}/{kind}", files)
                     print(f"Verified {locale} {kind}: {len(files)}", flush=True)
-                if listings[locale].get("video") != video:
-                    updated = request(session, "PATCH", listing_path, json={"video": video})
-                    if updated.get("video") != video:
-                        raise RuntimeError(f"Could not verify trailer for {locale}")
+                fields = {"video": video}
+                for field, name, limit in (("shortDescription", "short_description.txt", 80),
+                                           ("fullDescription", "full_description.txt", 4000)):
+                    value = (METADATA / locale / name).read_text(encoding="utf-8").strip()
+                    if not 0 < len(value) <= limit:
+                        raise ValueError(f"Invalid {name} for {locale}")
+                    fields[field] = value
+                if any(listings[locale].get(k) != v for k, v in fields.items()):
+                    updated = request(session, "PATCH", listing_path, json=fields)
+                    if any(updated.get(k) != v for k, v in fields.items()):
+                        raise RuntimeError(f"Could not verify description or trailer for {locale}")
             request(session, "POST", path + ":validate")
             params = {"changesInReviewBehavior": "ERROR_IF_IN_REVIEW"}
             try:

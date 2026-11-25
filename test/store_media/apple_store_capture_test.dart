@@ -9,7 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:garden_ninja/src/app.dart';
-import 'package:garden_ninja/src/garden/harvest_art.dart';
+import 'package:garden_ninja/src/garden/terrace_painter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const displays = <String, (int, int, double)>{
@@ -88,7 +88,7 @@ void main() {
         font.addFont(File(boldPath).readAsBytes().then(ByteData.sublistView));
         final icons = FontLoader('MaterialIcons')
           ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
-        await Future.wait([font.load(), icons.load(), HarvestArt.load()]);
+        await Future.wait([font.load(), icons.load(), TerraceGardenArt.load()]);
       });
       final boundary = GlobalKey();
       await tester.pumpWidget(
@@ -124,16 +124,15 @@ void main() {
       await capture('01-home');
       await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
       await capture('02-garden');
-      await tester.tap(find.byKey(const ValueKey('harvest-start')));
-      await tester.pump(const Duration(seconds: 8));
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.byKey(const ValueKey('harvest-crop-0'))),
-      );
-      await gesture.moveTo(
-        tester.getCenter(find.byKey(const ValueKey('harvest-crop-1'))),
-      );
-      await capture('03-harvest');
-      await gesture.up();
+      await tester.tap(find.byKey(const ValueKey('terrace-cell-5')));
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.tap(find.byKey(const ValueKey('terrace-cell-2')));
+      await tester.pump(const Duration(milliseconds: 250));
+      final spring = find.byKey(const ValueKey('terrace-release'));
+      await tester.ensureVisible(spring);
+      await tester.tap(spring);
+      await tester.pump(const Duration(seconds: 2));
+      await capture('03-terrace-bloom');
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
       debugDefaultTargetPlatformOverride = null;

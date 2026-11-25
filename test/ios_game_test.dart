@@ -11,7 +11,7 @@ void main() {
     const Size(393, 852),
     const Size(768, 1024),
   ]) {
-    testWidgets('iOS home, harvest and arcade work at $size', (tester) async {
+    testWidgets('iOS home, terraces and arcade work at $size', (tester) async {
       SharedPreferences.setMockInitialValues({
         'garden_ninja_garden_tutorial_v3': true,
       });
@@ -55,14 +55,12 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.tap(find.byKey(const ValueKey('home-menu-Garden')));
         await tester.pump(const Duration(milliseconds: 200));
-        expect(find.byKey(const ValueKey('harvest-garden')), findsOneWidget);
-        expect(find.text('Start harvest'), findsOneWidget);
-        await tester.tap(find.text('Start harvest'));
+        await tester.pump();
+        expect(find.byKey(const ValueKey('terrace-clock')), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('terrace-cell-5')));
         await tester.pump(const Duration(milliseconds: 200));
         expect(tester.takeException(), isNull);
-        // Recreate the screen before checking arcade play to end the harvest timer.
-        await tester.pumpWidget(const SizedBox.shrink());
-        await tester.pumpWidget(const GardenNinjaApp());
+        await tester.tap(find.byKey(const ValueKey('terrace-back')));
         await tester.pump(const Duration(milliseconds: 200));
         await tester.tap(find.byKey(const ValueKey('primary-PLAY')));
         await tester.pump(const Duration(milliseconds: 100));
