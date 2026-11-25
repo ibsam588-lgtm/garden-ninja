@@ -17,30 +17,9 @@ Use these values in Google Play Console. Replace all `TODO` items before submitt
 
 ## Store Listing
 
-Short description:
+Garden Ninja 1.3.0 features 60 timed irrigation puzzles in Terrace Garden and 60-second Planter Rescue rounds. The English short and full descriptions and translated editions are maintained alongside their screenshots in [Play listing metadata](../fastlane/metadata/android/).
 
-```text
-Slash weeds, save your garden, and unlock upgrades in short tap-and-swipe sessions.
-```
-
-Full description:
-
-```text
-Garden Ninja is a colorful swipe-action game where you protect a magical garden from mischievous weeds.
-
-Slash weeds before they reach your flowers, avoid friendly plants, and use power-ups to keep the garden blooming. Some weeds fall with one perfect swipe, while tougher invaders need multiple cuts and split apart in the direction of your slash.
-
-Features:
-- Fast swipe-action gameplay built for short, satisfying sessions
-- Cute weeds, blossoms, garden plants, and avatar characters
-- Power-ups including freeze effects to control the chaos
-- Garden health, slash combos, rewards, and level progression
-- Bright fantasy garden backgrounds designed for mobile play
-
-Your mission is simple: protect the plants, slash the weeds, and keep the garden alive.
-```
-
-The 1.2.0 promo shows Terrace Garden, Planter Rescue, harvest chains, the greenhouse and character selection in live Android gameplay. [Watch the Corsair Labs trailer](https://www.youtube.com/watch?v=0HB1hXvHPbI).
+The 1.3.0 promo shows players routing water to two flower beds, exploring the 60-level picker, and retrying after the clock runs out. It also shows Planter Rescue, the Rain Barrel, and ninja and gear selection in live Android gameplay. [Watch the Corsair Labs trailer](https://www.youtube.com/watch?v=fHBrNpBbFAA).
 
 ## Required Graphic Assets
 
