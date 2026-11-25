@@ -25,6 +25,11 @@ on:
       youtube_id:
         description: Published YouTube video ID for the Google Play screenshot update
         type: string
+      media_review_mode:
+        description: Google Play listing media only. Choose draft to save for later review.
+        type: choice
+        options: [ auto, draft ]
+        default: auto
   push:
     branches:
       - main
@@ -98,6 +103,7 @@ jobs:
         env:
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           YOUTUBE_VIDEO_ID: ${{ inputs.youtube_id }}
+          PLAY_MEDIA_REVIEW_MODE: ${{ inputs.media_review_mode || 'auto' }}
         run: python tooling/upload_play_media.py
   validate-android:
     name: Validate Android

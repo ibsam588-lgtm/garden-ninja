@@ -7,3 +7,5 @@ Mobile Release runs on a push to main. It reads the PR associated with that exac
 This policy does not certify native builds, consent, ads or purchases. Follow the app's release-readiness checks before uploading or publishing. Screenshot workflows are not run by this change.
 
 To upload locally captured Play listing media, dispatch Mobile Release on `main` with platform `android`, operation `upload_store_media` and the public trailer’s 11-character `youtube_id`. The job uses the existing Play service account to verify phone and tablet screenshot hashes in each listing and update the trailer in one edit. Upload foldable screenshots in Play Console and check Publishing overview for review status.
+
+Choose `media_review_mode=draft` to stage the listing changes in Publishing overview for manual submission. The default `auto` asks Play to submit them for review and stages them if Play requires a manual submission. Both modes stop if the changes conflict with an edit already in review.
